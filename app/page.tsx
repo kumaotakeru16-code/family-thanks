@@ -2319,18 +2319,14 @@ function PartnerEmotionHint({ event }: { event: EmotionEvent }) {
    ── ▼ onQuickMood prop 追加、idle 時に QuickMoodSection を表示 ──
 ═══════════════════════════════════════════════════ */
 
-function getTodayMessage(events: EmotionEvent[]) {
+function getTodayRelStatus(events: EmotionEvent[]) {
   const recent = events.slice(-3)
-
   const negative = recent.filter(e =>
     ['angry', 'sad', 'tired', 'anxious', 'lonely'].includes(e.emotion_type)
   ).length
-
-  if (negative === 0) return 'いい流れが続いてます'
-  if (negative <= 1) return '大きくは崩れていません'
-  if (negative >= 2) return '少しすれ違いが増えてるかも'
-
-  return '最近、少し伝わりやすくなってます'
+  if (negative === 0) return '安定している'
+  if (negative <= 1) return 'まあまあ'
+  return '少しすれ違い気味'
 }
 
 
@@ -2374,11 +2370,13 @@ function HomeTab({
   shareTone: 'soft' | 'normal' | 'direct'
   onToneChange: (tone: 'soft' | 'normal' | 'direct') => void
 }) {
+  const [relTag, setRelTag] = useState<'good' | 'normal' | 'off' | null>(null)
+
 return (
   <div className="space-y-4">
 
     <p className="px-1 text-xs text-stone-400">
-      {getTodayMessage(events ?? [])}
+      最近の関係：{getTodayRelStatus(events ?? [])}
     </p>
 
     {/* 既存のUI続く */}
@@ -2477,7 +2475,16 @@ return (
           {/* タイムライン縦線 */}
           <div className="absolute left-[11px] top-12 bottom-3 w-px bg-stone-200" />
 
-          {/* ステップ1: まず一歩（行動提案・主役） */}
+          {/* ステップ1: なぜそう感じるか（AI整理・補助） */}
+          <div className="relative mb-6">
+            <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 ring-2 ring-white">
+              <span className="h-2 w-2 rounded-full bg-stone-300" />
+            </span>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-400/60 pl-1">なぜそう感じるか</p>
+            <AiResponseCard response={flow.aiResponse} emotion={flow.emotion} />
+          </div>
+
+          {/* ステップ2: まず一歩（行動提案・主役） */}
           {flow.actionSuggestion && (
             <div className="relative mb-6">
               <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 ring-2 ring-white">
@@ -2488,16 +2495,35 @@ return (
             </div>
           )}
 
-          {/* ステップ2: 気持ちの背景（補助・軽く） */}
+          {/* ステップ3: 最近の関係（任意入力・補助） */}
           <div className="relative mb-6">
             <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 ring-2 ring-white">
               <span className="h-2 w-2 rounded-full bg-stone-300" />
             </span>
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-400/60 pl-1">なぜそう感じるか</p>
-            <AiResponseCard response={flow.aiResponse} emotion={flow.emotion} />
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-stone-400/60 pl-1">最近の関係（任意）</p>
+            <div className="flex gap-2 pl-1 pt-1">
+              {([
+                { id: 'good',   label: '良い感じ' },
+                { id: 'normal', label: 'ふつう'   },
+                { id: 'off',    label: '少しズレてる' },
+              ] as const).map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setRelTag(prev => prev === id ? null : id)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
+                    relTag === id
+                      ? 'bg-stone-700 text-white'
+                      : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* ステップ3: 伝える（選択→変換、つながりを強調） */}
+          {/* ステップ4: 伝える（選択→変換） */}
           <div className="relative mb-6">
             <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 ring-2 ring-white">
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
@@ -2528,7 +2554,7 @@ return (
             </div>
           </div>
 
-          {/* ステップ4: 完了（条件付き） */}
+          {/* ステップ5: 完了（条件付き） */}
           {(flow.recovered || flow.isShared) && (
             <div className="relative">
               <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 ring-2 ring-white">
