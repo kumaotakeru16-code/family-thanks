@@ -95,6 +95,7 @@ type FlowState = {
   selectedBackgroundIds: BackgroundOptionId[]
   aiResponse: AiResponse | null
   actionSuggestion: ActionSuggestion | null
+  altSuggestions: ActionSuggestion[]
   sharePlan: SharePlan | null
   selectedShareOptionId: string | null
   translated: TranslatedShare | null
@@ -753,6 +754,36 @@ async function generateActionSuggestion(
   }
 
   return base
+}
+
+/* ═══════════════════════════════════════════════════
+   ALT SUGGESTIONS
+═══════════════════════════════════════════════════ */
+
+function generateAltSuggestions(emotion: EmotionType): ActionSuggestion[] {
+  const map: Record<EmotionType, ActionSuggestion[]> = {
+    angry: [
+      { label: '5分だけ一人になる',            impact: 'medium' },
+      { label: '「今少し余裕ない」と短く伝える', impact: 'high'   },
+    ],
+    sad: [
+      { label: '今日は休む許可を自分に出す',     impact: 'medium' },
+      { label: '「少ししんどい」の一言だけ伝える', impact: 'high'  },
+    ],
+    tired: [
+      { label: '今夜だけ早く寝る',              impact: 'medium' },
+      { label: '家事を1つだけ飛ばす',            impact: 'low'    },
+    ],
+    anxious: [
+      { label: '心配事を紙に1行書き出す',         impact: 'low'    },
+      { label: '今日決めなくていいことを分ける',   impact: 'medium' },
+    ],
+    lonely: [
+      { label: '今日5分だけ自分のための時間をつくる', impact: 'low' },
+      { label: '「さみしかった」の一言だけ伝える',    impact: 'high' },
+    ],
+  }
+  return map[emotion] ?? []
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1477,6 +1508,7 @@ const INIT_FLOW: FlowState = {
   selectedBackgroundIds: [],
   aiResponse: null,
   actionSuggestion: null,
+  altSuggestions: [],
   sharePlan: null,
   selectedShareOptionId: null,
   translated: null,
@@ -1540,6 +1572,7 @@ function useEmotionFlow(
       generateActionSuggestion(flow.emotion, flow.note || null, mergedTags),
       generateSharePlan(flow.emotion, flow.note || null, mergedTags),
     ])
+    const altSuggestions = generateAltSuggestions(flow.emotion)
 
     const selectedShareOptionId = sharePlan.recommendedId
     const selectedOption =
@@ -1573,6 +1606,7 @@ function useEmotionFlow(
       step: 'done',
       aiResponse: ai,
       actionSuggestion: action,
+      altSuggestions,
       sharePlan,
       selectedShareOptionId,
       translated,
@@ -2055,17 +2089,43 @@ function AiResponseCard({ response, emotion }: { response: AiResponse; emotion: 
   )
 }
 
-function ActionSuggestionCard({ suggestion, recovered, onRecovered }: { suggestion: ActionSuggestion; recovered: boolean; onRecovered: () => void }) {
-  const dotColor = { low: 'bg-stone-300', medium: 'bg-amber-400', high: 'bg-indigo-400' }[suggestion.impact ?? 'medium']
+function ActionSuggestionCard({ suggestion, altSuggestions = [], recovered, onRecovered }: {
+  suggestion: ActionSuggestion; altSuggestions?: ActionSuggestion[]; recovered: boolean; onRecovered: () => void
+}) {
+  const [idx, setIdx] = useState(0)
+  const all = [suggestion, ...altSuggestions]
+  const current = all[idx] ?? suggestion
+
   return (
     <div className={`overflow-hidden rounded-3xl transition-all duration-500 ${recovered ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'bg-stone-50 ring-1 ring-stone-200'}`} style={{ animation: 'fadeUp .45s ease-out .08s both' }}>
       <div className="px-5 pt-5 pb-4">
-        <div className="mb-3 flex items-center gap-2">
-          <span className={`h-2 w-2 rounded-full ${recovered ? 'bg-emerald-400' : dotColor}`} />
-          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">{recovered ? '少し戻れた' : 'まず一歩'}</p>
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className={`h-2 w-2 rounded-full ${recovered ? 'bg-emerald-400' : 'bg-indigo-400'}`} />
+            <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">{recovered ? '少し戻れた' : 'まず一歩'}</p>
+          </div>
+          {!recovered && all.length > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIdx(i => Math.max(0, i - 1))}
+                disabled={idx === 0}
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-stone-200 text-xs text-stone-500 disabled:opacity-30 transition active:scale-90"
+              >‹</button>
+              <div className="flex gap-1">
+                {all.map((_, i) => (
+                  <span key={i} className={`h-1 rounded-full transition-all ${i === idx ? 'w-4 bg-indigo-400' : 'w-1 bg-stone-300'}`} />
+                ))}
+              </div>
+              <button
+                onClick={() => setIdx(i => Math.min(all.length - 1, i + 1))}
+                disabled={idx === all.length - 1}
+                className="flex h-6 w-6 items-center justify-center rounded-full bg-stone-200 text-xs text-stone-500 disabled:opacity-30 transition active:scale-90"
+              >›</button>
+            </div>
+          )}
         </div>
-        <p className={`text-[17px] font-extrabold leading-snug tracking-tight ${recovered ? 'text-emerald-700' : 'text-stone-800'}`}>{suggestion.label}</p>
-        {suggestion.reason && !recovered && <p className="mt-2 text-xs leading-relaxed text-stone-400">{suggestion.reason}</p>}
+        <p className={`text-[17px] font-extrabold leading-snug tracking-tight ${recovered ? 'text-emerald-700' : 'text-stone-800'}`}>{current.label}</p>
+        {current.reason && !recovered && <p className="mt-2 text-xs leading-relaxed text-stone-400">{current.reason}</p>}
       </div>
       <div className="border-t border-stone-100/80 px-5 pb-5 pt-4">
         {!recovered ? (
@@ -2393,32 +2453,36 @@ return (
 
     {/* 関係性: 表示 + 任意変更 */}
     <div className="px-1">
-      <div className="flex items-center gap-2">
-        <p className="text-xs text-stone-400">最近の関係：{displayRelStatus}</p>
-        <button
-          type="button"
-          onClick={() => setRelPickerOpen(p => !p)}
-          className="text-[10px] text-stone-300 underline-offset-2 underline hover:text-stone-500 transition"
-        >
-          {relPickerOpen ? '閉じる' : '変更'}
-        </button>
-      </div>
-      {relPickerOpen && (
-        <div className="mt-2 flex flex-wrap gap-1.5" style={{ animation: 'fadeUp .2s ease-out both' }}>
-          {REL_OPTIONS.map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => { setRelStatus(label); setRelPickerOpen(false) }}
-              className={`rounded-full px-3 py-1 text-xs font-semibold transition active:scale-95 ${
-                displayRelStatus === label
-                  ? 'bg-stone-700 text-white'
-                  : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+      {!relPickerOpen ? (
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-stone-400">最近の関係：{displayRelStatus}</p>
+          <button
+            type="button"
+            onClick={() => setRelPickerOpen(true)}
+            className="text-[10px] text-stone-300 underline underline-offset-2 hover:text-stone-500 transition"
+          >
+            変更
+          </button>
+        </div>
+      ) : (
+        <div style={{ animation: 'fadeUp .2s ease-out both' }}>
+          <p className="text-xs text-stone-400 mb-2">最近の関係を選択してください</p>
+          <div className="flex flex-wrap gap-1.5">
+            {REL_OPTIONS.map(({ id, label }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => { setRelStatus(label); setRelPickerOpen(false) }}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition active:scale-95 ${
+                  displayRelStatus === label
+                    ? 'bg-stone-600 text-white'
+                    : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -2484,7 +2548,7 @@ return (
                 <span className="h-2 w-2 rounded-full bg-indigo-500" />
               </span>
               <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-indigo-500/70 pl-1">まず一歩</p>
-              <ActionSuggestionCard suggestion={flow.actionSuggestion} recovered={flow.recovered} onRecovered={onRecovered} />
+              <ActionSuggestionCard suggestion={flow.actionSuggestion} altSuggestions={flow.altSuggestions} recovered={flow.recovered} onRecovered={onRecovered} />
             </div>
           )}
 
@@ -2548,237 +2612,97 @@ function HistoryTab({
   events: EmotionEvent[]
   sharedEvents: EmotionEvent[]
 }) {
-  const getReactionText = (reaction: EmotionEvent['partner_reaction']) => {
-    switch (reaction) {
-      case 'ack':
-        return 'わかったよと返してくれた'
-      case 'soon':
-        return 'あとで行くねと返してくれた'
-      case 'on_it':
-        return 'やっておくねと返してくれた'
-      default:
-        return null
-    }
+  type TLItem = { event: EmotionEvent; mine: boolean }
+
+  const items: TLItem[] = useMemo(() => {
+    const mine = events.map(e => ({ event: e, mine: true }))
+    const theirs = sharedEvents.map(e => ({ event: e, mine: false }))
+    return [...mine, ...theirs].sort(
+      (a, b) => new Date(b.event.created_at).getTime() - new Date(a.event.created_at).getTime()
+    )
+  }, [events, sharedEvents])
+
+  const fmtDate = (s: string) => {
+    const d = new Date(s)
+    const time = d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+    if (isToday(d)) return `今日 ${time}`
+    return `${d.getMonth() + 1}/${d.getDate()} ${time}`
   }
 
-  const getReactionBadgeClass = (reaction: EmotionEvent['partner_reaction']) => {
-    switch (reaction) {
-      case 'ack':
-        return 'bg-sky-50 text-sky-700 ring-1 ring-sky-100'
-      case 'soon':
-        return 'bg-amber-50 text-amber-700 ring-1 ring-amber-100'
-      case 'on_it':
-        return 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100'
-      default:
-        return 'bg-stone-50 text-stone-500 ring-1 ring-stone-100'
-    }
+  const reactionWord = (r: EmotionEvent['partner_reaction']) => {
+    if (r === 'ack') return 'わかったよ'
+    if (r === 'soon') return 'あとで行くね'
+    if (r === 'on_it') return 'やっておくね'
+    return null
   }
 
-  const formatReactionTime = (value: string | null) => {
-    if (!value) return null
-    const d = new Date(value)
-    if (Number.isNaN(d.getTime())) return null
-    return d.toLocaleString('ja-JP', {
-      month: 'numeric',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+  if (items.length === 0) {
+    return (
+      <div className="rounded-3xl bg-white px-5 py-10 text-center shadow-sm ring-1 ring-black/5">
+        <p className="text-sm text-stone-400">まだ記録がありません</p>
+        <p className="mt-1 text-xs text-stone-300">気持ちを整理するとここに残ります</p>
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-black/5">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
-          最近のやり取り
-        </p>
-        <p className="mt-2 text-sm text-stone-500">
-          少しずつ整ってきた流れを見る場所
-        </p>
-      </div>
+    <div className="relative pl-6">
+      {/* 縦線 */}
+      <div className="absolute left-[11px] top-2 bottom-2 w-px bg-stone-200" />
 
-      <div className="space-y-3">
-        <h2 className="text-base font-bold text-stone-800">
-          パートナーからの共有
-        </h2>
+      {items.map(({ event, mine }) => {
+        const meta = emMeta(event.emotion_type)
+        const reaction = reactionWord(event.partner_reaction)
 
-        {sharedEvents.length === 0 ? (
-          <div className="rounded-3xl bg-white px-5 py-6 shadow-sm ring-1 ring-black/5">
-            <p className="text-sm text-stone-400">
-              まだ共有はありません
-            </p>
-          </div>
-        ) : (
-          sharedEvents.map(event => {
-            const reactionText = getReactionText(event.partner_reaction)
-            const reactedAtText = formatReactionTime(event.partner_reacted_at)
+        return (
+          <div key={`${mine ? 'my' : 'pt'}-${event.id}`} className="relative mb-8">
+            {/* ドット */}
+            <span className={`absolute -left-6 top-1 flex h-5 w-5 items-center justify-center rounded-full ring-2 ring-stone-50 ${mine ? 'bg-indigo-100' : 'bg-stone-100'}`}>
+              <span className={`h-2 w-2 rounded-full ${mine ? 'bg-indigo-400' : 'bg-stone-400'}`} />
+            </span>
 
-            return (
-              <div
-                key={event.id}
-                className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-black/5"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold text-stone-400">
-                      {new Date(event.created_at).toLocaleString('ja-JP', {
-                        month: 'numeric',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                    <p className="mt-1 text-sm font-bold text-stone-800">
-                      届いた気持ち
-                    </p>
-                  </div>
+            {/* 時刻 */}
+            <p className="mb-2 pl-1 text-[10px] text-stone-400">{fmtDate(event.created_at)}</p>
 
-                  <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-bold text-stone-500">
-                    {event.emotion_type}
-                  </span>
-                </div>
+            {/* 感情 */}
+            <div className="mb-2 flex items-center gap-2 pl-1">
+              <span className="text-lg leading-none">{meta.emoji}</span>
+              <span className={`text-sm font-bold ${meta.color}`}>{meta.label}</span>
+              {!mine && (
+                <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-500">パートナー</span>
+              )}
+            </div>
 
-                {event.shared_message && (
-                  <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-4">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">
-                      伝えてくれたこと
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-stone-700">
-                      {event.shared_message}
-                    </p>
-                  </div>
-                )}
+            {/* AI短文 */}
+            {event.ai_response_short && (
+              <p className="mb-3 pl-1 text-xs leading-relaxed text-stone-500">{event.ai_response_short}</p>
+            )}
 
-                {event.note && (
-                  <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-4">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
-                      補足メモ
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-stone-600">
-                      {event.note}
-                    </p>
-                  </div>
-                )}
-
-                {reactionText ? (
-                  <div className="mt-4">
-                    <div
-                      className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold ${getReactionBadgeClass(event.partner_reaction)}`}
-                    >
-                      {reactionText}
-                    </div>
-                    {reactedAtText && (
-                      <p className="mt-2 text-xs text-stone-400">
-                        {reactedAtText}
-                      </p>
-                    )}
-                  </div>
-                ) : null}
+            {/* 送ったメッセージ */}
+            {event.shared_message && (
+              <div className={`mb-2 rounded-2xl px-3.5 py-2.5 ${mine ? 'bg-indigo-50 mr-6' : 'bg-stone-100 ml-0 mr-6'}`}>
+                <p className="mb-1 text-[10px] font-semibold text-stone-400">{mine ? '伝えたこと' : '伝えてくれたこと'}</p>
+                <p className="text-sm leading-relaxed text-stone-700">「{event.shared_message}」</p>
               </div>
-            )
-          })
-        )}
-      </div>
+            )}
 
-      <div className="space-y-3">
-        <h2 className="text-base font-bold text-stone-800">
-          自分の記録
-        </h2>
-
-        {events.length === 0 ? (
-          <div className="rounded-3xl bg-white px-5 py-6 shadow-sm ring-1 ring-black/5">
-            <p className="text-sm text-stone-400">
-              今日の気持ちをひとつ選ぶところからで大丈夫です
-            </p>
-          </div>
-        ) : (
-          events.map(event => {
-            const reactionText = getReactionText(event.partner_reaction)
-            const reactedAtText = formatReactionTime(event.partner_reacted_at)
-
-            return (
-              <div
-                key={event.id}
-                className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-black/5"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold text-stone-400">
-                      {new Date(event.created_at).toLocaleString('ja-JP', {
-                        month: 'numeric',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                    <p className="mt-1 text-sm font-bold text-stone-800">
-                      {event.ai_response_short ?? '気持ちを整理した記録'}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col items-end gap-2">
-                    <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-bold text-stone-500">
-                      {event.emotion_type}
-                    </span>
-
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                        event.share_status === 'sent'
-                          ? 'bg-emerald-50 text-emerald-700'
-                          : 'bg-stone-100 text-stone-500'
-                      }`}
-                    >
-                      {event.share_status === 'sent' ? 'やわらかく伝えられた' : 'まだ伝えていない'}
-                    </span>
-                  </div>
-                </div>
-
-                {event.note && (
-                  <div className="mt-4 rounded-2xl bg-stone-50 px-4 py-4">
-                    <p className="text-sm leading-relaxed text-stone-600">
-                      {event.note}
-                    </p>
-                  </div>
-                )}
-
-                {event.shared_message && (
-                  <div className="mt-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-4">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700/70">
-                      伝えたこと
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-emerald-800">
-                      {event.shared_message}
-                    </p>
-                  </div>
-                )}
-
-                {event.share_status === 'sent' && (
-                  <div className="mt-4">
-                    {reactionText ? (
-                      <>
-                        <div
-                          className={`inline-flex rounded-full px-3 py-1.5 text-xs font-bold ${getReactionBadgeClass(event.partner_reaction)}`}
-                        >
-                          {reactionText}
-                        </div>
-                        {reactedAtText && (
-                          <p className="mt-2 text-xs text-stone-400">
-                            {reactedAtText}
-                          </p>
-                        )}
-                      </>
-                    ) : (
-                      <p className="text-xs text-stone-400">
-                        相手が受け取ってくれるのを待っています
-                      </p>
-                    )}
-                  </div>
+            {/* 相手の反応 */}
+            {reaction && (
+              <div className={`rounded-2xl px-3.5 py-2 ${mine ? 'bg-emerald-50 ml-6' : 'bg-sky-50 ml-6'}`}>
+                <p className="text-sm text-stone-700">「{reaction}」</p>
+                {event.partner_reacted_at && (
+                  <p className="mt-0.5 text-[10px] text-stone-400">{fmtDate(event.partner_reacted_at)}</p>
                 )}
               </div>
-            )
-          })
-        )}
-      </div>
+            )}
+
+            {/* 返事待ち */}
+            {mine && event.share_status === 'sent' && !reaction && (
+              <p className="pl-1 text-[10px] text-stone-400">返事を待っています…</p>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
