@@ -1661,6 +1661,10 @@ function useEmotionFlow(
     setFlow(INIT_FLOW)
   }, [])
 
+  const goBack = useCallback(() => {
+    setFlow(prev => prev.step === 'composing' ? { ...prev, step: 'idle' } : prev)
+  }, [])
+
   const handleQuickMood = useCallback(async (mood: QuickMood) => {
     const backgroundMap: Partial<Record<QuickMood, BackgroundOptionId[]>> = {
       good: [],
@@ -1700,6 +1704,7 @@ function useEmotionFlow(
     regenerateTranslatedMessage,
     shareWithPartner,
     handleQuickMood,
+    goBack,
   }
 }
 
@@ -2319,6 +2324,13 @@ function PartnerEmotionHint({ event }: { event: EmotionEvent }) {
    ── ▼ onQuickMood prop 追加、idle 時に QuickMoodSection を表示 ──
 ═══════════════════════════════════════════════════ */
 
+const REL_OPTIONS = [
+  { id: 'great',   label: 'うまくいっている' },
+  { id: 'ok',      label: '安定している'     },
+  { id: 'off',     label: '少しすれ違い'     },
+  { id: 'distant', label: '距離を感じる'     },
+] as const
+
 function getTodayRelStatus(events: EmotionEvent[]) {
   const recent = events.slice(-3)
   const negative = recent.filter(e =>
@@ -2346,7 +2358,7 @@ function HomeTab({
   hasPartner,
   partnerLatest,
   onReactToPartnerEvent,
-  onQuickMood,
+  onGoBack,
   shareTone,
   onToneChange,
 }: {
@@ -2366,93 +2378,74 @@ function HomeTab({
     eventId: string,
     reaction: 'ack' | 'soon' | 'on_it'
   ) => void | Promise<void>
-  onQuickMood: (mood: QuickMood) => Promise<void>
+  onGoBack: () => void
   shareTone: 'soft' | 'normal' | 'direct'
   onToneChange: (tone: 'soft' | 'normal' | 'direct') => void
 }) {
-  const [relTag, setRelTag] = useState<'good' | 'normal' | 'off' | null>(null)
+  const [relStatus, setRelStatus] = useState<string | null>(null)
+  const [relPickerOpen, setRelPickerOpen] = useState(false)
+
+  const autoRelStatus = getTodayRelStatus(events ?? [])
+  const displayRelStatus = relStatus ?? autoRelStatus
 
 return (
   <div className="space-y-4">
 
-    <p className="px-1 text-xs text-stone-400">
-      最近の関係：{getTodayRelStatus(events ?? [])}
-    </p>
-
-    {/* 既存のUI続く */}
-
-
-
+    {/* 関係性: 表示 + 任意変更 */}
+    <div className="px-1">
+      <div className="flex items-center gap-2">
+        <p className="text-xs text-stone-400">最近の関係：{displayRelStatus}</p>
+        <button
+          type="button"
+          onClick={() => setRelPickerOpen(p => !p)}
+          className="text-[10px] text-stone-300 underline-offset-2 underline hover:text-stone-500 transition"
+        >
+          {relPickerOpen ? '閉じる' : '変更'}
+        </button>
+      </div>
+      {relPickerOpen && (
+        <div className="mt-2 flex flex-wrap gap-1.5" style={{ animation: 'fadeUp .2s ease-out both' }}>
+          {REL_OPTIONS.map(({ id, label }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => { setRelStatus(label); setRelPickerOpen(false) }}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition active:scale-95 ${
+                displayRelStatus === label
+                  ? 'bg-stone-700 text-white'
+                  : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
 
 {flow.step === 'idle' && (
   <div style={{ animation: 'fadeUp .3s ease-out both' }}>
-    <QuickMoodSection onSelect={onQuickMood} />
-    <div className="mt-6 mb-4 text-center">
-      <p className="text-[11px] font-bold uppercase tracking-widest text-stone-300">
-        もう少し整理したい時は
-      </p>
-      <p className="mt-2 text-sm leading-relaxed text-stone-400">
-        今のしんどさに近いものを選べば十分です。
-      </p>
-    </div>
+    <p className="px-1 mb-3 text-sm font-semibold text-stone-600">今の気持ちは？</p>
     <EmotionQuickSelect onSelect={onSelectEmotion} />
   </div>
 )}
-
-{/* ↓ ここを追加 — 'input' step のレンダリング */}
-{flow.step === 'input' && (
-  <div style={{ animation: 'fadeUp .3s ease-out both' }}>
-    {flow.quickMood && (
-      <div
-        className={`mb-5 overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5`}
-      >
-        <div className="border-b border-stone-50 px-5 py-3.5">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
-            今日どう？
-          </p>
-        </div>
-        <div className="px-5 py-5">
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-2xl">
-              {QUICK_MOODS.find(m => m.mood === flow.quickMood)?.emoji}
-            </span>
-            <span
-              className={`text-sm font-bold ${
-                QUICK_MOODS.find(m => m.mood === flow.quickMood)?.color ?? ''
-              }`}
-            >
-              {QUICK_MOODS.find(m => m.mood === flow.quickMood)?.label}
-            </span>
-          </div>
-          <p className="text-sm leading-relaxed text-stone-600">
-            {QUICK_MOOD_RESPONSE[flow.quickMood]}
-          </p>
-          {(flow.quickMood === 'tough' || flow.quickMood === 'sad') && (
-            <p className="mt-3 text-xs leading-relaxed text-stone-400">
-              もう少し整理したい時は、下の感情ボタンから。
-            </p>
-          )}
-        </div>
-      </div>
-    )}
-
-    <div className="mb-4 text-center">
-      <p className="text-[11px] font-bold uppercase tracking-widest text-stone-300">
-        もう少し整理したい時は
-      </p>
-    </div>
-    <EmotionQuickSelect onSelect={onSelectEmotion} />
-  </div>
-)}
-
 
 {flow.step === 'composing' && flow.emotion && (
-  <EmotionComposerSheet
-    emotion={flow.emotion} note={flow.note}
-    selectedBackgroundIds={flow.selectedBackgroundIds}
-    setNote={onSetNote} setBackgroundIds={onSetBackgroundIds}
-    onSubmit={onSubmit} onBack={onReset} isLoading={flow.isLoadingAi}
-  />
+  <>
+    <button
+      type="button"
+      onClick={onGoBack}
+      className="flex items-center gap-1 px-1 text-xs text-stone-400 hover:text-stone-600 transition active:scale-95"
+    >
+      ← 戻る
+    </button>
+    <EmotionComposerSheet
+      emotion={flow.emotion} note={flow.note}
+      selectedBackgroundIds={flow.selectedBackgroundIds}
+      setNote={onSetNote} setBackgroundIds={onSetBackgroundIds}
+      onSubmit={onSubmit} onBack={onGoBack} isLoading={flow.isLoadingAi}
+    />
+  </>
 )}
 
       {flow.step === 'responding' && (
@@ -2495,35 +2488,7 @@ return (
             </div>
           )}
 
-          {/* ステップ3: 最近の関係（任意入力・補助） */}
-          <div className="relative mb-6">
-            <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 ring-2 ring-white">
-              <span className="h-2 w-2 rounded-full bg-stone-300" />
-            </span>
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-stone-400/60 pl-1">最近の関係（任意）</p>
-            <div className="flex gap-2 pl-1 pt-1">
-              {([
-                { id: 'good',   label: '良い感じ' },
-                { id: 'normal', label: 'ふつう'   },
-                { id: 'off',    label: '少しズレてる' },
-              ] as const).map(({ id, label }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setRelTag(prev => prev === id ? null : id)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
-                    relTag === id
-                      ? 'bg-stone-700 text-white'
-                      : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* ステップ4: 伝える（選択→変換） */}
+          {/* ステップ3: 伝える（選択→変換） */}
           <div className="relative mb-6">
             <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 ring-2 ring-white">
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
@@ -3081,7 +3046,7 @@ const {
   savedEventIdRef,
   setFlow,
   shareWithPartner,
-  handleQuickMood,
+  goBack,
 } = useEmotionFlow(
   userId,
   profile?.partner_id ?? null,
@@ -3317,7 +3282,7 @@ const {
   hasPartner={!!profile?.partner_id}
   partnerLatest={visiblePartnerEvent}
   onReactToPartnerEvent={handlePartnerReactionForCard}
-  onQuickMood={handleQuickMood}
+  onGoBack={goBack}
   shareTone={shareTone}
   onToneChange={setShareTone}
 />
