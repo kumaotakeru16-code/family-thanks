@@ -1706,7 +1706,7 @@ function useEmotionFlow(
           flow.emotion,
           flow.note || null,
           selectedOption,
-          isLonelyFlow ? [] : (flow.selectedBackgroundIds.length > 0 ? flow.selectedBackgroundIds : backgroundTags),
+          flow.selectedBackgroundIds.length > 0 ? flow.selectedBackgroundIds : backgroundTags,
           shareTone,
         )
 
@@ -2130,6 +2130,7 @@ function LonelySelectorSection({ selectedTag, onSelect }: {
           )
         })}
       </div>
+      <p className="mt-2 text-[10px] text-stone-300">選ばずにそのまま進んでも大丈夫</p>
     </div>
   )
 }
@@ -2161,14 +2162,20 @@ function EmotionComposerSheet({
         </div>
       )}
       <div className="mb-4">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">もしあれば（任意）</p>
-        <textarea value={note} onChange={e => setNote(e.target.value)} rows={3}
+        {!isLonely && (
+          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">もしあれば（任意）</p>
+        )}
+        <textarea value={note} onChange={e => setNote(e.target.value)} rows={isLonely ? 2 : 3}
           placeholder={
             isCalm   ? '今日の余裕を一言メモしておく（空でも大丈夫）' :
-            isLonely ? 'もし言葉にできそうなら（空でも大丈夫）' :
+            isLonely ? '一言あれば（空でも大丈夫）' :
                        'もう少し具体的に書いてもOK（空でも大丈夫）'
           }
-          className="mt-2 w-full resize-none rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-relaxed text-stone-700 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
+          className={`w-full resize-none rounded-2xl border bg-stone-50 px-4 py-3 text-sm leading-relaxed text-stone-700 outline-none transition focus:bg-white focus:ring-2 ${
+            isLonely
+              ? 'mt-0 border-stone-100 focus:border-rose-200 focus:ring-rose-50'
+              : 'mt-2 border-stone-200 focus:border-indigo-300 focus:ring-indigo-100'
+          }`} />
       </div>
       <div className="flex gap-2">
         <button onClick={onBack} className="flex-1 rounded-2xl border border-stone-200 py-3 text-sm font-semibold text-stone-600 transition hover:bg-stone-50">戻る</button>
