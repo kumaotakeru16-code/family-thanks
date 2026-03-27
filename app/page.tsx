@@ -25,13 +25,9 @@ type Tab = 'home' | 'history' | 'settings'
 type EmotionType = 'angry' | 'sad' | 'tired' | 'anxious' | 'lonely' | 'calm'
 type FlowStep =
   | 'idle'
-  | 'input'        // ← これ追加
   | 'composing'
   | 'responding'
   | 'done'
-
-// ── ワンタップ気分チェック ──
-type QuickMood = 'good' | 'ok' | 'tough' | 'sad'
 
 type EmotionEvent = {
   id: string
@@ -105,7 +101,6 @@ type FlowState = {
   isSharing: boolean
   recovered: boolean
   isResponded: boolean
-  quickMood: QuickMood | null  // ← 追加
 }
 
 type ShareOptionId =
@@ -170,25 +165,6 @@ const EMOTIONS: {
 
 const emMeta = (t: EmotionType) => EMOTIONS.find(e => e.type === t)!
 
-/* ═══════════════════════════════════════════════════
-   QUICK MOOD — ワンタップ気分チェック用定数
-═══════════════════════════════════════════════════ */
-
-const QUICK_MOODS: {
-  mood: QuickMood; emoji: string; label: string; bg: string; color: string
-}[] = [
-  { mood: 'good',  emoji: '🙂', label: '良い感じ', bg: 'bg-emerald-50', color: 'text-emerald-700' },
-  { mood: 'ok',    emoji: '😐', label: 'まあまあ', bg: 'bg-stone-100',  color: 'text-stone-600'   },
-  { mood: 'tough', emoji: '😵', label: 'きつい',   bg: 'bg-amber-50',  color: 'text-amber-700'   },
-  { mood: 'sad',   emoji: '😢', label: 'つらい',   bg: 'bg-blue-50',   color: 'text-blue-700'    },
-]
-
-const QUICK_MOOD_RESPONSE: Record<QuickMood, string> = {
-  good:  '今日は調子よさそう。その感じを大事に。',
-  ok:    '「まあまあ」なら十分。無理しなくて大丈夫。',
-  tough: 'きつい日ですね。少しでも軽くできるといいですね。',
-  sad:   'つらさ、ちゃんと受け取っています。ひとりで抱えなくて大丈夫。',
-}
 
 /* ═══════════════════════════════════════════════════
    CONTEXT TAG EXTRACTION
@@ -1531,7 +1507,6 @@ const INIT_FLOW: FlowState = {
   isSharing: false,
   recovered: false,
   isResponded: false,
-  quickMood: null,  // ← 追加
 }
 
 function useEmotionFlow(
@@ -1712,31 +1687,6 @@ function useEmotionFlow(
     setFlow(prev => prev.step === 'composing' ? { ...prev, step: 'idle' } : prev)
   }, [])
 
-  const handleQuickMood = useCallback(async (mood: QuickMood) => {
-    const backgroundMap: Partial<Record<QuickMood, BackgroundOptionId[]>> = {
-      good: [],
-      ok: ['work_stress'],
-      tough: ['isolated'],
-      sad: ['relationship'],
-    }
-
-    const noteMap: Partial<Record<QuickMood, string>> = {
-      good: '',
-      ok: 'ちょっと余裕がなくてバタバタしてる',
-      tough: 'なんとなく気持ちが落ちてる',
-      sad: 'なんで自分ばっかりって感じがする',
-    }
-
-    setBackgroundIds(backgroundMap[mood] ?? [])
-    setNote(noteMap[mood] ?? '')
-    setFlow(prev => ({
-      ...prev,
-      step: 'input',
-      quickMood: mood,
-      emotion: null,
-    }))
-  }, [setBackgroundIds, setNote])
-
   return {
     flow,
     setFlow,
@@ -1750,7 +1700,6 @@ function useEmotionFlow(
     selectShareOption,
     regenerateTranslatedMessage,
     shareWithPartner,
-    handleQuickMood,
     goBack,
   }
 }
@@ -1814,77 +1763,6 @@ function getPartnerReactionText(reaction: 'ack' | 'soon' | 'on_it' | null): stri
    COMPONENTS
 ═══════════════════════════════════════════════════ */
 
-/* ── ▼ QuickMoodSection: ワンタップ「今日どう？」─────────────
-   - 🙂😐😵😢 の4択
-   - タップのみで solo_logs に保存（note 不要）
-   - 選択後に固定の一言返しを表示
-   - tough / sad の場合は感情ボタンへ誘導
-─────────────────────────────────────────────────── */
-function QuickMoodSection({
-  onSelect,
-}: {
-  onSelect: (mood: QuickMood) => Promise<void>
-}) {
-  const [selected, setSelected] = useState<QuickMood | null>(null)
-  const [saving, setSaving] = useState(false)
-
-  const handleSelect = async (mood: QuickMood) => {
-    if (saving || selected !== null) return
-    setSaving(true)
-    await onSelect(mood)
-    setSelected(mood)
-    setSaving(false)
-  }
-
-  const selectedMeta = selected ? QUICK_MOODS.find(m => m.mood === selected) : null
-
-  return (
-    <div
-      className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5"
-      style={{ animation: 'fadeUp .3s ease-out both' }}
-    >
-      <div className="border-b border-stone-50 px-5 py-3.5">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
-          今日どう？
-        </p>
-      </div>
-
-      {selected && selectedMeta ? (
-        /* ── 選択後: 一言返し ── */
-        <div className="px-5 py-5" style={{ animation: 'fadeUp .25s ease-out both' }}>
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-2xl">{selectedMeta.emoji}</span>
-            <span className={`text-sm font-bold ${selectedMeta.color}`}>{selectedMeta.label}</span>
-          </div>
-          <p className="text-sm leading-relaxed text-stone-600">
-            {QUICK_MOOD_RESPONSE[selected]}
-          </p>
-          {(selected === 'tough' || selected === 'sad') && (
-            <p className="mt-3 text-xs leading-relaxed text-stone-400">
-              もう少し整理したい時は、下の感情ボタンから。
-            </p>
-          )}
-        </div>
-      ) : (
-        /* ── 選択前: 4択ボタン ── */
-        <div className="grid grid-cols-4 divide-x divide-stone-100">
-          {QUICK_MOODS.map(({ mood, emoji, label, bg, color }) => (
-            <button
-              key={mood}
-              type="button"
-              onClick={() => void handleSelect(mood)}
-              disabled={saving}
-              className={`flex flex-col items-center gap-2 py-5 transition active:scale-95 disabled:opacity-50 ${bg}`}
-            >
-              <span className="text-2xl leading-none">{emoji}</span>
-              <span className={`text-[11px] font-bold ${color}`}>{label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
 function ShareOptionSelector({ plan, selectedId, onSelect }: { plan: SharePlan; selectedId: string | null; onSelect: (id: string) => void }) {
   // Put recommended first
@@ -2411,7 +2289,6 @@ function PartnerEmotionHint({ event }: { event: EmotionEvent }) {
 
 /* ═══════════════════════════════════════════════════
    HOME TAB
-   ── ▼ onQuickMood prop 追加、idle 時に QuickMoodSection を表示 ──
 ═══════════════════════════════════════════════════ */
 
 const REL_OPTIONS = [
@@ -2451,6 +2328,8 @@ function HomeTab({
   onGoBack,
   shareTone,
   onToneChange,
+  relStatus,
+  onRelChange,
 }: {
   flow: FlowState
   events: EmotionEvent[]
@@ -2471,8 +2350,9 @@ function HomeTab({
   onGoBack: () => void
   shareTone: 'soft' | 'normal' | 'direct'
   onToneChange: (tone: 'soft' | 'normal' | 'direct') => void
+  relStatus: string | null
+  onRelChange: (label: string, id: string) => void
 }) {
-  const [relStatus, setRelStatus] = useState<string | null>(null)
   const [relPickerOpen, setRelPickerOpen] = useState(false)
   const [relJustUpdated, setRelJustUpdated] = useState(false)
   const [showFirstVisitHint, setShowFirstVisitHint] = useState(() => {
@@ -2521,7 +2401,7 @@ return (
                 key={id}
                 type="button"
                 onClick={() => {
-                  setRelStatus(label)
+                  onRelChange(label, id)
                   setRelPickerOpen(false)
                   setRelJustUpdated(true)
                   setTimeout(() => setRelJustUpdated(false), 2000)
@@ -2770,8 +2650,8 @@ function HistoryTab({
   const getDayRelStatus = (items: TLItem[]) => {
     const neg = items.filter(i => ['angry', 'sad', 'tired', 'anxious', 'lonely'].includes(i.event.emotion_type)).length
     if (neg === 0) return 'いい感じ'
-    if (neg <= 1) return '安定してる'
-    return '少しズレてる'
+    if (neg <= 1) return '大きく崩れてない'
+    return '少しズレてるかも'
   }
 
   if (dayGroups.length === 0) {
@@ -3007,6 +2887,13 @@ export default function Page() {
   const [pairInput, setPairInput] = useState('')
   const [myLogs, setMyLogs] = useState<SoloLog[]>([])
   const [shareTone, setShareTone] = useState<'soft' | 'normal' | 'direct'>('normal')
+  const [relStatus, setRelStatus] = useState<string | null>(null)
+  const [relStatusId, setRelStatusId] = useState<string | null>(null)
+
+  const handleRelChange = useCallback((label: string, id: string) => {
+    setRelStatus(label)
+    setRelStatusId(id)
+  }, [])
 
   const { toasts, push } = useToast()
   const toast = useCallback((m: string) => push(m), [push])
@@ -3078,10 +2965,13 @@ const {
     [profile]
   )
 
-  const backgroundTags = useMemo(
-    () => mergeBackgroundTags(todayBackgroundTags, profileBackgroundTags),
-    [todayBackgroundTags, profileBackgroundTags]
-  )
+  const backgroundTags = useMemo(() => {
+    const tags = mergeBackgroundTags(todayBackgroundTags, profileBackgroundTags)
+    if (relStatusId === 'off' || relStatusId === 'distant') {
+      return mergeBackgroundTags(tags, ['relationship' as BackgroundOptionId])
+    }
+    return tags
+  }, [todayBackgroundTags, profileBackgroundTags, relStatusId])
 
 const partnerLatest = useMemo(() => {
   return [...partnerEvents]
@@ -3379,6 +3269,8 @@ const {
   onGoBack={goBack}
   shareTone={shareTone}
   onToneChange={setShareTone}
+  relStatus={relStatus}
+  onRelChange={handleRelChange}
 />
           )}
 
