@@ -22,7 +22,7 @@ import type { RealtimeChannel, Session } from '@supabase/supabase-js'
 ═══════════════════════════════════════════════════ */
 
 type Tab = 'home' | 'history' | 'settings'
-type EmotionType = 'angry' | 'sad' | 'tired' | 'anxious' | 'lonely'
+type EmotionType = 'angry' | 'sad' | 'tired' | 'anxious' | 'lonely' | 'calm'
 type FlowStep =
   | 'idle'
   | 'input'        // ← これ追加
@@ -160,11 +160,12 @@ const EMOTIONS: {
   type: EmotionType; emoji: string; label: string
   color: string; bg: string; activeBg: string; border: string
 }[] = [
-  { type: 'angry',   emoji: '😤', label: 'イライラ', color: 'text-red-700',    bg: 'bg-red-50',    activeBg: 'bg-red-100',    border: 'border-red-200'    },
-  { type: 'sad',     emoji: '😢', label: 'つらい',   color: 'text-blue-700',   bg: 'bg-blue-50',   activeBg: 'bg-blue-100',   border: 'border-blue-200'   },
-  { type: 'tired',   emoji: '😩', label: 'つかれた', color: 'text-amber-700',  bg: 'bg-amber-50',  activeBg: 'bg-amber-100',  border: 'border-amber-200'  },
-  { type: 'anxious', emoji: '😰', label: 'しんどい', color: 'text-violet-700', bg: 'bg-violet-50', activeBg: 'bg-violet-100', border: 'border-violet-200' },
-  { type: 'lonely',  emoji: '🥺', label: 'さみしい', color: 'text-rose-700',   bg: 'bg-rose-50',   activeBg: 'bg-rose-100',   border: 'border-rose-200'   },
+  { type: 'calm',    emoji: '😌', label: '落ち着いてる', color: 'text-teal-700',   bg: 'bg-teal-50',   activeBg: 'bg-teal-100',   border: 'border-teal-200'   },
+  { type: 'angry',   emoji: '😤', label: 'イライラ',     color: 'text-red-700',    bg: 'bg-red-50',    activeBg: 'bg-red-100',    border: 'border-red-200'    },
+  { type: 'sad',     emoji: '😢', label: 'つらい',       color: 'text-blue-700',   bg: 'bg-blue-50',   activeBg: 'bg-blue-100',   border: 'border-blue-200'   },
+  { type: 'tired',   emoji: '😩', label: 'つかれた',     color: 'text-amber-700',  bg: 'bg-amber-50',  activeBg: 'bg-amber-100',  border: 'border-amber-200'  },
+  { type: 'anxious', emoji: '😰', label: 'しんどい',     color: 'text-violet-700', bg: 'bg-violet-50', activeBg: 'bg-violet-100', border: 'border-violet-200' },
+  { type: 'lonely',  emoji: '🥺', label: 'さみしい',     color: 'text-rose-700',   bg: 'bg-rose-50',   activeBg: 'bg-rose-100',   border: 'border-rose-200'   },
 ]
 
 const emMeta = (t: EmotionType) => EMOTIONS.find(e => e.type === t)!
@@ -238,6 +239,7 @@ function pickPrimaryContext(
   )
 
   const emotionPriority: Record<EmotionType, ContextTag[]> = {
+    calm:    ['relationship', 'isolated', 'child_care', 'sleep_dep', 'work_stress', 'chore_burden', 'sick', 'financial', 'none'],
     angry:   ['relationship', 'chore_burden', 'sleep_dep', 'isolated', 'work_stress', 'child_care', 'sick', 'financial', 'none'],
     sad:     ['relationship', 'isolated', 'sleep_dep', 'sick', 'child_care', 'work_stress', 'chore_burden', 'financial', 'none'],
     tired:   ['sleep_dep', 'child_care', 'chore_burden', 'work_stress', 'sick', 'isolated', 'relationship', 'financial', 'none'],
@@ -391,6 +393,7 @@ const RESPONSE_MATRIX: Partial<Record<EmotionType, Partial<Record<ContextTag, Re
 }
 
 const FALLBACK: Record<EmotionType, ResponseTemplate> = {
+  calm:    { empathy: '落ち着いてる日、大事にしてね。',                  interpretation: '余裕がある時こそ、ふたりの関係を整えるチャンス。',             nextStep: '今日、パートナーに一言だけ声をかけてみる。' },
   angry:   { empathy: 'そのイライラ、ちゃんと理由があると思う。',       interpretation: '怒りはたいてい「こうしてほしかった」が叶わなかったサイン。',   nextStep: '少し落ち着いたら、1つだけ頼みたいことを短く伝えてみる。' },
   sad:     { empathy: 'そのつらさ、ちゃんと受け取ったよ。',             interpretation: '悲しさは無視できない感情。それを感じているのは本物。',          nextStep: '今日は「休む」か「話す」どちらか1つを選んでみて。' },
   tired:   { empathy: 'よくここまで頑張ってきたよ。',                   interpretation: '疲れているのに動き続けてきた、それ自体がしんどい。',            nextStep: '今日は1つだけ「やめる」選択をしてみる。' },
@@ -586,6 +589,9 @@ const ACTION_TABLE: Partial<Record<EmotionType, Partial<Record<ContextTag | 'non
     child_care:  { label: '今日の育児は「これだけできれば十分」でいい',  reason: '全部完璧にしなくていい',                  impact: 'medium' },
     none:        { label: '今一番気になってることを声に出すだけでいい',  reason: '解決しなくていい。声に出すだけでいい',    impact: 'low'    },
   },
+  calm: {
+    none: { label: 'パートナーに「ありがとう」を伝える', reason: '余裕がある今こそ、関係を少し前進させるチャンス。', impact: 'high' },
+  },
   lonely: {
     sleep_dep:    { label: '夜中に起きたとき「起きてる」とだけ送っていい',   reason: '長いメッセージじゃなくていい',                    impact: 'low'    },
     isolated:     { label: '「最近一人でやりすぎてた」の一言だけ伝えていい', reason: '全部説明しなくていい',                            impact: 'high'   },
@@ -596,11 +602,12 @@ const ACTION_TABLE: Partial<Record<EmotionType, Partial<Record<ContextTag | 'non
 }
 
 const ACTION_FALLBACK: Record<EmotionType, ActionSuggestion> = {
-  angry:   { label: '感情が落ち着いたら、相手に「1つだけお願いしたい」を伝えてみる', impact: 'medium' },
-  sad:     { label: '今日は「やらない」を1つだけ選んでみる',                        impact: 'low'    },
-  tired:   { label: '今夜、いつもより30分早く休んでみる',                           impact: 'medium' },
-  anxious: { label: '気になっていることを紙に1行だけ書き出してみる',                impact: 'medium' },
-  lonely:  { label: '「さみしかった」の一言だけ、誰かに伝えてみる',                 impact: 'medium' },
+  calm:    { label: '今日の余裕を誰かと共有する',                          impact: 'medium' },
+  angry:   { label: 'まず5分だけ一人になる',                              impact: 'high'   },
+  sad:     { label: '今日は「やらない」を1つだけ選んでみる',               impact: 'low'    },
+  tired:   { label: '今夜、いつもより30分早く休んでみる',                  impact: 'medium' },
+  anxious: { label: '気になっていることを紙に1行だけ書き出してみる',       impact: 'medium' },
+  lonely:  { label: '「さみしかった」の一言だけ、誰かに伝えてみる',        impact: 'medium' },
 }
 
 async function generateActionSuggestion(
@@ -762,6 +769,10 @@ async function generateActionSuggestion(
 
 function generateAltSuggestions(emotion: EmotionType): ActionSuggestion[] {
   const map: Record<EmotionType, ActionSuggestion[]> = {
+    calm: [
+      { label: 'パートナーに「ありがとう」を伝える', impact: 'medium' },
+      { label: '今日の余裕を使って少し話す',         impact: 'high'   },
+    ],
     angry: [
       { label: '5分だけ一人になる',            impact: 'medium' },
       { label: '「今少し余裕ない」と短く伝える', impact: 'high'   },
@@ -814,6 +825,8 @@ async function generateSharePlan(
   }
   if (primary === 'chore_burden' || has('chore_burden'))
     return { options: [makeShareOption('take_one_task'), makeShareOption('one_help'), makeShareOption('leave_me_alone')], recommendedId: 'take_one_task' }
+  if (emotion === 'calm')
+    return { options: [makeShareOption('listen_10m'), makeShareOption('notice_me'), makeShareOption('one_help')], recommendedId: 'listen_10m' }
   if (emotion === 'lonely')
     return { options: [makeShareOption('notice_me'), makeShareOption('listen_10m'), makeShareOption('leave_me_alone')], recommendedId: 'notice_me' }
   if (emotion === 'anxious')
@@ -1874,25 +1887,65 @@ function QuickMoodSection({
 }
 
 function ShareOptionSelector({ plan, selectedId, onSelect }: { plan: SharePlan; selectedId: string | null; onSelect: (id: string) => void }) {
+  // Put recommended first
+  const orderedOptions = useMemo(() => {
+    const rec = plan.options.find(o => o.id === plan.recommendedId)
+    const rest = plan.options.filter(o => o.id !== plan.recommendedId)
+    return rec ? [rec, ...rest] : plan.options
+  }, [plan])
+
+  const [idx, setIdx] = useState(0)
+  const current = orderedOptions[idx] ?? orderedOptions[0]
+  const isSelected = current?.id === selectedId
+
+  // Auto-select recommended on mount
+  useEffect(() => {
+    if (!selectedId && plan.recommendedId) {
+      onSelect(plan.recommendedId)
+    }
+  }, [])
+
   return (
     <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-emerald-100/80" style={{ animation: 'fadeUp .45s ease-out .06s both' }}>
-      <div className="border-b border-emerald-50 px-5 py-3.5">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700/60">してほしいこと</p>
-      </div>
-      <div className="space-y-2 px-5 py-4">
-        {plan.options.map(option => {
-          const active = option.id === selectedId
-          const recommended = option.id === plan.recommendedId
-          return (
-            <button key={option.id} onClick={() => onSelect(option.id)}
-              className={`w-full rounded-2xl border px-4 py-3 text-left transition active:scale-[0.98] ${active ? 'border-emerald-300 bg-emerald-50 ring-2 ring-emerald-100' : 'border-stone-200 bg-white hover:bg-stone-50'}`}>
-              <div className="flex items-center justify-between gap-3">
-                <span className={`text-sm font-semibold ${active ? 'text-emerald-700' : 'text-stone-700'}`}>{option.label}</span>
-                {recommended && <span className="shrink-0 rounded-full bg-amber-100 px-2 py-1 text-[10px] font-bold text-amber-700">おすすめ</span>}
+      <div className="border-b border-emerald-50 px-5 py-3">
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-700/60">してほしいこと</p>
+          {orderedOptions.length > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setIdx(i => Math.max(0, i - 1)); onSelect(orderedOptions[Math.max(0, idx - 1)]?.id ?? current.id) }}
+                disabled={idx === 0}
+                className="flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 text-[10px] text-stone-400 disabled:opacity-30 transition active:scale-90"
+              >‹</button>
+              <div className="flex gap-1">
+                {orderedOptions.map((_, i) => (
+                  <span key={i} className={`h-1 rounded-full transition-all ${i === idx ? 'w-3 bg-emerald-400' : 'w-1 bg-stone-200'}`} />
+                ))}
               </div>
-            </button>
-          )
-        })}
+              <button
+                onClick={() => { const ni = Math.min(orderedOptions.length - 1, idx + 1); setIdx(ni); onSelect(orderedOptions[ni]?.id ?? current.id) }}
+                disabled={idx === orderedOptions.length - 1}
+                className="flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 text-[10px] text-stone-400 disabled:opacity-30 transition active:scale-90"
+              >›</button>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="px-5 py-4">
+        <button
+          onClick={() => current && onSelect(current.id)}
+          className={`w-full rounded-2xl border px-4 py-4 text-left transition active:scale-[0.98] ${isSelected ? 'border-emerald-300 bg-emerald-50 ring-2 ring-emerald-100' : 'border-stone-200 bg-white hover:bg-stone-50'}`}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <span className={`text-sm font-bold ${isSelected ? 'text-emerald-700' : 'text-stone-700'}`}>{current?.label}</span>
+            {current?.id === plan.recommendedId && (
+              <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">おすすめ</span>
+            )}
+          </div>
+        </button>
+        {orderedOptions.length > 1 && (
+          <p className="mt-2 text-center text-[10px] text-stone-300">← → で他の案も見られます</p>
+        )}
       </div>
     </div>
   )
@@ -2022,10 +2075,10 @@ function BackgroundSelector({ selectedIds, onChange }: { selectedIds: Background
 
 function EmotionQuickSelect({ onSelect }: { onSelect: (e: EmotionType) => void }) {
   return (
-    <div className="grid grid-cols-5 gap-2.5">
+    <div className="grid grid-cols-3 gap-2.5">
       {EMOTIONS.map(em => (
         <button key={em.type} onClick={() => onSelect(em.type)}
-          className={`flex flex-col items-center gap-2 rounded-2xl border-2 border-transparent px-1 py-5 transition active:scale-90 hover:${em.activeBg} ${em.bg}`}>
+          className={`flex flex-col items-center gap-2 rounded-2xl border-2 border-transparent px-1 py-4 transition active:scale-90 hover:${em.activeBg} ${em.bg}`}>
           <span className="text-3xl leading-none">{em.emoji}</span>
           <span className={`text-[11px] font-bold ${em.color}`}>{em.label}</span>
         </button>
@@ -2068,23 +2121,23 @@ function EmotionComposerSheet({
 }
 
 function AiResponseCard({ response, emotion }: { response: AiResponse; emotion: EmotionType }) {
-  const meta = emMeta(emotion)
+  const [expanded, setExpanded] = useState(false)
   return (
-    <div className="overflow-hidden rounded-3xl bg-white shadow-xl ring-1 ring-black/5" style={{ animation: 'fadeUp .4s ease-out both' }}>
-      <div className={`px-5 py-3 ${meta.bg}`}>
-        <p className={`text-[10px] font-bold uppercase tracking-widest ${meta.color} opacity-60`}>いまの状態</p>
-      </div>
-      <div className="space-y-4 px-5 py-5">
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 text-xl">🤝</span>
-          <p className="text-base font-bold leading-relaxed text-stone-800">{response.empathy}</p>
+    <div className="rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-black/5" style={{ animation: 'fadeUp .4s ease-out both' }}>
+      <p className="text-sm leading-relaxed text-stone-700">{response.empathy}</p>
+      {!expanded ? (
+        <button
+          onClick={() => setExpanded(true)}
+          className="mt-2 text-[11px] text-stone-400 underline underline-offset-2 hover:text-stone-600 transition"
+        >
+          もう少し見る
+        </button>
+      ) : (
+        <div className="mt-3 space-y-2 border-t border-stone-50 pt-3" style={{ animation: 'fadeUp .2s ease-out both' }}>
+          <p className="text-xs leading-relaxed text-stone-500">{response.interpretation}</p>
+          <p className="text-xs leading-relaxed text-stone-400">{response.nextStep}</p>
         </div>
-        <div className="flex items-start gap-3">
-          <span className="mt-0.5 text-xl">💭</span>
-          <p className="text-sm leading-relaxed text-stone-600">{response.interpretation}</p>
-        </div>
-        <p className="border-t border-stone-50 pt-3 text-xs leading-relaxed text-stone-400">{response.nextStep}</p>
-      </div>
+      )}
     </div>
   )
 }
@@ -2097,43 +2150,40 @@ function ActionSuggestionCard({ suggestion, altSuggestions = [], recovered, onRe
   const current = all[idx] ?? suggestion
 
   return (
-    <div className={`overflow-hidden rounded-3xl transition-all duration-500 ${recovered ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'bg-stone-50 ring-1 ring-stone-200'}`} style={{ animation: 'fadeUp .45s ease-out .08s both' }}>
-      <div className="px-5 pt-5 pb-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className={`h-2 w-2 rounded-full ${recovered ? 'bg-emerald-400' : 'bg-indigo-400'}`} />
-            <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">{recovered ? '少し戻れた' : 'まず一歩'}</p>
-          </div>
-          {!recovered && all.length > 1 && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIdx(i => Math.max(0, i - 1))}
-                disabled={idx === 0}
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-stone-200 text-xs text-stone-500 disabled:opacity-30 transition active:scale-90"
-              >‹</button>
-              <div className="flex gap-1">
-                {all.map((_, i) => (
-                  <span key={i} className={`h-1 rounded-full transition-all ${i === idx ? 'w-4 bg-indigo-400' : 'w-1 bg-stone-300'}`} />
-                ))}
-              </div>
-              <button
-                onClick={() => setIdx(i => Math.min(all.length - 1, i + 1))}
-                disabled={idx === all.length - 1}
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-stone-200 text-xs text-stone-500 disabled:opacity-30 transition active:scale-90"
-              >›</button>
+    <div className={`rounded-3xl transition-all duration-500 ${recovered ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'bg-indigo-50 ring-1 ring-indigo-100'}`} style={{ animation: 'fadeUp .35s ease-out both' }}>
+      <div className="px-5 pt-5 pb-5">
+        <p className={`text-[18px] font-extrabold leading-snug tracking-tight ${recovered ? 'text-emerald-700' : 'text-indigo-900'}`}>{current.label}</p>
+        {current.reason && !recovered && <p className="mt-2 text-xs leading-relaxed text-indigo-400/80">{current.reason}</p>}
+
+        {!recovered && all.length > 1 && (
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={() => setIdx(i => Math.max(0, i - 1))}
+              disabled={idx === 0}
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-white/70 text-xs text-indigo-400 disabled:opacity-30 transition active:scale-90"
+            >‹</button>
+            <div className="flex gap-1.5">
+              {all.map((_, i) => (
+                <span key={i} className={`h-1 rounded-full transition-all ${i === idx ? 'w-5 bg-indigo-400' : 'w-1.5 bg-indigo-200'}`} />
+              ))}
             </div>
-          )}
-        </div>
-        <p className={`text-[17px] font-extrabold leading-snug tracking-tight ${recovered ? 'text-emerald-700' : 'text-stone-800'}`}>{current.label}</p>
-        {current.reason && !recovered && <p className="mt-2 text-xs leading-relaxed text-stone-400">{current.reason}</p>}
-      </div>
-      <div className="border-t border-stone-100/80 px-5 pb-5 pt-4">
-        {!recovered ? (
-          <>
-            <button onClick={onRecovered} className="w-full rounded-2xl border-2 border-dashed border-stone-200 py-3 text-sm font-medium text-stone-400 transition hover:border-indigo-200 hover:text-indigo-500 active:scale-95">少し落ち着いた</button>
-            <p className="mt-2 text-center text-[11px] text-stone-300">やれなくても大丈夫。見るだけでも十分。</p>
-          </>
-        ) : <p className="text-xs text-emerald-500">それだけでも十分。</p>}
+            <button
+              onClick={() => setIdx(i => Math.min(all.length - 1, i + 1))}
+              disabled={idx === all.length - 1}
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-white/70 text-xs text-indigo-400 disabled:opacity-30 transition active:scale-90"
+            >›</button>
+          </div>
+        )}
+
+        {!recovered && (
+          <button
+            onClick={onRecovered}
+            className="mt-4 text-xs text-indigo-300 underline underline-offset-2 hover:text-indigo-500 transition"
+          >
+            少し落ち着いた
+          </button>
+        )}
+        {recovered && <p className="mt-2 text-xs text-emerald-500">それだけでも十分。</p>}
       </div>
     </div>
   )
@@ -2141,6 +2191,8 @@ function ActionSuggestionCard({ suggestion, altSuggestions = [], recovered, onRe
 
 function getRecoveryMessage(emotion?: EmotionType) {
   switch (emotion) {
+    case 'calm':
+      return '余裕がある日は、その気持ちをふたりで共有できるといいですね'
     case 'angry':
       return '少し落ち着けていたらそれで十分です'
     case 'sad':
@@ -2239,77 +2291,54 @@ function ShareTranslationCard({
       className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5"
       style={{ animation: 'fadeUp .5s ease-out .1s both' }}
     >
-      <div className="border-b border-stone-50 px-5 py-3.5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
-              やわらかく伝える
-            </p>
-            <p className="mt-1 text-xs text-stone-400">
-              言い方を調整できます
-            </p>
-          </div>
-
-          {!isEditing ? (
-            <button
-              onClick={() => setIsEditing(true)}
-              disabled={isShared}
-              className="text-[11px] font-semibold text-stone-400 transition hover:text-stone-600 disabled:cursor-default disabled:opacity-40"
-            >
-              書き直す
-            </button>
-          ) : (
-            <button
-              onClick={() => setIsEditing(false)}
-              className="text-[11px] font-semibold text-indigo-500 transition hover:text-indigo-600"
-            >
-              できた
-            </button>
-          )}
-        </div>
-      </div>
-
       <div className="px-5 py-4">
-        {!isEditing && (
-          <div className="mb-3 flex gap-2">
-            {[
-              { key: 'soft', label: 'やさしく' },
-              { key: 'normal', label: 'ふつう' },
-              { key: 'direct', label: 'はっきり' },
-            ].map(t => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => onToneChange(t.key as 'soft' | 'normal' | 'direct')}
-                className={`flex-1 rounded-xl py-2 text-xs font-semibold transition ${
-                  tone === t.key
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-stone-100 text-stone-500'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="mb-3 flex gap-1.5">
+          {[
+            { key: 'soft', label: 'やさしく' },
+            { key: 'normal', label: 'ふつう' },
+            { key: 'direct', label: 'はっきり' },
+          ].map(t => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => onToneChange(t.key as 'soft' | 'normal' | 'direct')}
+              disabled={isShared}
+              className={`flex-1 rounded-xl py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+                tone === t.key
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
         {isEditing ? (
           <textarea
             value={draft}
             onChange={e => setDraft(e.target.value)}
+            onBlur={() => setIsEditing(false)}
             rows={4}
             maxLength={160}
+            autoFocus
             className="w-full resize-none rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-relaxed text-stone-700 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100"
           />
         ) : (
-          <div className="rounded-2xl bg-stone-50 px-4 py-3.5">
+          <button
+            type="button"
+            onClick={() => !isShared && setIsEditing(true)}
+            className="w-full rounded-2xl bg-stone-50 px-4 py-3.5 text-left transition hover:bg-stone-100 active:scale-[0.99] disabled:cursor-default"
+            disabled={isShared}
+          >
             <p className="text-sm leading-relaxed text-stone-700">{draft}</p>
-          </div>
+            {!isShared && <p className="mt-1 text-[10px] text-stone-300">タップして編集</p>}
+          </button>
         )}
 
         {!isShared ? (
           <>
-            <div className="mt-4 flex gap-2">
+            <div className="mt-3 flex gap-2">
               <button
                 type="button"
                 onClick={handleCopy}
@@ -2325,7 +2354,7 @@ function ShareTranslationCard({
                   disabled={isSharing || !draft.trim()}
                   className="flex-[1.4] rounded-2xl bg-emerald-500 py-3 text-sm font-semibold text-white shadow-sm transition disabled:opacity-50 active:scale-[0.98]"
                 >
-                  {isSharing ? '送信中…' : 'このまま伝える'}
+                  {isSharing ? '送信中…' : 'やさしく伝える'}
                 </button>
               )}
             </div>
@@ -2356,6 +2385,7 @@ function ShareTranslationCard({
 ═══════════════════════════════════════════════════ */
 
 const PARTNER_EMOTION_HINTS: Record<EmotionType, string> = {
+  calm:    'パートナーが今日は落ち着いているみたい',
   angry:   'パートナーが少し余裕をなくしているみたい',
   sad:     'パートナーがしんどさを感じているみたい',
   tired:   'パートナーが疲れているみたい',
@@ -2385,10 +2415,10 @@ function PartnerEmotionHint({ event }: { event: EmotionEvent }) {
 ═══════════════════════════════════════════════════ */
 
 const REL_OPTIONS = [
-  { id: 'great',   label: 'うまくいっている' },
-  { id: 'ok',      label: '安定している'     },
-  { id: 'off',     label: '少しすれ違い'     },
-  { id: 'distant', label: '距離を感じる'     },
+  { id: 'great',   label: 'いい感じ'             },
+  { id: 'ok',      label: '大きく崩れてない'      },
+  { id: 'off',     label: '少しズレてるかも'      },
+  { id: 'distant', label: 'ちょっとかみ合ってない' },
 ] as const
 
 function getTodayRelStatus(events: EmotionEvent[]) {
@@ -2396,9 +2426,9 @@ function getTodayRelStatus(events: EmotionEvent[]) {
   const negative = recent.filter(e =>
     ['angry', 'sad', 'tired', 'anxious', 'lonely'].includes(e.emotion_type)
   ).length
-  if (negative === 0) return '安定している'
-  if (negative <= 1) return 'まあまあ'
-  return '少しすれ違い気味'
+  if (negative === 0) return 'いい感じ'
+  if (negative <= 1) return '大きく崩れてない'
+  return '少しズレてるかも'
 }
 
 
@@ -2444,6 +2474,15 @@ function HomeTab({
 }) {
   const [relStatus, setRelStatus] = useState<string | null>(null)
   const [relPickerOpen, setRelPickerOpen] = useState(false)
+  const [relJustUpdated, setRelJustUpdated] = useState(false)
+  const [showFirstVisitHint, setShowFirstVisitHint] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return !localStorage.getItem('kt_hint_seen')
+  })
+
+  useEffect(() => {
+    if (!showFirstVisitHint) localStorage.setItem('kt_hint_seen', '1')
+  }, [showFirstVisitHint])
 
   const autoRelStatus = getTodayRelStatus(events ?? [])
   const displayRelStatus = relStatus ?? autoRelStatus
@@ -2455,27 +2494,41 @@ return (
     <div className="px-1">
       {!relPickerOpen ? (
         <div className="flex items-center gap-2">
-          <p className="text-xs text-stone-400">最近の関係：{displayRelStatus}</p>
-          <button
-            type="button"
-            onClick={() => setRelPickerOpen(true)}
-            className="text-[10px] text-stone-300 underline underline-offset-2 hover:text-stone-500 transition"
-          >
-            変更
-          </button>
+          <p className="text-[11px] text-stone-400">最近の関係：<span className="font-semibold text-stone-500">{displayRelStatus}</span></p>
+          {relJustUpdated ? (
+            <span
+              className="text-[10px] text-teal-500 font-medium"
+              style={{ animation: 'fadeUp .2s ease-out both' }}
+            >
+              更新しました
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setRelPickerOpen(true)}
+              className="text-[10px] text-stone-300 hover:text-stone-500 transition underline underline-offset-2"
+            >
+              少し違うかも？
+            </button>
+          )}
         </div>
       ) : (
         <div style={{ animation: 'fadeUp .2s ease-out both' }}>
-          <p className="text-xs text-stone-400 mb-2">最近の関係を選択してください</p>
+          <p className="text-[11px] text-stone-400 mb-2">今の状態に近いのは？</p>
           <div className="flex flex-wrap gap-1.5">
             {REL_OPTIONS.map(({ id, label }) => (
               <button
                 key={id}
                 type="button"
-                onClick={() => { setRelStatus(label); setRelPickerOpen(false) }}
-                className={`rounded-full px-3 py-1 text-xs font-semibold transition active:scale-95 ${
+                onClick={() => {
+                  setRelStatus(label)
+                  setRelPickerOpen(false)
+                  setRelJustUpdated(true)
+                  setTimeout(() => setRelJustUpdated(false), 2000)
+                }}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
                   displayRelStatus === label
-                    ? 'bg-stone-600 text-white'
+                    ? 'bg-stone-700 text-white'
                     : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
                 }`}
               >
@@ -2489,8 +2542,14 @@ return (
 
 {flow.step === 'idle' && (
   <div style={{ animation: 'fadeUp .3s ease-out both' }}>
-    <p className="px-1 mb-3 text-sm font-semibold text-stone-600">今の気持ちは？</p>
-    <EmotionQuickSelect onSelect={onSelectEmotion} />
+    <div className="my-2 h-px bg-stone-100" />
+    <div className="mb-4 flex items-center justify-between px-1">
+      <p className="text-base font-bold text-stone-800">今の気持ちは？</p>
+      {showFirstVisitHint && (
+        <p className="text-[10px] text-stone-400 leading-tight max-w-[130px] text-right">選ぶと次の一歩を提案します</p>
+      )}
+    </div>
+    <EmotionQuickSelect onSelect={(e) => { onSelectEmotion(e); setShowFirstVisitHint(false) }} />
   </div>
 )}
 
@@ -2520,79 +2579,78 @@ return (
       )}
 
       {flow.step === 'done' && flow.emotion && flow.aiResponse && (
-        <div className="relative pl-6" style={{ animation: 'fadeUp .3s ease-out both' }}>
-          {/* 余韻メッセージ */}
-          <p
-            className="mb-4 pl-1 text-xs text-stone-400"
-            style={{ animation: 'fadeUp .5s ease-out both' }}
-          >
-            ちゃんと受け止めたよ。
-          </p>
-
-          {/* タイムライン縦線 */}
-          <div className="absolute left-[11px] top-12 bottom-3 w-px bg-stone-200" />
-
-          {/* ステップ1: なぜそう感じるか（AI整理・補助） */}
-          <div className="relative mb-6">
-            <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 ring-2 ring-white">
-              <span className="h-2 w-2 rounded-full bg-stone-300" />
-            </span>
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-400/60 pl-1">なぜそう感じるか</p>
-            <AiResponseCard response={flow.aiResponse} emotion={flow.emotion} />
+        <div style={{ animation: 'fadeUp .3s ease-out both' }}>
+          {/* 関係：最上部に軽く */}
+          <div className="mb-4 flex items-center gap-2 px-1">
+            <p className="text-[11px] text-stone-400">最近の関係：<span className="font-semibold text-stone-500">{displayRelStatus}</span></p>
           </div>
 
-          {/* ステップ2: まず一歩（行動提案・主役） */}
-          {flow.actionSuggestion && (
-            <div className="relative mb-6">
-              <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 ring-2 ring-white">
-                <span className="h-2 w-2 rounded-full bg-indigo-500" />
-              </span>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-indigo-500/70 pl-1">まず一歩</p>
-              <ActionSuggestionCard suggestion={flow.actionSuggestion} altSuggestions={flow.altSuggestions} recovered={flow.recovered} onRecovered={onRecovered} />
-            </div>
-          )}
+          <div className="relative pl-6 space-y-8">
+            {/* タイムライン縦線 */}
+            <div className="absolute left-[11px] top-2 bottom-3 w-px bg-stone-100" />
 
-          {/* ステップ3: 伝える（選択→変換） */}
-          <div className="relative mb-6">
-            <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 ring-2 ring-white">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            </span>
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-emerald-600/70 pl-1">伝える準備</p>
-            <div>
-              {flow.sharePlan && (
-                <ShareOptionSelector plan={flow.sharePlan} selectedId={flow.selectedShareOptionId} onSelect={onSelectShareOption} />
-              )}
-              {flow.translated && (
-                <>
-                  <div className="flex items-center justify-center py-2 gap-1.5">
-                    <div className="h-px flex-1 bg-emerald-100" />
-                    <span className="text-[10px] font-semibold text-emerald-400">言葉にする</span>
-                    <div className="h-px flex-1 bg-emerald-100" />
-                  </div>
-                  <ShareTranslationCard
-                    translated={flow.translated}
-                    hasPartner={hasPartner}
-                    isSharing={flow.isSharing}
-                    isShared={flow.isShared}
-                    onShare={onShare}
-                    tone={shareTone}
-                    onToneChange={onToneChange}
-                  />
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* ステップ5: 完了（条件付き） */}
-          {(flow.recovered || flow.isShared) && (
+            {/* AI整理 */}
             <div className="relative">
               <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 ring-2 ring-white">
-                <span className="h-2 w-2 rounded-full bg-stone-400" />
+                <span className="h-2 w-2 rounded-full bg-stone-300" />
               </span>
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-400/70 pl-1">ひとまず</p>
-              <RecoveryCard onReset={onReset} emotion={flow.emotion} />
+              <AiResponseCard response={flow.aiResponse} emotion={flow.emotion} />
             </div>
-          )}
+
+            {/* まず一歩 */}
+            {flow.actionSuggestion && (
+              <div className="relative">
+                <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 ring-2 ring-white">
+                  <span className="h-2 w-2 rounded-full bg-indigo-400" />
+                </span>
+                <ActionSuggestionCard suggestion={flow.actionSuggestion} altSuggestions={flow.altSuggestions} recovered={flow.recovered} onRecovered={onRecovered} />
+              </div>
+            )}
+
+            {/* してほしいこと */}
+            {flow.sharePlan && (
+              <div className="relative">
+                <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 ring-2 ring-white">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                </span>
+                <ShareOptionSelector plan={flow.sharePlan} selectedId={flow.selectedShareOptionId} onSelect={onSelectShareOption} />
+              </div>
+            )}
+
+            {/* やわらかく伝える */}
+            {flow.translated && (
+              <div className="relative">
+                <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-teal-100 ring-2 ring-white">
+                  <span className="h-2 w-2 rounded-full bg-teal-400" />
+                </span>
+                <ShareTranslationCard
+                  translated={flow.translated}
+                  hasPartner={hasPartner}
+                  isSharing={flow.isSharing}
+                  isShared={flow.isShared}
+                  onShare={onShare}
+                  tone={shareTone}
+                  onToneChange={onToneChange}
+                />
+              </div>
+            )}
+
+            {/* 共有済み・落ち着いた後の軽いメッセージ */}
+            {(flow.recovered || flow.isShared) && (
+              <div className="relative">
+                <span className="absolute -left-6 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 ring-2 ring-white">
+                  <span className="h-2 w-2 rounded-full bg-stone-300" />
+                </span>
+                <p className="text-xs text-stone-400 pl-1">{getRecoveryMessage(flow.emotion)}</p>
+                <button
+                  onClick={onReset}
+                  className="mt-3 pl-1 text-xs text-stone-400 underline underline-offset-2 hover:text-stone-600 transition"
+                >
+                  もう一度整理する
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -2605,6 +2663,62 @@ return (
    HISTORY TAB
 ═══════════════════════════════════════════════════ */
 
+function RelWaveChart({ events, sharedEvents }: { events: EmotionEvent[]; sharedEvents: EmotionEvent[] }) {
+  const negativeEmotions = new Set(['angry', 'sad', 'tired', 'anxious', 'lonely'])
+  const allItems = useMemo(() => {
+    const combined = [
+      ...events.map(e => ({ e, mine: true })),
+      ...sharedEvents.map(e => ({ e, mine: false })),
+    ].sort((a, b) => new Date(a.e.created_at).getTime() - new Date(b.e.created_at).getTime())
+    return combined.slice(-14) // last 14 events
+  }, [events, sharedEvents])
+
+  if (allItems.length < 2) return null
+
+  const W = 280, H = 40, PAD = 8
+  const scores = allItems.map(({ e }) => negativeEmotions.has(e.emotion_type) ? 0.2 : e.emotion_type === 'calm' ? 0.9 : 0.5)
+  const pts = scores.map((s, i) => {
+    const x = PAD + (i / (scores.length - 1)) * (W - PAD * 2)
+    const y = PAD + (1 - s) * (H - PAD * 2)
+    return [x, y] as [number, number]
+  })
+
+  // Build smooth path
+  const d = pts.map(([x, y], i) => {
+    if (i === 0) return `M ${x} ${y}`
+    const [px, py] = pts[i - 1]
+    const cx = (px + x) / 2
+    return `C ${cx} ${py} ${cx} ${y} ${x} ${y}`
+  }).join(' ')
+
+  const lastPt = pts[pts.length - 1]
+  const lastScore = scores[scores.length - 1]
+  const statusText = lastScore > 0.7 ? 'いい感じ' : lastScore > 0.4 ? '大きく崩れてない' : '少しズレてるかも'
+  const dotColor = lastScore > 0.7 ? '#14b8a6' : lastScore > 0.4 ? '#6366f1' : '#f59e0b'
+
+  return (
+    <div className="mb-4 rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-black/5">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">関係の流れ</p>
+        <p className="text-[11px] font-semibold text-stone-500">{statusText}</p>
+      </div>
+      <div className="relative">
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
+          <path d={d} fill="none" stroke="#e7e5e4" strokeWidth="1.5" strokeLinecap="round" />
+          <path d={d} fill="none" stroke="#a8a29e" strokeWidth="1" strokeLinecap="round" strokeDasharray="0" opacity={0.4} />
+          {lastPt && (
+            <circle cx={lastPt[0]} cy={lastPt[1]} r="4" fill={dotColor} />
+          )}
+        </svg>
+        <div className="flex justify-between mt-1">
+          <span className="text-[9px] text-stone-300">過去</span>
+          <span className="text-[9px] font-semibold" style={{ color: dotColor }}>今</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function HistoryTab({
   events,
   sharedEvents,
@@ -2614,20 +2728,37 @@ function HistoryTab({
 }) {
   type TLItem = { event: EmotionEvent; mine: boolean }
 
-  const items: TLItem[] = useMemo(() => {
+  // Group items by calendar date
+  const dayGroups = useMemo(() => {
     const mine = events.map(e => ({ event: e, mine: true }))
     const theirs = sharedEvents.map(e => ({ event: e, mine: false }))
-    return [...mine, ...theirs].sort(
+    const all: TLItem[] = [...mine, ...theirs].sort(
       (a, b) => new Date(b.event.created_at).getTime() - new Date(a.event.created_at).getTime()
     )
+    // Group by date string YYYY-MM-DD
+    const groups = new Map<string, TLItem[]>()
+    for (const item of all) {
+      const d = new Date(item.event.created_at)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      if (!groups.has(key)) groups.set(key, [])
+      groups.get(key)!.push(item)
+    }
+    return Array.from(groups.entries()).sort((a, b) => b[0].localeCompare(a[0]))
   }, [events, sharedEvents])
 
-  const fmtDate = (s: string) => {
-    const d = new Date(s)
-    const time = d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
-    if (isToday(d)) return `今日 ${time}`
-    return `${d.getMonth() + 1}/${d.getDate()} ${time}`
+  const fmtDayLabel = (key: string) => {
+    const today = new Date()
+    const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
+    const ydKey = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`
+    if (key === todayKey) return '今日'
+    if (key === ydKey) return '昨日'
+    const [, m, d] = key.split('-')
+    return `${parseInt(m)}月${parseInt(d)}日`
   }
+
+  const fmtTime = (s: string) => new Date(s).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
 
   const reactionWord = (r: EmotionEvent['partner_reaction']) => {
     if (r === 'ack') return 'わかったよ'
@@ -2636,7 +2767,14 @@ function HistoryTab({
     return null
   }
 
-  if (items.length === 0) {
+  const getDayRelStatus = (items: TLItem[]) => {
+    const neg = items.filter(i => ['angry', 'sad', 'tired', 'anxious', 'lonely'].includes(i.event.emotion_type)).length
+    if (neg === 0) return 'いい感じ'
+    if (neg <= 1) return '安定してる'
+    return '少しズレてる'
+  }
+
+  if (dayGroups.length === 0) {
     return (
       <div className="rounded-3xl bg-white px-5 py-10 text-center shadow-sm ring-1 ring-black/5">
         <p className="text-sm text-stone-400">まだ記録がありません</p>
@@ -2646,60 +2784,92 @@ function HistoryTab({
   }
 
   return (
-    <div className="relative pl-6">
-      {/* 縦線 */}
-      <div className="absolute left-[11px] top-2 bottom-2 w-px bg-stone-200" />
+    <div className="space-y-6">
+      {/* 関係の流れグラフ */}
+      <RelWaveChart events={events} sharedEvents={sharedEvents} />
 
-      {items.map(({ event, mine }) => {
-        const meta = emMeta(event.emotion_type)
-        const reaction = reactionWord(event.partner_reaction)
+      {dayGroups.map(([dateKey, items]) => {
+        const dayLabel = fmtDayLabel(dateKey)
+        const relStatus = getDayRelStatus(items)
+        const myItems = items.filter(i => i.mine)
+        const theirItems = items.filter(i => !i.mine)
 
         return (
-          <div key={`${mine ? 'my' : 'pt'}-${event.id}`} className="relative mb-8">
-            {/* ドット */}
-            <span className={`absolute -left-6 top-1 flex h-5 w-5 items-center justify-center rounded-full ring-2 ring-stone-50 ${mine ? 'bg-indigo-100' : 'bg-stone-100'}`}>
-              <span className={`h-2 w-2 rounded-full ${mine ? 'bg-indigo-400' : 'bg-stone-400'}`} />
-            </span>
-
-            {/* 時刻 */}
-            <p className="mb-2 pl-1 text-[10px] text-stone-400">{fmtDate(event.created_at)}</p>
-
-            {/* 感情 */}
-            <div className="mb-2 flex items-center gap-2 pl-1">
-              <span className="text-lg leading-none">{meta.emoji}</span>
-              <span className={`text-sm font-bold ${meta.color}`}>{meta.label}</span>
-              {!mine && (
-                <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-500">パートナー</span>
-              )}
+          <div key={dateKey} className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5">
+            {/* 日付ヘッダー */}
+            <div className="flex items-center justify-between border-b border-stone-50 px-5 py-3">
+              <p className="text-sm font-bold text-stone-700">{dayLabel}</p>
+              <p className="text-[10px] text-stone-400">関係：{relStatus}</p>
             </div>
 
-            {/* AI短文 */}
-            {event.ai_response_short && (
-              <p className="mb-3 pl-1 text-xs leading-relaxed text-stone-500">{event.ai_response_short}</p>
-            )}
+            <div className="px-4 py-4 space-y-4">
+              {/* あなたのエントリ */}
+              {myItems.map(({ event }) => {
+                const meta = emMeta(event.emotion_type)
+                const reaction = reactionWord(event.partner_reaction)
+                return (
+                  <div key={event.id} className="rounded-2xl bg-indigo-50/60 px-4 py-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">あなた</span>
+                      <span className="text-[10px] text-stone-400">{fmtTime(event.created_at)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg leading-none">{meta.emoji}</span>
+                      <span className={`text-sm font-bold ${meta.color}`}>{meta.label}</span>
+                    </div>
+                    {event.ai_response_short && (
+                      <p className="mt-2 text-xs leading-loose text-stone-500">{event.ai_response_short}</p>
+                    )}
+                    {event.shared_message && (
+                      <div className="mt-2 rounded-xl bg-white/80 px-3 py-2">
+                        <p className="text-[10px] text-stone-400 mb-0.5">伝えたこと</p>
+                        <p className="text-xs leading-relaxed text-stone-700">「{event.shared_message}」</p>
+                      </div>
+                    )}
+                    {reaction && (
+                      <div className="mt-2 rounded-xl bg-emerald-100/60 px-3 py-1.5">
+                        <p className="text-xs text-emerald-700">→ 「{reaction}」</p>
+                      </div>
+                    )}
+                    {event.share_status === 'sent' && !reaction && (
+                      <p className="mt-1 text-[10px] text-stone-400">返事を待っています…</p>
+                    )}
+                  </div>
+                )
+              })}
 
-            {/* 送ったメッセージ */}
-            {event.shared_message && (
-              <div className={`mb-2 rounded-2xl px-3.5 py-2.5 ${mine ? 'bg-indigo-50 mr-6' : 'bg-stone-100 ml-0 mr-6'}`}>
-                <p className="mb-1 text-[10px] font-semibold text-stone-400">{mine ? '伝えたこと' : '伝えてくれたこと'}</p>
-                <p className="text-sm leading-relaxed text-stone-700">「{event.shared_message}」</p>
-              </div>
-            )}
-
-            {/* 相手の反応 */}
-            {reaction && (
-              <div className={`rounded-2xl px-3.5 py-2 ${mine ? 'bg-emerald-50 ml-6' : 'bg-sky-50 ml-6'}`}>
-                <p className="text-sm text-stone-700">「{reaction}」</p>
-                {event.partner_reacted_at && (
-                  <p className="mt-0.5 text-[10px] text-stone-400">{fmtDate(event.partner_reacted_at)}</p>
-                )}
-              </div>
-            )}
-
-            {/* 返事待ち */}
-            {mine && event.share_status === 'sent' && !reaction && (
-              <p className="pl-1 text-[10px] text-stone-400">返事を待っています…</p>
-            )}
+              {/* パートナーのエントリ */}
+              {theirItems.map(({ event }) => {
+                const meta = emMeta(event.emotion_type)
+                const reaction = reactionWord(event.partner_reaction)
+                return (
+                  <div key={event.id} className="rounded-2xl bg-stone-100/60 px-4 py-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">パートナー</span>
+                      <span className="text-[10px] text-stone-400">{fmtTime(event.created_at)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg leading-none">{meta.emoji}</span>
+                      <span className={`text-sm font-bold ${meta.color}`}>{meta.label}</span>
+                    </div>
+                    {event.ai_response_short && (
+                      <p className="mt-2 text-xs leading-loose text-stone-500">{event.ai_response_short}</p>
+                    )}
+                    {event.shared_message && (
+                      <div className="mt-2 rounded-xl bg-white/80 px-3 py-2">
+                        <p className="text-[10px] text-stone-400 mb-0.5">伝えてくれたこと</p>
+                        <p className="text-xs leading-relaxed text-stone-700">「{event.shared_message}」</p>
+                      </div>
+                    )}
+                    {reaction && (
+                      <div className="mt-2 rounded-xl bg-sky-100/60 px-3 py-1.5">
+                        <p className="text-xs text-sky-700">→ 「{reaction}」</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )
       })}
