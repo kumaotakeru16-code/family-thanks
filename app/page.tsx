@@ -496,7 +496,7 @@ function generateAiResponse(
         empathy: `${hookLine}余裕がない時ほど、強く反応しちゃうよね。`,
         interpretation:
           '怒りというより、負荷が重なって反応しやすくなっている状態かもしれない。',
-        nextStep: '今は結論を出さず、まず1つだけ負担を減らそう。',
+        nextStep: '今は結論を出さず、まず1つだけ負担を減らしてみよう。',
       }
     }
   }
@@ -517,7 +517,7 @@ function generateAiResponse(
         empathy: `${hookLine}眠れない日が続くと、気持ちも落ちやすくなるよね。`,
         interpretation:
           '気持ちの問題というより、体力の低下が影響している可能性がある。',
-        nextStep: '今日は回復を優先して、少しでも休める時間を確保しよう。',
+        nextStep: '今日は回復を優先して、少しでも休める時間を確保してみよう。',
       }
     }
   }
@@ -555,46 +555,46 @@ function generateAiResponse(
 
 const ACTION_TABLE: Partial<Record<EmotionType, Partial<Record<ContextTag | 'none', ActionSuggestion>>>> = {
   angry: {
-    sick:         { label: '今日は家事を全部スキップしていい',               reason: '体調の日は休むが正解',     impact: 'high'   },
-    sleep_dep:    { label: '今夜は1つだけ手放していい',                      reason: '全部やらなくていい',       impact: 'high'   },
-    chore_burden: { label: '「これだけ代わってほしい」を1つ決めておいていい', reason: '1つ伝えるだけでいい',     impact: 'medium' },
-    isolated:     { label: '今日は「5分だけ話せる？」とだけ聞いていい',       reason: '入口だけ開ければいい',   impact: 'medium' },
-    relationship: { label: '「気づいてほしかった」の一言だけ伝えていい',     reason: '責めなくていい',           impact: 'medium' },
-    work_stress:  { label: '今日だけ、仕事の通知を1時間切っていい',          reason: '1時間だけでいい',         impact: 'medium' },
-    child_care:   { label: '子どもが落ち着いたら3分だけ別室に移動していい',  reason: '離れる時間があっていい',   impact: 'low'    },
-    none:         { label: '返信や返答を少し後回しにしていい',               reason: '今すぐ解決しなくていい',   impact: 'low'    },
+    sick:         { label: '今日は家事を全部スキップしていい',               reason: '体調が悪い日は動くほど回復が遅れる、休むことが正解',  impact: 'high'   },
+    sleep_dep:    { label: '今夜は1つだけ手放していい',                      reason: '寝不足の日はどうせ全部できない、1つ減らすだけでいい',  impact: 'high'   },
+    chore_burden: { label: '「これだけ代わってほしい」を1つ決めておいていい', reason: '全部頼まなくていい、1つ伝えるだけで状況は動き始める',  impact: 'medium' },
+    isolated:     { label: '今日は「5分だけ話せる？」とだけ聞いていい',       reason: '入口だけ開ければいい、そこから先は相手が入ってこられる', impact: 'medium' },
+    relationship: { label: '「気づいてほしかった」の一言だけ伝えていい',     reason: '責める言葉より気持ちを伝える言葉の方が相手に届きやすい', impact: 'medium' },
+    work_stress:  { label: '今日だけ、仕事の通知を1時間切っていい',          reason: '通知が来ると気持ちが休まらない、1時間切るだけで変わる',  impact: 'medium' },
+    child_care:   { label: '子どもが落ち着いたら3分だけ別室に移動していい',  reason: '少し離れる時間があるだけで、気持ちがリセットしやすくなる', impact: 'low'    },
+    none:         { label: '返信や返答を少し後回しにしていい',               reason: '今すぐ解決しなくていい、時間を置くだけで見え方が変わる',  impact: 'low'    },
   },
   sad: {
-    sick:         { label: '今日の予定を1つキャンセルしていい',          reason: '予定を守らなくていい',  impact: 'high'   },
-    sleep_dep:    { label: '今夜は30分早く横になっていい',               reason: 'それだけでいい',        impact: 'medium' },
-    isolated:     { label: '「さみしかった」の一言だけ誰かに送っていい', reason: 'それだけで十分',        impact: 'high'   },
-    relationship: { label: '「最近しんどかった」の一言だけ伝えていい',   reason: '全部説明しなくていい',  impact: 'medium' },
-    none:         { label: '今日は「やる気が出ない」を責めなくていい',   reason: 'そういう日があっていい',  impact: 'low'    },
+    sick:         { label: '今日の予定を1つキャンセルしていい',          reason: '体調が悪い時は予定を守ることより回復を優先していい',    impact: 'high'   },
+    sleep_dep:    { label: '今夜は30分早く横になっていい',               reason: '少し早く休むだけで、次の日の気持ちが変わることがある',  impact: 'medium' },
+    isolated:     { label: '「さみしかった」の一言だけ誰かに送っていい', reason: '一言送るだけで「一人じゃない」感覚が戻ってくることがある', impact: 'high'   },
+    relationship: { label: '「最近しんどかった」の一言だけ伝えていい',   reason: '全部説明しなくても、しんどさを短く伝えるだけで十分届く',  impact: 'medium' },
+    none:         { label: '今日は「やる気が出ない」を責めなくていい',   reason: '何もできなくなる日は誰にでもある、責めなくていい日がある', impact: 'low'    },
   },
   tired: {
-    sick:         { label: '今夜の夕食を作らなくていい',                 reason: '今日はスキップでいい',   impact: 'high'   },
-    sleep_dep:    { label: '今日の昼間に15分だけ横になっていい',         reason: '15分だけでいい',         impact: 'high'   },
-    chore_burden: { label: '今日の家事を1つスキップしていい',            reason: '全部やらなくていい',     impact: 'medium' },
-    work_stress:  { label: '今日の仕事はここで終わりにしていい',         reason: '反省は明日でいい',       impact: 'low'    },
-    child_care:   { label: '「今夜30分だけ代わってほしい」と伝えていい', reason: '一人でやらなくていい',   impact: 'high'   },
-    none:         { label: '今夜はスマホを置いて早めに横になっていい',   reason: 'それだけでいい',         impact: 'medium' },
+    sick:         { label: '今夜の夕食を作らなくていい',                 reason: '体調の悪い日に夕食を作ると回復が遅れる、今日はスキップでいい', impact: 'high'   },
+    sleep_dep:    { label: '今日の昼間に15分だけ横になっていい',         reason: 'たった15分でも横になると、体の疲れの感覚が少し変わる',    impact: 'high'   },
+    chore_burden: { label: '今日の家事を1つスキップしていい',            reason: '全部やろうとするから消耗する、1つやめるだけで夜の余裕が変わる', impact: 'medium' },
+    work_stress:  { label: '今日の仕事はここで終わりにしていい',         reason: '疲れて続けても成果は出にくい、区切ることが回復につながる', impact: 'low'    },
+    child_care:   { label: '「今夜30分だけ代わってほしい」と伝えていい', reason: '一人でやり続けるより頼んだ方が、お互いのためになることがある', impact: 'high'   },
+    none:         { label: '今夜はスマホを置いて早めに横になっていい',   reason: 'スマホを置くだけで脳の休息モードに切り替わりやすくなる',  impact: 'medium' },
   },
   anxious: {
-    sick:        { label: '今日は「体を治す」だけでいい',               reason: '他は後回しでいい',       impact: 'high'   },
-    work_stress: { label: '今一番気になってることを1行だけメモしていい', reason: '外に出すだけでいい',     impact: 'medium' },
-    financial:   { label: '今月の支出を1項目だけ確認すればいい',        reason: '1つだけ見ればいい',      impact: 'medium' },
-    child_care:  { label: '今日の育児は「これだけできれば十分」でいい', reason: '完璧にしなくていい',     impact: 'medium' },
-    none:        { label: '今一番気になってることを声に出すだけでいい', reason: '声に出すだけでいい',     impact: 'low'    },
+    sick:        { label: '今日は「体を治す」だけでいい',               reason: '体を治すことを優先すると、気持ちも自然と落ち着いてくる',     impact: 'high'   },
+    work_stress: { label: '今一番気になってることを1行だけメモしていい', reason: '頭の中にある不安を外に出すだけで、実際より小さく見えてくる',  impact: 'medium' },
+    financial:   { label: '今月の支出を1項目だけ確認すればいい',        reason: '全部を一度に見ようとすると不安が大きくなる、1項目から始めていい', impact: 'medium' },
+    child_care:  { label: '今日の育児は「これだけできれば十分」でいい', reason: '「これだけ」という基準を今日だけ下げてみると、気持ちが楽になる', impact: 'medium' },
+    none:        { label: '今一番気になってることを声に出すだけでいい', reason: '声に出すだけで、頭の中でループしていた不安の勢いが弱まることがある', impact: 'low'    },
   },
   calm: {
     none: { label: 'パートナーに「ありがとう」を伝える', impact: 'high' },
   },
   lonely: {
-    sleep_dep:    { label: '夜中に起きたとき「起きてる」とだけ送っていい',   reason: '一言だけでいい',       impact: 'low'    },
-    isolated:     { label: '「最近一人でやりすぎてた」の一言だけ伝えていい', reason: '全部説明しなくていい', impact: 'high'   },
-    relationship: { label: '「さみしかった」の一言だけ伝えていい',           reason: 'それだけで届く',       impact: 'high'   },
-    child_care:   { label: '今日は自分のために5分使っていい',               reason: '自分の時間があっていい', impact: 'medium' },
-    none:         { label: '「さみしかった」を一言だけ誰かに伝えていい',     reason: '言葉にするだけでいい', impact: 'medium' },
+    sleep_dep:    { label: '夜中に起きたとき「起きてる」とだけ送っていい',   reason: '一言送ることで夜中でも繋がってる感覚が少し戻ってくることがある', impact: 'low'    },
+    isolated:     { label: '「最近一人でやりすぎてた」の一言だけ伝えていい', reason: '全部説明しなくても、その一言から始めるだけで状況は動き出す',   impact: 'high'   },
+    relationship: { label: '「さみしかった」の一言だけ伝えていい',           reason: '責める言葉じゃない、気持ちを伝えるシンプルな言葉だから届く',   impact: 'high'   },
+    child_care:   { label: '今日は自分のために5分使っていい',               reason: '毎日誰かのためだけに動いていると、自分のための時間が消えていく', impact: 'medium' },
+    none:         { label: '「さみしかった」を一言だけ誰かに伝えていい',     reason: '言葉にすることで、一人で抱えていた感覚が少しだけ外に出せる',   impact: 'medium' },
   },
 }
 
@@ -659,7 +659,7 @@ async function generateActionSuggestion(
     if (isRelationshipIssue) {
       return {
         label: '5分だけ気持ちをつなぐ',
-        reason: '全部を説明しようとせず、「少しだけ聞いてほしい」と短く伝えるだけでも十分。',
+        reason: '全部を説明しなくていい、「少しだけ聞いてほしい」の一言から始めるだけで十分',
         impact: 'high',
       }
     }
@@ -667,7 +667,7 @@ async function generateActionSuggestion(
     if (isChildCareIssue || isSleepIssue) {
       return {
         label: '助けてほしいことを1つに絞る',
-        reason: '全部を分かってもらうより、1つだけ頼む方が伝わりやすい。',
+        reason: '全部を分かってもらうより1つだけ頼む方が伝わりやすく、動いてもらいやすい',
         impact: 'high',
       }
     }
@@ -2754,7 +2754,7 @@ return (
     {flow.step === 'responding' && (
       <div className="rounded-3xl bg-white px-5 py-8 text-center shadow-sm ring-1 ring-black/5">
         <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-indigo-500" />
-        <p className="text-sm font-semibold text-stone-500">気持ちを整理してる…</p>
+        <p className="text-sm font-semibold text-stone-400">言葉を整えています…</p>
       </div>
     )}
 
@@ -2766,7 +2766,7 @@ return (
             <p className="text-sm text-stone-400">{exitMessage}</p>
           </div>
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-6">
             {/* ① AI一言（補助・最上位） */}
             <AiResponseCard response={flow.aiResponse} />
 
@@ -2871,9 +2871,9 @@ return (
 type RelationState = 'stable' | 'drifting' | 'recovering'
 
 const RELATION_LABEL: Record<RelationState, string> = {
-  stable:     '安定',
-  drifting:   'ズレ気味',
-  recovering: '回復中',
+  stable:     '安定してる',
+  drifting:   '少しズレてる',
+  recovering: '戻りつつある',
 }
 
 function getRelationState(history: number[]): RelationState {
@@ -2889,8 +2889,12 @@ function getRelationState(history: number[]): RelationState {
 }
 
 function generateWave(history: number[]): number[] {
-  return history.map((h) => {
-    const noise = (Math.random() - 0.5) * 0.07
+  return history.map((h, i) => {
+    const prev = history[i - 1] ?? h
+    const delta = Math.abs(h - prev)
+    // フラット区間（連続して変化が少ない点）はノイズを最小限に抑える
+    const amplitude = delta > 0.1 ? 0.07 : 0.02
+    const noise = (Math.random() - 0.5) * amplitude
     return Math.min(1, Math.max(0, h + noise))
   })
 }
