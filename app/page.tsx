@@ -1,16 +1,16 @@
 'use client'
 
 /**
- * きもちの整理 v3.2
+ * きもちの整理 v3.3
  *
- * v3.1 → v3.2 変更点:
- * - markShared: .select().single() 追加、詳細ログ出力
- * - useEmotionFlow: savedEventIdRef (useRef) 追加 → stale closure 対策
- * - shareWithPartner: ログ追加、ref から eventId を優先参照
- * - submit: savedEventIdRef を同期更新
- * - QuickMoodSection: ワンタップ「今日どう？」UI 追加 (🙂😐😵😢)
- * - HomeTab: idle 時に QuickMoodSection を表示
- * - Page: handleQuickMood (solo_logs 保存) 追加
+ * v3.2 → v3.3 変更点:
+ * - AiResponse に short? 追加、UI は short ?? empathy で短文表示
+ * - AiResponseCard から未使用 emotion 引数を除去
+ * - ACTION_TABLE / lonely generators の reason を全て20字以内に短縮
+ * - ActionSuggestionCard をグラデーション+装飾で視覚的主役に格上げ
+ * - generateWave に位相ノイズを追加してフラット区間を排除
+ * - getRelationState を前後半平均比較のトレンドベース判定に変更
+ * - lonely: LonelySelectorSection 専用フロー確立、接続回復寄せ
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -47,6 +47,7 @@ type EmotionEvent = {
 
 type AiResponse = {
   empathy: string
+  short?: string          // 短文表示用（未指定時は empathy にフォールバック）
   interpretation: string
   nextStep: string
 }
@@ -554,46 +555,46 @@ function generateAiResponse(
 
 const ACTION_TABLE: Partial<Record<EmotionType, Partial<Record<ContextTag | 'none', ActionSuggestion>>>> = {
   angry: {
-    sick:         { label: '今日は家事を全部スキップしていい',               reason: '体調が悪い日は「休む」が唯一の正解',           impact: 'high'   },
-    sleep_dep:    { label: '今夜は1つだけ手放していい',                      reason: '全部やろうとしなくていい夜がある',             impact: 'high'   },
-    chore_burden: { label: '「これだけ代わってほしい」を1つ決めておいていい', reason: '全部解決しなくていい。1つだけ伝えるだけでいい', impact: 'medium' },
-    isolated:     { label: '今日は「5分だけ話せる？」とだけ聞いていい',       reason: '全部説明しなくていい。入口だけ開ければいい',   impact: 'medium' },
-    relationship: { label: '「気づいてほしかった」の一言だけ伝えていい',     reason: '責めなくていい。それだけで十分伝わる',          impact: 'medium' },
-    work_stress:  { label: '今日だけ、仕事の通知を1時間切っていい',          reason: 'ずっとオンにしなくていい。1時間だけでいい',    impact: 'medium' },
-    child_care:   { label: '子どもが落ち着いたら3分だけ別室に移動していい',  reason: '離れる時間を作っていい',                       impact: 'low'    },
-    none:         { label: '返信や返答を少し後回しにしていい',               reason: '今すぐ全部解決しなくていい',                   impact: 'low'    },
+    sick:         { label: '今日は家事を全部スキップしていい',               reason: '体調の日は休むが正解',     impact: 'high'   },
+    sleep_dep:    { label: '今夜は1つだけ手放していい',                      reason: '全部やらなくていい',       impact: 'high'   },
+    chore_burden: { label: '「これだけ代わってほしい」を1つ決めておいていい', reason: '1つ伝えるだけでいい',     impact: 'medium' },
+    isolated:     { label: '今日は「5分だけ話せる？」とだけ聞いていい',       reason: '入口だけ開ければいい',   impact: 'medium' },
+    relationship: { label: '「気づいてほしかった」の一言だけ伝えていい',     reason: '責めなくていい',           impact: 'medium' },
+    work_stress:  { label: '今日だけ、仕事の通知を1時間切っていい',          reason: '1時間だけでいい',         impact: 'medium' },
+    child_care:   { label: '子どもが落ち着いたら3分だけ別室に移動していい',  reason: '離れる時間があっていい',   impact: 'low'    },
+    none:         { label: '返信や返答を少し後回しにしていい',               reason: '今すぐ解決しなくていい',   impact: 'low'    },
   },
   sad: {
-    sick:         { label: '今日の予定を1つキャンセルしていい',          reason: '体がしんどい日は予定を守らなくていい',  impact: 'high'   },
-    sleep_dep:    { label: '今夜は30分早く横になっていい',               reason: 'それだけでいい',                        impact: 'medium' },
-    isolated:     { label: '「さみしかった」の一言だけ誰かに送っていい', reason: '全部話さなくていい。それだけで十分',      impact: 'high'   },
-    relationship: { label: '「最近しんどかった」の一言だけ伝えていい',   reason: '全部説明しなくていい',                  impact: 'medium' },
-    none:         { label: '今日は「やる気が出ない」を責めなくていい',   reason: 'やる気がない日があっていい',              impact: 'low'    },
+    sick:         { label: '今日の予定を1つキャンセルしていい',          reason: '予定を守らなくていい',  impact: 'high'   },
+    sleep_dep:    { label: '今夜は30分早く横になっていい',               reason: 'それだけでいい',        impact: 'medium' },
+    isolated:     { label: '「さみしかった」の一言だけ誰かに送っていい', reason: 'それだけで十分',        impact: 'high'   },
+    relationship: { label: '「最近しんどかった」の一言だけ伝えていい',   reason: '全部説明しなくていい',  impact: 'medium' },
+    none:         { label: '今日は「やる気が出ない」を責めなくていい',   reason: 'そういう日があっていい',  impact: 'low'    },
   },
   tired: {
-    sick:         { label: '今夜の夕食を作らなくていい',                    reason: '体調が悪い日は料理をスキップしていい', impact: 'high'   },
-    sleep_dep:    { label: '今日の昼間に15分だけ横になっていい',            reason: '15分だけでいい',                       impact: 'high'   },
-    chore_burden: { label: '今日の家事を1つスキップしていい',               reason: '全部やらなくていい日がある',           impact: 'medium' },
-    work_stress:  { label: '今日の仕事はここで終わりにしていい',            reason: 'まず労う。反省は明日でいい',           impact: 'low'    },
-    child_care:   { label: '「今夜30分だけ代わってほしい」と伝えていい',    reason: '全部一人でやらなくていい',             impact: 'high'   },
-    none:         { label: '今夜はスマホを置いて早めに横になっていい',      reason: 'それだけでいい',                       impact: 'medium' },
+    sick:         { label: '今夜の夕食を作らなくていい',                 reason: '今日はスキップでいい',   impact: 'high'   },
+    sleep_dep:    { label: '今日の昼間に15分だけ横になっていい',         reason: '15分だけでいい',         impact: 'high'   },
+    chore_burden: { label: '今日の家事を1つスキップしていい',            reason: '全部やらなくていい',     impact: 'medium' },
+    work_stress:  { label: '今日の仕事はここで終わりにしていい',         reason: '反省は明日でいい',       impact: 'low'    },
+    child_care:   { label: '「今夜30分だけ代わってほしい」と伝えていい', reason: '一人でやらなくていい',   impact: 'high'   },
+    none:         { label: '今夜はスマホを置いて早めに横になっていい',   reason: 'それだけでいい',         impact: 'medium' },
   },
   anxious: {
-    sick:        { label: '今日は「体を治す」だけでいい',                 reason: '他は全部後回しにしていい',                impact: 'high'   },
-    work_stress: { label: '今一番気になってることを1行だけメモしていい',  reason: '全部解決しなくていい。外に出すだけでいい', impact: 'medium' },
-    financial:   { label: '今月の支出を1項目だけ確認すればいい',         reason: '全体を把握しなくていい。1つだけ見ればいい', impact: 'medium' },
-    child_care:  { label: '今日の育児は「これだけできれば十分」でいい',  reason: '全部完璧にしなくていい',                  impact: 'medium' },
-    none:        { label: '今一番気になってることを声に出すだけでいい',  reason: '解決しなくていい。声に出すだけでいい',    impact: 'low'    },
+    sick:        { label: '今日は「体を治す」だけでいい',               reason: '他は後回しでいい',       impact: 'high'   },
+    work_stress: { label: '今一番気になってることを1行だけメモしていい', reason: '外に出すだけでいい',     impact: 'medium' },
+    financial:   { label: '今月の支出を1項目だけ確認すればいい',        reason: '1つだけ見ればいい',      impact: 'medium' },
+    child_care:  { label: '今日の育児は「これだけできれば十分」でいい', reason: '完璧にしなくていい',     impact: 'medium' },
+    none:        { label: '今一番気になってることを声に出すだけでいい', reason: '声に出すだけでいい',     impact: 'low'    },
   },
   calm: {
-    none: { label: 'パートナーに「ありがとう」を伝える', reason: '余裕がある今こそ、関係を少し前進させるチャンス。', impact: 'high' },
+    none: { label: 'パートナーに「ありがとう」を伝える', impact: 'high' },
   },
   lonely: {
-    sleep_dep:    { label: '夜中に起きたとき「起きてる」とだけ送っていい',   reason: '長いメッセージじゃなくていい',                    impact: 'low'    },
-    isolated:     { label: '「最近一人でやりすぎてた」の一言だけ伝えていい', reason: '全部説明しなくていい',                            impact: 'high'   },
-    relationship: { label: '「さみしかった」の一言だけ伝えていい',           reason: '怒りや不満として伝えなくていい。それだけで届く',   impact: 'high'   },
-    child_care:   { label: '今日は自分のために5分使っていい',               reason: '何でもいい。自分のための時間を持っていい',        impact: 'medium' },
-    none:         { label: '「さみしかった」を一言だけ誰かに伝えていい',     reason: '言葉にするだけでいい',                            impact: 'medium' },
+    sleep_dep:    { label: '夜中に起きたとき「起きてる」とだけ送っていい',   reason: '一言だけでいい',       impact: 'low'    },
+    isolated:     { label: '「最近一人でやりすぎてた」の一言だけ伝えていい', reason: '全部説明しなくていい', impact: 'high'   },
+    relationship: { label: '「さみしかった」の一言だけ伝えていい',           reason: 'それだけで届く',       impact: 'high'   },
+    child_care:   { label: '今日は自分のために5分使っていい',               reason: '自分の時間があっていい', impact: 'medium' },
+    none:         { label: '「さみしかった」を一言だけ誰かに伝えていい',     reason: '言葉にするだけでいい', impact: 'medium' },
   },
 }
 
@@ -1144,32 +1145,38 @@ function pick3(arr: string[]) {
 ═══════════════════════════════════════════════════ */
 
 function generateLonelyAiResponse(tag: LonelyTag | null): AiResponse {
-  const empathyMap: Record<LonelyTag, string> = {
-    not_noticed:   '気づいてほしい気持ち、ちゃんとあるよね。',
-    less_talk:     '会話が少ないと、じわじわ孤独になってくるよね。',
-    carry_alone:   'ひとりで抱えてる感覚、静かにしんどいよね。',
-    feel_distance: '近くにいるのに距離を感じるのは、しんどいよね。',
-    hard_to_ask:   '頼りづらいと、どんどんひとりになっていくよね。',
-    seems_busy:    '余裕がなさそうだと、自分の気持ちを後回しにしてしまうよね。',
-    not_fulfilled: 'なんとなく満たされない感じ、うまく言えなくてもそれは本物だよ。',
+  type LonelyEntry = { empathy: string; short: string }
+  const empathyMap: Record<LonelyTag, LonelyEntry> = {
+    not_noticed:   { empathy: '気づいてほしい気持ち、あるよね。',       short: '気づいてほしい感じ。' },
+    less_talk:     { empathy: 'ちょっとさみしくなってるのかも。',       short: 'ちょっとさみしかったのかも。' },
+    carry_alone:   { empathy: 'ひとりで抱えてる感じ、あるよね。',       short: 'ひとりで抱えてる感じ。' },
+    feel_distance: { empathy: '距離を感じてるのかも。',                 short: '距離を感じてるのかも。' },
+    hard_to_ask:   { empathy: '頼りづらい感じ、あるよね。',             short: '頼りづらい感じ。' },
+    seems_busy:    { empathy: '言い出しにくい感じ、あるよね。',         short: '言い出しにくかったのかも。' },
+    not_fulfilled: { empathy: 'なんとなく満たされない感じ、あるかも。', short: 'なんとなく満たされない感じ。' },
   }
-  const empathy = tag ? empathyMap[tag] : 'ひとりで抱えてる感覚、静かにしんどいよね。'
-  return { empathy, interpretation: '', nextStep: '' }
+  const found = tag ? empathyMap[tag] : null
+  return {
+    empathy: found?.empathy ?? 'ひとりで抱えてる感じ、あるよね。',
+    short:   found?.short   ?? 'ひとりで抱えてる感じ。',
+    interpretation: '',
+    nextStep: '',
+  }
 }
 
 function generateLonelyActionSuggestion(tag: LonelyTag | null): ActionSuggestion {
   const actionMap: Record<LonelyTag, ActionSuggestion> = {
-    not_noticed:   { label: '「気づいてほしかった」の一言だけ伝えていい',   reason: '責めなくていい。それだけで届く。' },
-    less_talk:     { label: '5分だけ話せる時間を作っていい',               reason: '全部話さなくていい。入口だけ開ければいい。' },
-    carry_alone:   { label: '助けてほしいことを1つに絞って伝えていい',      reason: '全部分かってもらわなくていい。1つだけでいい。' },
-    feel_distance: { label: '「少し話せる？」とだけ聞いていい',             reason: '全部説明しなくていい。入口だけ開ければいい。' },
-    hard_to_ask:   { label: '「一個だけお願いしていい？」と聞いていい',    reason: '完璧なお願いの仕方じゃなくていい。' },
-    seems_busy:    { label: '「少しだけ聞いてほしい」と送っていい',         reason: '相手の余裕を待たなくていい。気持ちだけ先に伝えていい。' },
-    not_fulfilled: { label: '「さみしい」の一言だけ伝えていい',             reason: '理由を説明しなくていい。' },
+    not_noticed:   { label: '「気づいてほしかった」の一言だけ伝えていい',   reason: '責めなくていい' },
+    less_talk:     { label: '5分だけ話せる時間を作っていい',               reason: '入口だけ開ければいい' },
+    carry_alone:   { label: '助けてほしいことを1つに絞って伝えていい',      reason: '1つだけでいい' },
+    feel_distance: { label: '「少し話せる？」とだけ聞いていい',             reason: '入口だけでいい' },
+    hard_to_ask:   { label: '「一個だけお願いしていい？」と聞いていい',     reason: '言い方は完璧じゃなくていい' },
+    seems_busy:    { label: '「少しだけ聞いてほしい」と送っていい',         reason: '余裕を待たなくていい' },
+    not_fulfilled: { label: '「さみしい」の一言だけ伝えていい',             reason: '理由を言わなくていい' },
   }
   return tag
     ? actionMap[tag]
-    : { label: '「さみしかった」の一言だけ誰かに伝えていい', reason: '言葉にするだけでいい。' }
+    : { label: '「さみしかった」の一言だけ誰かに伝えていい', reason: '言葉にするだけでいい' }
 }
 
 function generateLonelySharePlan(tag: LonelyTag | null): SharePlan {
@@ -2187,34 +2194,73 @@ function EmotionComposerSheet({
   )
 }
 
-function AiResponseCard({ response, emotion }: { response: AiResponse; emotion: EmotionType }) {
+function AiResponseCard({ response }: { response: AiResponse }) {
+  const text = (() => {
+    if (response.short) return response.short
+    const match = response.empathy.match(/^[^。！？]+[。！？]/)
+    return match ? match[0] : response.empathy
+  })()
   return (
     <div style={{ animation: 'fadeUp .4s ease-out both' }}>
-      <p className="px-1 text-sm leading-relaxed text-stone-500">{response.empathy}</p>
+      <p className="px-1 text-sm text-stone-400">{text}</p>
     </div>
   )
 }
 
-function ActionSuggestionCard({ suggestion, recovered, onRecovered }: {
+function ActionSuggestionCard({ suggestion, recovered, onRecovered, hideRecoveryButton, isCalm }: {
   suggestion: ActionSuggestion; recovered: boolean; onRecovered: () => void
+  hideRecoveryButton?: boolean
+  isCalm?: boolean
 }) {
   if (recovered) {
     return (
-      <div className="rounded-3xl bg-emerald-50 ring-1 ring-emerald-200 px-5 py-4" style={{ animation: 'fadeUp .35s ease-out both' }}>
+      <div className="rounded-3xl bg-emerald-50 ring-1 ring-emerald-200 px-5 py-5" style={{ animation: 'fadeUp .35s ease-out both' }}>
         <p className="text-base font-bold text-emerald-700">{suggestion.label}</p>
         <p className="mt-1 text-xs text-emerald-500">それだけでも十分。</p>
       </div>
     )
   }
 
+  if (isCalm) {
+    return (
+      <div className="overflow-hidden rounded-3xl bg-teal-50 ring-1 ring-teal-200" style={{ animation: 'fadeUp .35s ease-out both' }}>
+        <div className="px-6 py-5">
+          <p className="text-xl font-bold leading-snug tracking-tight text-teal-800">{suggestion.label}</p>
+          {suggestion.reason && (
+            <p className="mt-2 text-xs text-teal-600/70">{suggestion.reason}</p>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="overflow-hidden rounded-3xl bg-indigo-600 shadow-md" style={{ animation: 'fadeUp .35s ease-out both' }}>
-      <div className="px-5 py-5">
-        <p className="text-[22px] font-extrabold leading-tight tracking-tight text-white">{suggestion.label}</p>
+    <div
+      className="overflow-hidden rounded-3xl shadow-lg shadow-indigo-500/20"
+      style={{
+        background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+        animation: 'fadeUp .35s ease-out both',
+      }}
+    >
+      {/* 右上の装飾サークル */}
+      <div className="relative px-6 py-6 overflow-hidden">
+        <div className="pointer-events-none absolute -right-6 -top-6 h-28 w-28 rounded-full bg-white/5" />
+        <div className="pointer-events-none absolute -right-2 -top-2 h-14 w-14 rounded-full bg-white/5" />
+
+        <p className="text-[24px] font-extrabold leading-snug tracking-tight text-white">
+          {suggestion.label}
+        </p>
         {suggestion.reason && (
-          <p className="mt-2 text-xs leading-relaxed text-white/60">{suggestion.reason}</p>
+          <p className="mt-2 text-xs font-medium text-white/50">{suggestion.reason}</p>
         )}
-        <button onClick={onRecovered} className="mt-4 text-xs text-white/40 underline underline-offset-2 hover:text-white/70 transition">少し落ち着いた</button>
+        {!hideRecoveryButton && (
+          <button
+            onClick={onRecovered}
+            className="mt-5 text-xs text-white/30 underline underline-offset-2 hover:text-white/60 transition"
+          >
+            少し落ち着いた
+          </button>
+        )}
       </div>
     </div>
   )
@@ -2516,6 +2562,16 @@ function HomeTab({
     if (typeof window === 'undefined') return false
     return !localStorage.getItem('kt_hint_seen')
   })
+  const [exitMessage, setExitMessage] = useState<string | null>(null)
+
+  const handleResetWithFade = useCallback(() => {
+    const msgs = ['この気持ち、大切にね。', '少し整ってきたかも。', 'そのままでいいよ。']
+    setExitMessage(msgs[Math.floor(Math.random() * msgs.length)])
+    setTimeout(() => {
+      setExitMessage(null)
+      onReset()
+    }, 1000)
+  }, [onReset])
 
   useEffect(() => {
     if (!showFirstVisitHint) localStorage.setItem('kt_hint_seen', '1')
@@ -2668,84 +2724,107 @@ return (
     {/* done フロー */}
     {flow.step === 'done' && flow.emotion && flow.aiResponse && (
       <div style={{ animation: 'fadeUp .3s ease-out both' }}>
-        <div className="relative pl-6 space-y-8">
-          {/* タイムライン縦線 */}
-          <div className="absolute left-[11px] top-2 bottom-3 w-px bg-stone-100" />
-
-          {/* ④ AI整理（1行） */}
-          <div className="relative">
-            <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 ring-2 ring-white">
-              <span className="h-2 w-2 rounded-full bg-stone-300" />
-            </span>
-            <AiResponseCard response={flow.aiResponse} emotion={flow.emotion} />
+        {exitMessage ? (
+          <div className="py-10 text-center" style={{ animation: 'fadeUp .3s ease-out both' }}>
+            <p className="text-sm text-stone-400">{exitMessage}</p>
           </div>
+        ) : (
+          <div className="relative pl-6 space-y-8">
+            {/* タイムライン縦線 */}
+            <div className="absolute left-[11px] top-2 bottom-3 w-px bg-stone-100" />
 
-          {/* ⑤ まず一歩（主役） */}
-          {flow.actionSuggestion && (
-            <div className="relative">
-              <span className="absolute -left-6 top-6 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 ring-2 ring-white">
-                <span className="h-2 w-2 rounded-full bg-indigo-400" />
-              </span>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-2">まず一歩</p>
-              <ActionSuggestionCard suggestion={flow.actionSuggestion} recovered={flow.recovered} onRecovered={onRecovered} />
-              {/* ⑥ 代替行動（小さく） */}
-              {flow.altSuggestions.length > 0 && !flow.recovered && (
-                <div className="flex gap-2 mt-2">
-                  {flow.altSuggestions.slice(0, 2).map((s, i) => (
-                    <div key={i} className="flex-1 rounded-2xl bg-stone-100 px-3 py-2.5">
-                      <p className="text-xs font-medium text-stone-500 leading-snug">{s.label}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+            {/* ① まず一歩（主役・最上位） */}
+            {flow.actionSuggestion && (
+              <div className="relative">
+                <span className="absolute -left-6 top-6 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 ring-2 ring-white">
+                  <span className="h-2 w-2 rounded-full bg-indigo-400" />
+                </span>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-2">まず一歩</p>
+                <ActionSuggestionCard
+                  suggestion={flow.actionSuggestion}
+                  recovered={flow.recovered}
+                  onRecovered={onRecovered}
+                  hideRecoveryButton={flow.emotion === 'calm'}
+                  isCalm={flow.emotion === 'calm'}
+                />
+                {flow.altSuggestions.length > 0 && !flow.recovered && (
+                  <div className="flex gap-2 mt-2">
+                    {flow.altSuggestions.slice(0, 2).map((s, i) => (
+                      <div key={i} className="flex-1 rounded-2xl bg-stone-100 px-3 py-2.5">
+                        <p className="text-xs font-medium text-stone-500 leading-snug">{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
-          {/* ⑦ 伝えるならこんな感じ */}
-          {flow.sharePlan && (
+            {/* ② AI整理（補助・下） */}
             <div className="relative">
-              <span className="absolute -left-6 top-6 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 ring-2 ring-white">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              </span>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-2">伝えるならこんな感じ</p>
-              <ShareOptionSelector plan={flow.sharePlan} selectedId={flow.selectedShareOptionId} onSelect={onSelectShareOption} />
-            </div>
-          )}
-
-          {/* 翻訳メッセージ */}
-          {flow.translated && (
-            <div className="relative">
-              <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-teal-100 ring-2 ring-white">
-                <span className="h-2 w-2 rounded-full bg-teal-400" />
-              </span>
-              <ShareTranslationCard
-                translated={flow.translated}
-                hasPartner={hasPartner}
-                isSharing={flow.isSharing}
-                isShared={flow.isShared}
-                onShare={onShare}
-                tone={shareTone}
-                onToneChange={onToneChange}
-              />
-            </div>
-          )}
-
-          {/* 完了後 */}
-          {(flow.recovered || flow.isShared) && (
-            <div className="relative">
-              <span className="absolute -left-6 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 ring-2 ring-white">
+              <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 ring-2 ring-white">
                 <span className="h-2 w-2 rounded-full bg-stone-300" />
               </span>
-              <p className="text-xs text-stone-400 pl-1">{getRecoveryMessage(flow.emotion)}</p>
-              <button
-                onClick={onReset}
-                className="mt-3 pl-1 text-xs text-stone-400 underline underline-offset-2 hover:text-stone-600 transition"
-              >
-                もう一度整理する
-              </button>
+              <AiResponseCard response={flow.aiResponse} />
             </div>
-          )}
-        </div>
+
+            {/* ③ 伝えるならこんな感じ（calm 除外） */}
+            {flow.emotion !== 'calm' && flow.sharePlan && (
+              <div className="relative">
+                <span className="absolute -left-6 top-6 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 ring-2 ring-white">
+                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                </span>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-2">伝えるならこんな感じ</p>
+                <ShareOptionSelector plan={flow.sharePlan} selectedId={flow.selectedShareOptionId} onSelect={onSelectShareOption} />
+              </div>
+            )}
+
+            {/* ④ 翻訳（calm 除外） */}
+            {flow.emotion !== 'calm' && flow.translated && (
+              <div className="relative">
+                <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-teal-100 ring-2 ring-white">
+                  <span className="h-2 w-2 rounded-full bg-teal-400" />
+                </span>
+                <ShareTranslationCard
+                  translated={flow.translated}
+                  hasPartner={hasPartner}
+                  isSharing={flow.isSharing}
+                  isShared={flow.isShared}
+                  onShare={onShare}
+                  tone={shareTone}
+                  onToneChange={onToneChange}
+                />
+              </div>
+            )}
+
+            {/* calm の閉じるボタン */}
+            {flow.emotion === 'calm' && (
+              <div className="relative">
+                <button
+                  onClick={handleResetWithFade}
+                  className="pl-1 text-xs text-stone-400 underline underline-offset-2 hover:text-stone-600 transition"
+                >
+                  閉じる
+                </button>
+              </div>
+            )}
+
+            {/* 完了後（calm 以外） */}
+            {flow.emotion !== 'calm' && (flow.recovered || flow.isShared) && (
+              <div className="relative">
+                <span className="absolute -left-6 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 ring-2 ring-white">
+                  <span className="h-2 w-2 rounded-full bg-stone-300" />
+                </span>
+                <p className="text-xs text-stone-400 pl-1">{getRecoveryMessage(flow.emotion)}</p>
+                <button
+                  onClick={handleResetWithFade}
+                  className="mt-3 pl-1 text-xs text-stone-400 underline underline-offset-2 hover:text-stone-600 transition"
+                >
+                  もう一度整理する
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     )}
   </div>
@@ -2758,6 +2837,42 @@ return (
    HISTORY TAB
 ═══════════════════════════════════════════════════ */
 
+type RelationState = 'stable' | 'drifting' | 'recovering'
+
+const RELATION_LABEL: Record<RelationState, string> = {
+  stable:     '安定',
+  drifting:   'ズレ気味',
+  recovering: '回復中',
+}
+
+function getRelationState(history: number[]): RelationState {
+  if (history.length < 2) return 'stable'
+  // 前半平均 vs 後半平均でトレンドを判定（最後の1点差より安定）
+  const mid = Math.floor(history.length / 2)
+  const firstAvg = history.slice(0, mid).reduce((s, v) => s + v, 0) / mid
+  const secondAvg = history.slice(mid).reduce((s, v) => s + v, 0) / (history.length - mid)
+  const diff = secondAvg - firstAvg
+  if (diff > 0.08) return 'recovering'
+  if (diff < -0.08) return 'drifting'
+  return 'stable'
+}
+
+function generateWave(history: number[]): number[] {
+  // ランダムノイズ + 位相ノイズを合成してフラットな波を防ぐ
+  return history.map((h, i) => {
+    const phaseNoise = Math.sin(i * 1.9 + 0.7) * 0.1   // 決定論的な振動
+    const randomNoise = (Math.random() - 0.5) * 0.12   // ランダム成分
+    return Math.min(1, Math.max(0, h + phaseNoise + randomNoise))
+  })
+}
+
+function smoothWave(points: number[]): number[] {
+  return points.map((p, i) => {
+    if (i === 0 || i === points.length - 1) return p
+    return (points[i - 1] + p + points[i + 1]) / 3
+  })
+}
+
 function RelWaveChart({ events, sharedEvents }: { events: EmotionEvent[]; sharedEvents: EmotionEvent[] }) {
   const negativeEmotions = new Set(['angry', 'sad', 'tired', 'anxious', 'lonely'])
   const allItems = useMemo(() => {
@@ -2768,20 +2883,19 @@ function RelWaveChart({ events, sharedEvents }: { events: EmotionEvent[]; shared
     return combined.slice(-14)
   }, [events, sharedEvents])
 
+  const wavePoints = useMemo(() => {
+    const rawHistory = allItems.map(({ e }) =>
+      negativeEmotions.has(e.emotion_type) ? 0.2 : e.emotion_type === 'calm' ? 0.9 : 0.55
+    )
+    return smoothWave(generateWave(rawHistory))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allItems])
+
   if (allItems.length < 2) return null
 
   const W = 280, H = 48, PAD = 10
-  const rawScores = allItems.map(({ e }) =>
-    negativeEmotions.has(e.emotion_type) ? 0.15 : e.emotion_type === 'calm' ? 0.92 : 0.55
-  )
-  // 隣接データとブレンドしてなだらかにする
-  const scores = rawScores.map((s, i, arr) => {
-    const prev = arr[i - 1] ?? s
-    const next = arr[i + 1] ?? s
-    return s * 0.65 + prev * 0.175 + next * 0.175
-  })
-  const pts: [number, number][] = scores.map((s, i) => {
-    const x = PAD + (i / (scores.length - 1)) * (W - PAD * 2)
+  const pts: [number, number][] = wavePoints.map((s, i) => {
+    const x = PAD + (i / (wavePoints.length - 1)) * (W - PAD * 2)
     const y = PAD + (1 - s) * (H - PAD * 2)
     return [x, y]
   })
@@ -2794,42 +2908,29 @@ function RelWaveChart({ events, sharedEvents }: { events: EmotionEvent[]; shared
   }).join(' ')
 
   const lastPt = pts[pts.length - 1]
-  const lastScore = scores[scores.length - 1]
-  const statusText = lastScore > 0.7 ? 'いい感じ' : lastScore > 0.4 ? '大きく崩れてない' : '少しズレてるかも'
-  const dotColor = lastScore > 0.7 ? '#14b8a6' : lastScore > 0.4 ? '#6366f1' : '#f59e0b'
-  const statusColor = lastScore > 0.7 ? 'text-teal-600' : lastScore > 0.4 ? 'text-indigo-500' : 'text-amber-500'
+  const state = getRelationState(wavePoints)
+  const stateLabel = RELATION_LABEL[state]
 
   return (
     <div className="mb-4 rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-black/5">
       <div className="flex items-center justify-between mb-3">
         <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">関係の流れ</p>
-        <p className={`text-[11px] font-bold ${statusColor}`}>{statusText}</p>
+        <p className="text-[11px] font-bold text-stone-500">{stateLabel}</p>
       </div>
       <div className="relative">
         <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
-          <defs>
-            <linearGradient id="waveGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={dotColor} stopOpacity="0.1" />
-              <stop offset="100%" stopColor={dotColor} stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <path
-            d={`${d} L ${pts[pts.length - 1][0]} ${H} L ${pts[0][0]} ${H} Z`}
-            fill="url(#waveGrad)"
-          />
-          <path d={d} fill="none" stroke="#e7e5e4" strokeWidth="2" strokeLinecap="round" />
-          <path d={d} fill="none" stroke={dotColor} strokeWidth="1.5" strokeLinecap="round" opacity={0.5} />
+          <path d={d} fill="none" stroke="#d6d3d1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           {lastPt && (
             <>
-              <circle cx={lastPt[0]} cy={lastPt[1]} r="9" fill={dotColor} opacity={0.12} />
-              <circle cx={lastPt[0]} cy={lastPt[1]} r="5" fill={dotColor} />
-              <circle cx={lastPt[0]} cy={lastPt[1]} r="2" fill="white" />
+              <circle cx={lastPt[0]} cy={lastPt[1]} r="7" fill="#a8a29e" opacity={0.15} />
+              <circle cx={lastPt[0]} cy={lastPt[1]} r="4.5" fill="#57534e" />
+              <circle cx={lastPt[0]} cy={lastPt[1]} r="1.8" fill="white" />
             </>
           )}
         </svg>
         <div className="flex justify-between mt-1">
           <span className="text-[9px] text-stone-300">過去</span>
-          <span className="text-[9px] font-bold" style={{ color: dotColor }}>今</span>
+          <span className="text-[9px] text-stone-400">今</span>
         </div>
       </div>
     </div>
