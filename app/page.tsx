@@ -2904,11 +2904,9 @@ function getRelationState(history: number[]): RelationState {
 }
 
 function generateWave(history: number[]): number[] {
-  // ランダムノイズ + 位相ノイズを合成してフラットな波を防ぐ
-  return history.map((h, i) => {
-    const phaseNoise = Math.sin(i * 1.9 + 0.7) * 0.1   // 決定論的な振動
-    const randomNoise = (Math.random() - 0.5) * 0.12   // ランダム成分
-    return Math.min(1, Math.max(0, h + phaseNoise + randomNoise))
+  return history.map((h) => {
+    const noise = (Math.random() - 0.5) * 0.07
+    return Math.min(1, Math.max(0, h + noise))
   })
 }
 
@@ -2930,9 +2928,11 @@ function RelWaveChart({ events, sharedEvents }: { events: EmotionEvent[]; shared
   }, [events, sharedEvents])
 
   const wavePoints = useMemo(() => {
-    const rawHistory = allItems.map(({ e }) =>
-      negativeEmotions.has(e.emotion_type) ? 0.2 : e.emotion_type === 'calm' ? 0.9 : 0.55
-    )
+    const rawHistory = allItems.map(({ e }) => {
+      const base = negativeEmotions.has(e.emotion_type) ? 0.2 : e.emotion_type === 'calm' ? 0.9 : 0.55
+      const reactionBoost = e.partner_reaction ? 0.15 : 0
+      return Math.min(1, base + reactionBoost)
+    })
     return smoothWave(generateWave(rawHistory))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allItems])
@@ -2990,16 +2990,16 @@ function HistoryTab({
   events: EmotionEvent[]
   sharedEvents: EmotionEvent[]
 }) {
-  type TLItem = { event: EmotionEvent; mine: boolean }
+  type TLItem =
+    | { kind: 'mine';    event: EmotionEvent }
+    | { kind: 'partner'; event: EmotionEvent }
 
-  // Group items by calendar date
   const dayGroups = useMemo(() => {
-    const mine = events.map(e => ({ event: e, mine: true }))
-    const theirs = sharedEvents.map(e => ({ event: e, mine: false }))
-    const all: TLItem[] = [...mine, ...theirs].sort(
+    const mine:    TLItem[] = events.map(e => ({ kind: 'mine',    event: e }))
+    const theirs:  TLItem[] = sharedEvents.map(e => ({ kind: 'partner', event: e }))
+    const all = [...mine, ...theirs].sort(
       (a, b) => new Date(b.event.created_at).getTime() - new Date(a.event.created_at).getTime()
     )
-    // Group by date string YYYY-MM-DD
     const groups = new Map<string, TLItem[]>()
     for (const item of all) {
       const d = new Date(item.event.created_at)
@@ -3022,20 +3022,14 @@ function HistoryTab({
     return `${parseInt(m)}月${parseInt(d)}日`
   }
 
-  const fmtTime = (s: string) => new Date(s).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+  const fmtTime = (s: string) =>
+    new Date(s).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
 
   const reactionWord = (r: EmotionEvent['partner_reaction']) => {
-    if (r === 'ack') return 'わかったよ'
-    if (r === 'soon') return 'あとで行くね'
+    if (r === 'ack')   return 'わかったよ'
+    if (r === 'soon')  return 'あとで行くね'
     if (r === 'on_it') return 'やっておくね'
     return null
-  }
-
-  const getDayRelStatus = (items: TLItem[]) => {
-    const neg = items.filter(i => ['angry', 'sad', 'tired', 'anxious', 'lonely'].includes(i.event.emotion_type)).length
-    if (neg === 0) return 'いい感じ'
-    if (neg <= 1) return '大きく崩れてない'
-    return '少しズレてるかも'
   }
 
   if (dayGroups.length === 0) {
@@ -3049,94 +3043,101 @@ function HistoryTab({
 
   return (
     <div className="space-y-6">
-      {/* 関係の流れグラフ */}
       <RelWaveChart events={events} sharedEvents={sharedEvents} />
 
-      {dayGroups.map(([dateKey, items]) => {
-        const dayLabel = fmtDayLabel(dateKey)
-        const relStatus = getDayRelStatus(items)
-        const myItems = items.filter(i => i.mine)
-        const theirItems = items.filter(i => !i.mine)
+      {dayGroups.map(([dateKey, dayItems]) => (
+        <div key={dateKey} className="space-y-3">
+          {/* 日付ヘッダー */}
+          <p className="px-1 text-xs font-bold text-stone-400">{fmtDayLabel(dateKey)}</p>
 
-        return (
-          <div key={dateKey} className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5">
-            {/* 日付ヘッダー */}
-            <div className="flex items-center justify-between border-b border-stone-50 px-5 py-3">
-              <p className="text-sm font-bold text-stone-700">{dayLabel}</p>
-              <p className="text-[10px] text-stone-400">関係：{relStatus}</p>
-            </div>
+          {dayItems.map(item => {
+            const { event } = item
+            const meta = emMeta(event.emotion_type)
+            const reaction = reactionWord(event.partner_reaction)
 
-            <div className="px-4 py-4 space-y-4">
-              {/* あなたのエントリ */}
-              {myItems.map(({ event }) => {
-                const meta = emMeta(event.emotion_type)
-                const reaction = reactionWord(event.partner_reaction)
-                return (
-                  <div key={event.id} className="rounded-2xl bg-indigo-50/60 px-4 py-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">あなた</span>
-                      <span className="text-[10px] text-stone-400">{fmtTime(event.created_at)}</span>
+            /* ── 自分のセッションカード ── */
+            if (item.kind === 'mine') {
+              return (
+                <div key={event.id} className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5">
+                  {/* 感情ヘッダー */}
+                  <div className="flex items-center gap-3 px-5 pt-4 pb-3">
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-lg ${meta.bg}`}>
+                      {meta.emoji}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
+                      <p className="text-[10px] text-stone-300">{fmtTime(event.created_at)}</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg leading-none">{meta.emoji}</span>
-                      <span className={`text-sm font-bold ${meta.color}`}>{meta.label}</span>
+                  </div>
+
+                  {/* AI整理 */}
+                  {event.ai_response_short && (
+                    <div className="px-5 pb-3">
+                      <p className="text-xs leading-relaxed text-stone-400">{event.ai_response_short}</p>
                     </div>
-                    {event.ai_response_short && (
-                      <p className="mt-2 text-xs leading-loose text-stone-500">{event.ai_response_short}</p>
-                    )}
-                    {event.shared_message && (
-                      <div className="mt-2 rounded-xl bg-white/80 px-3 py-2">
-                        <p className="text-[10px] text-stone-400 mb-0.5">伝えたこと</p>
-                        <p className="text-xs leading-relaxed text-stone-700">「{event.shared_message}」</p>
+                  )}
+
+                  {/* 共有 → パートナーの反応 */}
+                  {event.share_status === 'sent' && event.shared_message && (
+                    <div className="border-t border-stone-50 px-5 py-3">
+                      <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-stone-300">
+                        伝えたこと
+                      </p>
+                      <p className="text-xs leading-relaxed text-stone-600">「{event.shared_message}」</p>
+                      {reaction ? (
+                        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                          <p className="text-[11px] font-semibold text-emerald-700">
+                            「{reaction}」と返ってきた
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="mt-1.5 text-[10px] text-stone-300">返事を待っています…</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            }
+
+            /* ── パートナーのシェアカード ── */
+            const myReaction = reactionWord(event.partner_reaction)
+            return (
+              <div key={event.id} className="overflow-hidden rounded-3xl bg-stone-50 ring-1 ring-stone-100">
+                {/* ラベル + 感情 */}
+                <div className="flex items-center gap-3 px-5 pt-4 pb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                    パートナーから
+                  </p>
+                  <p className="text-[10px] text-stone-300">{fmtTime(event.created_at)}</p>
+                </div>
+                <div className="flex items-center gap-3 px-5 pb-3">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-lg ${meta.bg}`}>
+                    {meta.emoji}
+                  </span>
+                  <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
+                </div>
+
+                {/* 伝えてくれたこと → 私の反応 */}
+                {event.shared_message && (
+                  <div className="border-t border-stone-100 px-5 py-3">
+                    <p className="text-xs leading-relaxed text-stone-600">「{event.shared_message}」</p>
+                    {myReaction ? (
+                      <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 ring-1 ring-stone-200">
+                        <p className="text-[11px] font-semibold text-stone-500">
+                          「{myReaction}」と伝えた
+                        </p>
                       </div>
-                    )}
-                    {reaction && (
-                      <div className="mt-2 rounded-xl bg-emerald-100/60 px-3 py-1.5">
-                        <p className="text-xs text-emerald-700">→ 「{reaction}」</p>
-                      </div>
-                    )}
-                    {event.share_status === 'sent' && !reaction && (
-                      <p className="mt-1 text-[10px] text-stone-400">返事を待っています…</p>
+                    ) : (
+                      <p className="mt-1.5 text-[10px] text-stone-400">まだ反応していません</p>
                     )}
                   </div>
-                )
-              })}
-
-              {/* パートナーのエントリ */}
-              {theirItems.map(({ event }) => {
-                const meta = emMeta(event.emotion_type)
-                const reaction = reactionWord(event.partner_reaction)
-                return (
-                  <div key={event.id} className="rounded-2xl bg-stone-100/60 px-4 py-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">パートナー</span>
-                      <span className="text-[10px] text-stone-400">{fmtTime(event.created_at)}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg leading-none">{meta.emoji}</span>
-                      <span className={`text-sm font-bold ${meta.color}`}>{meta.label}</span>
-                    </div>
-                    {event.ai_response_short && (
-                      <p className="mt-2 text-xs leading-loose text-stone-500">{event.ai_response_short}</p>
-                    )}
-                    {event.shared_message && (
-                      <div className="mt-2 rounded-xl bg-white/80 px-3 py-2">
-                        <p className="text-[10px] text-stone-400 mb-0.5">伝えてくれたこと</p>
-                        <p className="text-xs leading-relaxed text-stone-700">「{event.shared_message}」</p>
-                      </div>
-                    )}
-                    {reaction && (
-                      <div className="mt-2 rounded-xl bg-sky-100/60 px-3 py-1.5">
-                        <p className="text-xs text-sky-700">→ 「{reaction}」</p>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })}
+                )}
+              </div>
+            )
+          })}
+        </div>
+      ))}
     </div>
   )
 }
