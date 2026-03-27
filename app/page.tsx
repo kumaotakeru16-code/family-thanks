@@ -1973,19 +1973,22 @@ function EmotionComposerSheet({
   onSubmit: () => void; onBack: () => void; isLoading: boolean
 }) {
   const meta = emMeta(emotion)
+  const isCalm = emotion === 'calm'
   return (
     <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5" style={{ animation: 'sheetUp .25s ease-out both' }}>
       <div className="mb-5 flex items-center gap-3">
         <span className="text-2xl">{meta.emoji}</span>
         <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
       </div>
-      <div className="mb-5">
-        <BackgroundSelector selectedIds={selectedBackgroundIds} onChange={setBackgroundIds} />
-      </div>
+      {!isCalm && (
+        <div className="mb-5">
+          <BackgroundSelector selectedIds={selectedBackgroundIds} onChange={setBackgroundIds} />
+        </div>
+      )}
       <div className="mb-4">
         <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">もしあれば（任意）</p>
         <textarea value={note} onChange={e => setNote(e.target.value)} rows={3}
-          placeholder="もう少し具体的に書いてもOK（空でも大丈夫）"
+          placeholder={isCalm ? '今日の余裕を一言メモしておく（空でも大丈夫）' : 'もう少し具体的に書いてもOK（空でも大丈夫）'}
           className="mt-2 w-full resize-none rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-relaxed text-stone-700 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
       </div>
       <div className="flex gap-2">
@@ -1999,23 +2002,9 @@ function EmotionComposerSheet({
 }
 
 function AiResponseCard({ response, emotion }: { response: AiResponse; emotion: EmotionType }) {
-  const [expanded, setExpanded] = useState(false)
   return (
-    <div className="rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-black/5" style={{ animation: 'fadeUp .4s ease-out both' }}>
-      <p className="text-sm leading-relaxed text-stone-700">{response.empathy}</p>
-      {!expanded ? (
-        <button
-          onClick={() => setExpanded(true)}
-          className="mt-2 text-[11px] text-stone-400 underline underline-offset-2 hover:text-stone-600 transition"
-        >
-          もう少し見る
-        </button>
-      ) : (
-        <div className="mt-3 space-y-2 border-t border-stone-50 pt-3" style={{ animation: 'fadeUp .2s ease-out both' }}>
-          <p className="text-xs leading-relaxed text-stone-500">{response.interpretation}</p>
-          <p className="text-xs leading-relaxed text-stone-400">{response.nextStep}</p>
-        </div>
-      )}
+    <div style={{ animation: 'fadeUp .4s ease-out both' }}>
+      <p className="px-1 text-sm leading-relaxed text-stone-500">{response.empathy}</p>
     </div>
   )
 }
@@ -2027,41 +2016,36 @@ function ActionSuggestionCard({ suggestion, altSuggestions = [], recovered, onRe
   const all = [suggestion, ...altSuggestions]
   const current = all[idx] ?? suggestion
 
+  if (recovered) {
+    return (
+      <div className="rounded-3xl bg-emerald-50 ring-1 ring-emerald-200 px-5 py-4" style={{ animation: 'fadeUp .35s ease-out both' }}>
+        <p className="text-base font-bold text-emerald-700">{current.label}</p>
+        <p className="mt-1 text-xs text-emerald-500">それだけでも十分。</p>
+      </div>
+    )
+  }
+
   return (
-    <div className={`rounded-3xl transition-all duration-500 ${recovered ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'bg-indigo-50 ring-1 ring-indigo-100'}`} style={{ animation: 'fadeUp .35s ease-out both' }}>
-      <div className="px-5 pt-5 pb-5">
-        <p className={`text-[18px] font-extrabold leading-snug tracking-tight ${recovered ? 'text-emerald-700' : 'text-indigo-900'}`}>{current.label}</p>
-        {current.reason && !recovered && <p className="mt-2 text-xs leading-relaxed text-indigo-400/80">{current.reason}</p>}
-
-        {!recovered && all.length > 1 && (
-          <div className="mt-4 flex items-center gap-3">
-            <button
-              onClick={() => setIdx(i => Math.max(0, i - 1))}
-              disabled={idx === 0}
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-white/70 text-xs text-indigo-400 disabled:opacity-30 transition active:scale-90"
-            >‹</button>
-            <div className="flex gap-1.5">
-              {all.map((_, i) => (
-                <span key={i} className={`h-1 rounded-full transition-all ${i === idx ? 'w-5 bg-indigo-400' : 'w-1.5 bg-indigo-200'}`} />
-              ))}
-            </div>
-            <button
-              onClick={() => setIdx(i => Math.min(all.length - 1, i + 1))}
-              disabled={idx === all.length - 1}
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-white/70 text-xs text-indigo-400 disabled:opacity-30 transition active:scale-90"
-            >›</button>
+    <div className="overflow-hidden rounded-3xl bg-indigo-600 shadow-md" style={{ animation: 'fadeUp .35s ease-out both' }}>
+      {all.length > 1 && (
+        <div className="flex items-center justify-between px-5 pt-4">
+          <div className="flex gap-1.5">
+            {all.map((_, i) => (
+              <span key={i} className={`h-1 rounded-full transition-all ${i === idx ? 'w-5 bg-white/80' : 'w-1.5 bg-white/30'}`} />
+            ))}
           </div>
+          <div className="flex gap-1">
+            <button onClick={() => setIdx(i => Math.max(0, i - 1))} disabled={idx === 0} className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-xs text-white disabled:opacity-30 active:scale-90">‹</button>
+            <button onClick={() => setIdx(i => Math.min(all.length - 1, i + 1))} disabled={idx === all.length - 1} className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-xs text-white disabled:opacity-30 active:scale-90">›</button>
+          </div>
+        </div>
+      )}
+      <div className={`px-5 pb-5 ${all.length > 1 ? 'pt-3' : 'pt-5'}`}>
+        <p className="text-[22px] font-extrabold leading-tight tracking-tight text-white">{current.label}</p>
+        {current.reason && (
+          <p className="mt-2 text-xs leading-relaxed text-white/60">{current.reason}</p>
         )}
-
-        {!recovered && (
-          <button
-            onClick={onRecovered}
-            className="mt-4 text-xs text-indigo-300 underline underline-offset-2 hover:text-indigo-500 transition"
-          >
-            少し落ち着いた
-          </button>
-        )}
-        {recovered && <p className="mt-2 text-xs text-emerald-500">それだけでも十分。</p>}
+        <button onClick={onRecovered} className="mt-4 text-xs text-white/40 underline underline-offset-2 hover:text-white/70 transition">少し落ち着いた</button>
       </div>
     </div>
   )
@@ -2550,20 +2534,27 @@ function RelWaveChart({ events, sharedEvents }: { events: EmotionEvent[]; shared
       ...events.map(e => ({ e, mine: true })),
       ...sharedEvents.map(e => ({ e, mine: false })),
     ].sort((a, b) => new Date(a.e.created_at).getTime() - new Date(b.e.created_at).getTime())
-    return combined.slice(-14) // last 14 events
+    return combined.slice(-14)
   }, [events, sharedEvents])
 
   if (allItems.length < 2) return null
 
-  const W = 280, H = 40, PAD = 8
-  const scores = allItems.map(({ e }) => negativeEmotions.has(e.emotion_type) ? 0.2 : e.emotion_type === 'calm' ? 0.9 : 0.5)
-  const pts = scores.map((s, i) => {
+  const W = 280, H = 48, PAD = 10
+  const rawScores = allItems.map(({ e }) =>
+    negativeEmotions.has(e.emotion_type) ? 0.15 : e.emotion_type === 'calm' ? 0.92 : 0.55
+  )
+  // 隣接データとブレンドしてなだらかにする
+  const scores = rawScores.map((s, i, arr) => {
+    const prev = arr[i - 1] ?? s
+    const next = arr[i + 1] ?? s
+    return s * 0.65 + prev * 0.175 + next * 0.175
+  })
+  const pts: [number, number][] = scores.map((s, i) => {
     const x = PAD + (i / (scores.length - 1)) * (W - PAD * 2)
     const y = PAD + (1 - s) * (H - PAD * 2)
-    return [x, y] as [number, number]
+    return [x, y]
   })
 
-  // Build smooth path
   const d = pts.map(([x, y], i) => {
     if (i === 0) return `M ${x} ${y}`
     const [px, py] = pts[i - 1]
@@ -2575,24 +2566,39 @@ function RelWaveChart({ events, sharedEvents }: { events: EmotionEvent[]; shared
   const lastScore = scores[scores.length - 1]
   const statusText = lastScore > 0.7 ? 'いい感じ' : lastScore > 0.4 ? '大きく崩れてない' : '少しズレてるかも'
   const dotColor = lastScore > 0.7 ? '#14b8a6' : lastScore > 0.4 ? '#6366f1' : '#f59e0b'
+  const statusColor = lastScore > 0.7 ? 'text-teal-600' : lastScore > 0.4 ? 'text-indigo-500' : 'text-amber-500'
 
   return (
     <div className="mb-4 rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-black/5">
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-center justify-between mb-3">
         <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">関係の流れ</p>
-        <p className="text-[11px] font-semibold text-stone-500">{statusText}</p>
+        <p className={`text-[11px] font-bold ${statusColor}`}>{statusText}</p>
       </div>
       <div className="relative">
         <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
-          <path d={d} fill="none" stroke="#e7e5e4" strokeWidth="1.5" strokeLinecap="round" />
-          <path d={d} fill="none" stroke="#a8a29e" strokeWidth="1" strokeLinecap="round" strokeDasharray="0" opacity={0.4} />
+          <defs>
+            <linearGradient id="waveGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={dotColor} stopOpacity="0.1" />
+              <stop offset="100%" stopColor={dotColor} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path
+            d={`${d} L ${pts[pts.length - 1][0]} ${H} L ${pts[0][0]} ${H} Z`}
+            fill="url(#waveGrad)"
+          />
+          <path d={d} fill="none" stroke="#e7e5e4" strokeWidth="2" strokeLinecap="round" />
+          <path d={d} fill="none" stroke={dotColor} strokeWidth="1.5" strokeLinecap="round" opacity={0.5} />
           {lastPt && (
-            <circle cx={lastPt[0]} cy={lastPt[1]} r="4" fill={dotColor} />
+            <>
+              <circle cx={lastPt[0]} cy={lastPt[1]} r="9" fill={dotColor} opacity={0.12} />
+              <circle cx={lastPt[0]} cy={lastPt[1]} r="5" fill={dotColor} />
+              <circle cx={lastPt[0]} cy={lastPt[1]} r="2" fill="white" />
+            </>
           )}
         </svg>
         <div className="flex justify-between mt-1">
           <span className="text-[9px] text-stone-300">過去</span>
-          <span className="text-[9px] font-semibold" style={{ color: dotColor }}>今</span>
+          <span className="text-[9px] font-bold" style={{ color: dotColor }}>今</span>
         </div>
       </div>
     </div>
