@@ -767,28 +767,28 @@ async function generateActionSuggestion(
 function generateAltSuggestions(emotion: EmotionType): ActionSuggestion[] {
   const map: Record<EmotionType, ActionSuggestion[]> = {
     calm: [
-      { label: 'パートナーに「ありがとう」を伝える', impact: 'medium' },
-      { label: '今日の余裕を使って少し話す',         impact: 'high'   },
+      { label: 'ありがとうを伝える',  impact: 'medium' },
+      { label: '少しだけ話す',        impact: 'high'   },
     ],
     angry: [
-      { label: '5分だけ一人になる',            impact: 'medium' },
-      { label: '「今少し余裕ない」と短く伝える', impact: 'high'   },
+      { label: '5分だけ一人になる',       impact: 'medium' },
+      { label: '今は余裕ないと伝える',    impact: 'high'   },
     ],
     sad: [
-      { label: '今日は休む許可を自分に出す',     impact: 'medium' },
-      { label: '「少ししんどい」の一言だけ伝える', impact: 'high'  },
+      { label: '今日は休む',              impact: 'medium' },
+      { label: 'しんどいと一言伝える',    impact: 'high'   },
     ],
     tired: [
-      { label: '今夜だけ早く寝る',              impact: 'medium' },
-      { label: '家事を1つだけ飛ばす',            impact: 'low'    },
+      { label: '早めに横になる',          impact: 'medium' },
+      { label: '家事を1つ飛ばす',         impact: 'low'    },
     ],
     anxious: [
-      { label: '心配事を紙に1行書き出す',         impact: 'low'    },
-      { label: '今日決めなくていいことを分ける',   impact: 'medium' },
+      { label: '心配を1行書き出す',        impact: 'low'    },
+      { label: '今日決めないことを決める', impact: 'medium' },
     ],
     lonely: [
-      { label: '今日5分だけ自分のための時間をつくる', impact: 'low' },
-      { label: '「さみしかった」の一言だけ伝える',    impact: 'high' },
+      { label: '5分だけ自分の時間をつくる', impact: 'low'  },
+      { label: 'さみしかったと伝える',      impact: 'high' },
     ],
   }
   return map[emotion] ?? []
@@ -1908,6 +1908,15 @@ function getPartnerReactionText(reaction: 'ack' | 'soon' | 'on_it' | null): stri
   }
 }
 
+function getPartnerReactionMeaning(reaction: 'ack' | 'soon' | 'on_it' | null): string | null {
+  switch (reaction) {
+    case 'ack':   return '少し受け止めてもらえた'
+    case 'soon':  return '無理せずつながれた'
+    case 'on_it': return '動いてくれた'
+    default: return null
+  }
+}
+
 /* ═══════════════════════════════════════════════════
    COMPONENTS
 ═══════════════════════════════════════════════════ */
@@ -2706,11 +2715,17 @@ return (
       )
       if (!reacted) return null
       const text = getPartnerReactionText(reacted.partner_reaction)
+      const meaning = getPartnerReactionMeaning(reacted.partner_reaction)
       if (!text) return null
       return (
-        <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3" style={{ animation: 'fadeUp .3s ease-out both' }}>
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
-          <p className="text-xs font-semibold text-emerald-700">{text}</p>
+        <div className="rounded-2xl bg-emerald-50 px-4 py-3" style={{ animation: 'fadeUp .3s ease-out both' }}>
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+            <p className="text-xs font-semibold text-emerald-700">{text}</p>
+          </div>
+          {meaning && (
+            <p className="mt-1 pl-3.5 text-xs text-stone-400">{meaning}</p>
+          )}
         </div>
       )
     })()}
@@ -2782,12 +2797,15 @@ return (
                   isCalm={flow.emotion === 'calm'}
                 />
                 {flow.altSuggestions.length > 0 && !flow.recovered && (
-                  <div className="flex gap-2 mt-2">
-                    {flow.altSuggestions.slice(0, 2).map((s, i) => (
-                      <div key={i} className="flex-1 rounded-2xl bg-stone-50 px-3 py-2.5 ring-1 ring-stone-100">
-                        <p className="text-xs font-medium text-stone-500 leading-snug">{s.label}</p>
-                      </div>
-                    ))}
+                  <div className="mt-4">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-300">他の案</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {flow.altSuggestions.slice(0, 2).map((s, i) => (
+                        <div key={i} className="rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
+                          <p className="text-sm font-medium text-stone-500 leading-snug">{s.label}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -2818,12 +2836,18 @@ return (
             {flow.emotion !== 'calm' && flow.isShared && (() => {
               const myEvent = events.find(e => e.id === flow.savedEventId)
               const reactionText = myEvent ? getPartnerReactionText(myEvent.partner_reaction) : null
+              const reactionMeaning = myEvent ? getPartnerReactionMeaning(myEvent.partner_reaction) : null
               return (
                 <div>
                   {reactionText ? (
-                    <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1" style={{ animation: 'fadeUp .3s ease-out both' }}>
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                      <p className="text-[11px] font-semibold text-emerald-700">{reactionText}</p>
+                    <div style={{ animation: 'fadeUp .3s ease-out both' }}>
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        <p className="text-[11px] font-semibold text-emerald-700">{reactionText}</p>
+                      </div>
+                      {reactionMeaning && (
+                        <p className="mt-1.5 pl-1 text-xs text-stone-400">{reactionMeaning}</p>
+                      )}
                     </div>
                   ) : (
                     <p className="text-xs text-stone-300">返事を待っています…</p>
