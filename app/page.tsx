@@ -101,6 +101,7 @@ type FlowState = {
   isSharing: boolean
   recovered: boolean
   isResponded: boolean
+  lonelyTag: LonelyTag | null
 }
 
 type ShareOptionId =
@@ -129,6 +130,15 @@ type BackgroundOptionId =
   | 'sick'
   | 'financial'
 
+type LonelyTag =
+  | 'not_noticed'
+  | 'less_talk'
+  | 'carry_alone'
+  | 'feel_distance'
+  | 'hard_to_ask'
+  | 'seems_busy'
+  | 'not_fulfilled'
+
 type BackgroundOption = {
   id: BackgroundOptionId
   label: string
@@ -145,6 +155,16 @@ const BACKGROUND_OPTIONS: BackgroundOption[] = [
   { id: 'isolated',     label: '一人時間がない', description: 'ずっと気が張っている',             emoji: '🫠' },
   { id: 'relationship', label: 'すれ違い',      description: '伝わらない・気づかれない',         emoji: '🫥' },
   { id: 'financial',    label: 'お金の不安',    description: '生活費・支出・将来への不安',        emoji: '💸' },
+]
+
+const LONELY_OPTIONS: { id: LonelyTag; label: string }[] = [
+  { id: 'not_noticed',   label: '気づいてもらえてない' },
+  { id: 'less_talk',     label: '会話が足りない' },
+  { id: 'carry_alone',   label: '一人で抱えてる感じ' },
+  { id: 'feel_distance', label: '距離を感じる' },
+  { id: 'hard_to_ask',   label: '頼りづらい' },
+  { id: 'seems_busy',    label: '余裕がなさそう' },
+  { id: 'not_fulfilled', label: 'なんとなく満たされない' },
 ]
 
 /* ═══════════════════════════════════════════════════
@@ -1119,6 +1139,102 @@ function pick3(arr: string[]) {
   return dedupeStrings(arr).slice(0, 3)
 }
 
+/* ═══════════════════════════════════════════════════
+   LONELY GENERATORS
+═══════════════════════════════════════════════════ */
+
+function generateLonelyAiResponse(tag: LonelyTag | null): AiResponse {
+  const empathyMap: Record<LonelyTag, string> = {
+    not_noticed:   '気づいてほしい気持ち、ちゃんとあるよね。',
+    less_talk:     '会話が少ないと、じわじわ孤独になってくるよね。',
+    carry_alone:   'ひとりで抱えてる感覚、静かにしんどいよね。',
+    feel_distance: '近くにいるのに距離を感じるのは、しんどいよね。',
+    hard_to_ask:   '頼りづらいと、どんどんひとりになっていくよね。',
+    seems_busy:    '余裕がなさそうだと、自分の気持ちを後回しにしてしまうよね。',
+    not_fulfilled: 'なんとなく満たされない感じ、うまく言えなくてもそれは本物だよ。',
+  }
+  const empathy = tag ? empathyMap[tag] : 'ひとりで抱えてる感覚、静かにしんどいよね。'
+  return { empathy, interpretation: '', nextStep: '' }
+}
+
+function generateLonelyActionSuggestion(tag: LonelyTag | null): ActionSuggestion {
+  const actionMap: Record<LonelyTag, ActionSuggestion> = {
+    not_noticed:   { label: '「気づいてほしかった」の一言だけ伝えていい',   reason: '責めなくていい。それだけで届く。' },
+    less_talk:     { label: '5分だけ話せる時間を作っていい',               reason: '全部話さなくていい。入口だけ開ければいい。' },
+    carry_alone:   { label: '助けてほしいことを1つに絞って伝えていい',      reason: '全部分かってもらわなくていい。1つだけでいい。' },
+    feel_distance: { label: '「少し話せる？」とだけ聞いていい',             reason: '全部説明しなくていい。入口だけ開ければいい。' },
+    hard_to_ask:   { label: '「一個だけお願いしていい？」と聞いていい',    reason: '完璧なお願いの仕方じゃなくていい。' },
+    seems_busy:    { label: '「少しだけ聞いてほしい」と送っていい',         reason: '相手の余裕を待たなくていい。気持ちだけ先に伝えていい。' },
+    not_fulfilled: { label: '「さみしい」の一言だけ伝えていい',             reason: '理由を説明しなくていい。' },
+  }
+  return tag
+    ? actionMap[tag]
+    : { label: '「さみしかった」の一言だけ誰かに伝えていい', reason: '言葉にするだけでいい。' }
+}
+
+function generateLonelySharePlan(tag: LonelyTag | null): SharePlan {
+  // ShareOptionId インライン（makeShareOption依存なし）
+  const opt = (id: ShareOptionId, label: string): ShareOption => ({ id, label })
+  const notice  = opt('notice_me',  '今つらいことに少し気づいてほしい')
+  const listen5 = opt('listen_5m',  '5分だけ様子を聞いてほしい')
+  const listen10 = opt('listen_10m', '10分だけ話を聞いてほしい')
+  const oneHelp  = opt('one_help',   '今日だけ1つ助けてほしい')
+  const quiet    = opt('quiet_time', '少し一人になる時間がほしい')
+
+  switch (tag) {
+    case 'not_noticed':
+    case 'feel_distance':
+      return { options: [notice, listen5, listen10], recommendedId: 'notice_me' }
+    case 'less_talk':
+    case 'seems_busy':
+      return { options: [listen5, listen10, notice], recommendedId: 'listen_5m' }
+    case 'carry_alone':
+    case 'hard_to_ask':
+      return { options: [listen10, oneHelp, notice], recommendedId: 'listen_10m' }
+    case 'not_fulfilled':
+      return { options: [notice, listen5, quiet], recommendedId: 'notice_me' }
+    default:
+      return { options: [notice, listen5, listen10], recommendedId: 'notice_me' }
+  }
+}
+
+async function translateLonelyForPartner(
+  tag: LonelyTag | null,
+  selectedOption: ShareOption,
+  tone: 'soft' | 'normal' | 'direct' = 'normal',
+): Promise<TranslatedShare> {
+  await new Promise(r => setTimeout(r, 180))
+
+  const openerMap: Partial<Record<LonelyTag, string>> = {
+    not_noticed:   'ちょっと気づいてほしい気持ちがあるかも。',
+    less_talk:     '最近少し話せてなかったかも。',
+    carry_alone:   '少しひとりで抱えてる感じがあるかも。',
+    feel_distance: 'なんかちょっと距離を感じてたかも。',
+    hard_to_ask:   '言い出しにくくてずっと抱えてたかも。',
+    seems_busy:    '忙しそうで言えなかったけど。',
+    not_fulfilled: 'うまく言えないけど、なんとなく満たされてない感じがあって。',
+  }
+  const opener = tag ? (openerMap[tag] ?? '少しひとりで抱えてる感じかも。') : '少しひとりで抱えてる感じかも。'
+
+  const askMap: Partial<Record<ShareOptionId, string>> = {
+    notice_me:     '少しだけ気にしてもらえると嬉しい。',
+    listen_5m:     '5分だけ話せると少し楽かも。',
+    listen_10m:    '少しだけ聞いてもらえると嬉しい。',
+    leave_me_alone:'今は少しそっとしておいてほしい。',
+    quiet_time:    '少しだけひとり時間があると助かる。',
+    one_help:      '少しだけ助けてもらえると嬉しい。',
+  }
+  const ask = askMap[selectedOption.id as ShareOptionId] ?? '少しだけ聞いてもらえると嬉しい。'
+
+  let message = `${opener} ${ask}`.trim()
+  if (tone === 'soft') {
+    message = `ちょっと、${opener} ${ask} 重く受け取らなくて大丈夫。`.replace(/\s+/g, ' ').trim()
+  } else if (tone === 'direct') {
+    message = `${opener.replace(/かも。$/, '。').replace(/くて。$/, '。')} ${ask.replace(/嬉しい。$/, 'ほしい。').replace(/助かる。$/, 'ほしい。')}`.trim()
+  }
+
+  return { message, selectedOptionId: selectedOption.id, tone }
+}
 
 /* ═══════════════════════════════════════════════════
    UTILS
@@ -1507,6 +1623,7 @@ const INIT_FLOW: FlowState = {
   isSharing: false,
   recovered: false,
   isResponded: false,
+  lonelyTag: null,
 }
 
 function useEmotionFlow(
@@ -1541,6 +1658,10 @@ function useEmotionFlow(
     setFlow(prev => ({ ...prev, selectedBackgroundIds: ids }))
   }, [])
 
+  const setLonelyTag = useCallback((tag: LonelyTag | null) => {
+    setFlow(prev => ({ ...prev, lonelyTag: tag }))
+  }, [])
+
   const selectShareOption = useCallback((optionId: string) => {
     setFlow(prev => ({ ...prev, selectedShareOptionId: optionId }))
   }, [])
@@ -1550,16 +1671,28 @@ function useEmotionFlow(
 
     setFlow(prev => ({ ...prev, step: 'responding', isLoadingAi: true }))
 
-    const mergedTags =
-      flow.selectedBackgroundIds.length > 0
-        ? flow.selectedBackgroundIds
-        : backgroundTags
+    const isLonelyFlow = flow.emotion === 'lonely'
 
-    const [ai, action, sharePlan] = await Promise.all([
-      Promise.resolve(generateAiResponse(flow.emotion, flow.note || null, mergedTags)),
-      generateActionSuggestion(flow.emotion, flow.note || null, mergedTags),
-      generateSharePlan(flow.emotion, flow.note || null, mergedTags),
-    ])
+    let ai: AiResponse
+    let action: ActionSuggestion
+    let sharePlan: SharePlan
+
+    if (isLonelyFlow) {
+      ai = generateLonelyAiResponse(flow.lonelyTag)
+      action = generateLonelyActionSuggestion(flow.lonelyTag)
+      sharePlan = generateLonelySharePlan(flow.lonelyTag)
+    } else {
+      const mergedTags =
+        flow.selectedBackgroundIds.length > 0
+          ? flow.selectedBackgroundIds
+          : backgroundTags
+      ;[ai, action, sharePlan] = await Promise.all([
+        Promise.resolve(generateAiResponse(flow.emotion, flow.note || null, mergedTags)),
+        generateActionSuggestion(flow.emotion, flow.note || null, mergedTags),
+        generateSharePlan(flow.emotion, flow.note || null, mergedTags),
+      ])
+    }
+
     const altSuggestions = generateAltSuggestions(flow.emotion)
 
     const selectedShareOptionId = sharePlan.recommendedId
@@ -1567,13 +1700,15 @@ function useEmotionFlow(
       sharePlan.options.find(o => o.id === selectedShareOptionId) ??
       sharePlan.options[0]
 
-    const translated = await translateForPartner(
-      flow.emotion,
-      flow.note || null,
-      selectedOption,
-      mergedTags,
-      shareTone,
-    )
+    const translated = isLonelyFlow
+      ? await translateLonelyForPartner(flow.lonelyTag, selectedOption, shareTone)
+      : await translateForPartner(
+          flow.emotion,
+          flow.note || null,
+          selectedOption,
+          isLonelyFlow ? [] : (flow.selectedBackgroundIds.length > 0 ? flow.selectedBackgroundIds : backgroundTags),
+          shareTone,
+        )
 
     const saved = await saveEvent(
       userId,
@@ -1605,6 +1740,7 @@ function useEmotionFlow(
   }, [
     flow.emotion,
     flow.note,
+    flow.lonelyTag,
     flow.selectedBackgroundIds,
     userId,
     partnerId,
@@ -1621,18 +1757,22 @@ function useEmotionFlow(
     )
     if (!selectedOption) return
 
-    const mergedTags =
-      flow.selectedBackgroundIds.length > 0
-        ? flow.selectedBackgroundIds
-        : backgroundTags
-
-    const translated = await translateForPartner(
-      flow.emotion,
-      flow.note || null,
-      selectedOption,
-      mergedTags,
-      shareTone,
-    )
+    let translated: TranslatedShare
+    if (flow.emotion === 'lonely') {
+      translated = await translateLonelyForPartner(flow.lonelyTag, selectedOption, shareTone)
+    } else {
+      const mergedTags =
+        flow.selectedBackgroundIds.length > 0
+          ? flow.selectedBackgroundIds
+          : backgroundTags
+      translated = await translateForPartner(
+        flow.emotion,
+        flow.note || null,
+        selectedOption,
+        mergedTags,
+        shareTone,
+      )
+    }
 
     setFlow(prev => {
       if (prev.translated?.message === translated.message) return prev
@@ -1641,6 +1781,7 @@ function useEmotionFlow(
   }, [
     flow.emotion,
     flow.note,
+    flow.lonelyTag,
     flow.sharePlan,
     flow.selectedShareOptionId,
     flow.selectedBackgroundIds,
@@ -1694,6 +1835,7 @@ function useEmotionFlow(
     selectEmotion,
     setNote,
     setBackgroundIds,
+    setLonelyTag,
     submit,
     reset,
     markRecovered,
@@ -1821,9 +1963,6 @@ function ShareOptionSelector({ plan, selectedId, onSelect }: { plan: SharePlan; 
             )}
           </div>
         </button>
-        {orderedOptions.length > 1 && (
-          <p className="mt-2 text-center text-[10px] text-stone-300">← → で他の案も見られます</p>
-        )}
       </div>
     </div>
   )
@@ -1922,14 +2061,14 @@ function BottomNav({ active, onChange }: { active: Tab; onChange: (t: Tab) => vo
   )
 }
 
-function BackgroundSelector({ selectedIds, onChange }: { selectedIds: BackgroundOptionId[]; onChange: (ids: BackgroundOptionId[]) => void }) {
+function BackgroundSelector({ selectedIds, onChange, label }: { selectedIds: BackgroundOptionId[]; onChange: (ids: BackgroundOptionId[]) => void; label?: string }) {
   const toggle = (id: BackgroundOptionId) => {
     if (selectedIds.includes(id)) onChange(selectedIds.filter(i => i !== id))
     else onChange([...selectedIds, id])
   }
   return (
     <div>
-      <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">今日しんどかった背景</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">{label ?? '何が近い？'}</p>
       <div className="mt-3 grid grid-cols-2 gap-3">
         {BACKGROUND_OPTIONS.map(option => {
           const active = selectedIds.includes(option.id)
@@ -1965,22 +2104,58 @@ function EmotionQuickSelect({ onSelect }: { onSelect: (e: EmotionType) => void }
   )
 }
 
+function LonelySelectorSection({ selectedTag, onSelect }: {
+  selectedTag: LonelyTag | null
+  onSelect: (tag: LonelyTag | null) => void
+}) {
+  return (
+    <div className="mb-5">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500 mb-3">どんなさみしさ？</p>
+      <div className="flex flex-wrap gap-2">
+        {LONELY_OPTIONS.map(opt => {
+          const active = selectedTag === opt.id
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onSelect(active ? null : opt.id)}
+              className={`rounded-full px-3.5 py-2 text-sm font-medium transition active:scale-95 ${
+                active
+                  ? 'bg-rose-500 text-white shadow-sm'
+                  : 'bg-rose-50 text-rose-700 border border-rose-100 hover:bg-rose-100'
+              }`}
+            >
+              {opt.label}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function EmotionComposerSheet({
-  emotion, note, selectedBackgroundIds, setNote, setBackgroundIds, onSubmit, onBack, isLoading,
+  emotion, note, selectedBackgroundIds, lonelyTag, setNote, setBackgroundIds, setLonelyTag, onSubmit, onBack, isLoading,
 }: {
   emotion: EmotionType; note: string; selectedBackgroundIds: BackgroundOptionId[]
+  lonelyTag: LonelyTag | null
   setNote: (n: string) => void; setBackgroundIds: (ids: BackgroundOptionId[]) => void
+  setLonelyTag: (tag: LonelyTag | null) => void
   onSubmit: () => void; onBack: () => void; isLoading: boolean
 }) {
   const meta = emMeta(emotion)
   const isCalm = emotion === 'calm'
+  const isLonely = emotion === 'lonely'
   return (
     <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5" style={{ animation: 'sheetUp .25s ease-out both' }}>
       <div className="mb-5 flex items-center gap-3">
         <span className="text-2xl">{meta.emoji}</span>
         <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
       </div>
-      {!isCalm && (
+      {isLonely && (
+        <LonelySelectorSection selectedTag={lonelyTag} onSelect={setLonelyTag} />
+      )}
+      {!isCalm && !isLonely && (
         <div className="mb-5">
           <BackgroundSelector selectedIds={selectedBackgroundIds} onChange={setBackgroundIds} />
         </div>
@@ -1988,7 +2163,11 @@ function EmotionComposerSheet({
       <div className="mb-4">
         <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">もしあれば（任意）</p>
         <textarea value={note} onChange={e => setNote(e.target.value)} rows={3}
-          placeholder={isCalm ? '今日の余裕を一言メモしておく（空でも大丈夫）' : 'もう少し具体的に書いてもOK（空でも大丈夫）'}
+          placeholder={
+            isCalm   ? '今日の余裕を一言メモしておく（空でも大丈夫）' :
+            isLonely ? 'もし言葉にできそうなら（空でも大丈夫）' :
+                       'もう少し具体的に書いてもOK（空でも大丈夫）'
+          }
           className="mt-2 w-full resize-none rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-relaxed text-stone-700 outline-none transition focus:border-indigo-300 focus:bg-white focus:ring-2 focus:ring-indigo-100" />
       </div>
       <div className="flex gap-2">
@@ -2009,17 +2188,13 @@ function AiResponseCard({ response, emotion }: { response: AiResponse; emotion: 
   )
 }
 
-function ActionSuggestionCard({ suggestion, altSuggestions = [], recovered, onRecovered }: {
-  suggestion: ActionSuggestion; altSuggestions?: ActionSuggestion[]; recovered: boolean; onRecovered: () => void
+function ActionSuggestionCard({ suggestion, recovered, onRecovered }: {
+  suggestion: ActionSuggestion; recovered: boolean; onRecovered: () => void
 }) {
-  const [idx, setIdx] = useState(0)
-  const all = [suggestion, ...altSuggestions]
-  const current = all[idx] ?? suggestion
-
   if (recovered) {
     return (
       <div className="rounded-3xl bg-emerald-50 ring-1 ring-emerald-200 px-5 py-4" style={{ animation: 'fadeUp .35s ease-out both' }}>
-        <p className="text-base font-bold text-emerald-700">{current.label}</p>
+        <p className="text-base font-bold text-emerald-700">{suggestion.label}</p>
         <p className="mt-1 text-xs text-emerald-500">それだけでも十分。</p>
       </div>
     )
@@ -2027,23 +2202,10 @@ function ActionSuggestionCard({ suggestion, altSuggestions = [], recovered, onRe
 
   return (
     <div className="overflow-hidden rounded-3xl bg-indigo-600 shadow-md" style={{ animation: 'fadeUp .35s ease-out both' }}>
-      {all.length > 1 && (
-        <div className="flex items-center justify-between px-5 pt-4">
-          <div className="flex gap-1.5">
-            {all.map((_, i) => (
-              <span key={i} className={`h-1 rounded-full transition-all ${i === idx ? 'w-5 bg-white/80' : 'w-1.5 bg-white/30'}`} />
-            ))}
-          </div>
-          <div className="flex gap-1">
-            <button onClick={() => setIdx(i => Math.max(0, i - 1))} disabled={idx === 0} className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-xs text-white disabled:opacity-30 active:scale-90">‹</button>
-            <button onClick={() => setIdx(i => Math.min(all.length - 1, i + 1))} disabled={idx === all.length - 1} className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-xs text-white disabled:opacity-30 active:scale-90">›</button>
-          </div>
-        </div>
-      )}
-      <div className={`px-5 pb-5 ${all.length > 1 ? 'pt-3' : 'pt-5'}`}>
-        <p className="text-[22px] font-extrabold leading-tight tracking-tight text-white">{current.label}</p>
-        {current.reason && (
-          <p className="mt-2 text-xs leading-relaxed text-white/60">{current.reason}</p>
+      <div className="px-5 py-5">
+        <p className="text-[22px] font-extrabold leading-tight tracking-tight text-white">{suggestion.label}</p>
+        {suggestion.reason && (
+          <p className="mt-2 text-xs leading-relaxed text-white/60">{suggestion.reason}</p>
         )}
         <button onClick={onRecovered} className="mt-4 text-xs text-white/40 underline underline-offset-2 hover:text-white/70 transition">少し落ち着いた</button>
       </div>
@@ -2297,6 +2459,7 @@ function getTodayRelStatus(events: EmotionEvent[]) {
 
 function HomeTab({
   events,
+  sharedEvents,
   flow,
   onSelectEmotion,
   onSetNote,
@@ -2314,9 +2477,11 @@ function HomeTab({
   onToneChange,
   relStatus,
   onRelChange,
+  onSetLonelyTag,
 }: {
   flow: FlowState
   events: EmotionEvent[]
+  sharedEvents: EmotionEvent[]
   onSelectEmotion: (e: EmotionType) => void
   onSetNote: (n: string) => void
   onSetBackgroundIds: (ids: BackgroundOptionId[]) => void
@@ -2336,6 +2501,7 @@ function HomeTab({
   onToneChange: (tone: 'soft' | 'normal' | 'direct') => void
   relStatus: string | null
   onRelChange: (label: string, id: string) => void
+  onSetLonelyTag: (tag: LonelyTag | null) => void
 }) {
   const [relPickerOpen, setRelPickerOpen] = useState(false)
   const [relJustUpdated, setRelJustUpdated] = useState(false)
@@ -2354,171 +2520,229 @@ function HomeTab({
 return (
   <div className="space-y-4">
 
-    {/* 関係性: 表示 + 任意変更 */}
-    <div className="px-1">
-      {!relPickerOpen ? (
-        <div className="flex items-center gap-2">
-          <p className="text-[11px] text-stone-400">最近の関係：<span className="font-semibold text-stone-500">{displayRelStatus}</span></p>
-          {relJustUpdated ? (
-            <span
-              className="text-[10px] text-teal-500 font-medium"
-              style={{ animation: 'fadeUp .2s ease-out both' }}
-            >
-              更新しました
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setRelPickerOpen(true)}
-              className="text-[10px] text-stone-300 hover:text-stone-500 transition underline underline-offset-2"
-            >
-              少し違うかも？
-            </button>
+    {/* ① 関係の流れ — wave chart + rel picker */}
+    {events.length >= 2 ? (
+      <div>
+        <RelWaveChart events={events} sharedEvents={sharedEvents} />
+        {!relPickerOpen ? (
+          <div className="flex justify-end px-1 -mt-1">
+            {relJustUpdated ? (
+              <span className="text-[10px] text-teal-500 font-medium" style={{ animation: 'fadeUp .2s ease-out both' }}>
+                更新しました
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setRelPickerOpen(true)}
+                className="text-[10px] text-stone-300 hover:text-stone-500 transition underline underline-offset-2"
+              >
+                少し違うかも？
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="px-1 mt-2" style={{ animation: 'fadeUp .2s ease-out both' }}>
+            <p className="text-[11px] text-stone-400 mb-2">今の状態に近いのは？</p>
+            <div className="flex flex-wrap gap-1.5">
+              {REL_OPTIONS.map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    onRelChange(label, id)
+                    setRelPickerOpen(false)
+                    setRelJustUpdated(true)
+                    setTimeout(() => setRelJustUpdated(false), 2000)
+                  }}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
+                    displayRelStatus === label
+                      ? 'bg-stone-700 text-white'
+                      : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    ) : (
+      <div className="px-1">
+        {!relPickerOpen ? (
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] text-stone-400">最近の関係：<span className="font-semibold text-stone-500">{displayRelStatus}</span></p>
+            {relJustUpdated ? (
+              <span className="text-[10px] text-teal-500 font-medium" style={{ animation: 'fadeUp .2s ease-out both' }}>
+                更新しました
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setRelPickerOpen(true)}
+                className="text-[10px] text-stone-300 hover:text-stone-500 transition underline underline-offset-2"
+              >
+                少し違うかも？
+              </button>
+            )}
+          </div>
+        ) : (
+          <div style={{ animation: 'fadeUp .2s ease-out both' }}>
+            <p className="text-[11px] text-stone-400 mb-2">今の状態に近いのは？</p>
+            <div className="flex flex-wrap gap-1.5">
+              {REL_OPTIONS.map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    onRelChange(label, id)
+                    setRelPickerOpen(false)
+                    setRelJustUpdated(true)
+                    setTimeout(() => setRelJustUpdated(false), 2000)
+                  }}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
+                    displayRelStatus === label
+                      ? 'bg-stone-700 text-white'
+                      : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* ② 感情選択 */}
+    {flow.step === 'idle' && (
+      <div style={{ animation: 'fadeUp .3s ease-out both' }}>
+        <div className="my-2 h-px bg-stone-100" />
+        <div className="mb-4 flex items-center justify-between px-1">
+          <p className="text-base font-bold text-stone-800">今どう？</p>
+          {showFirstVisitHint && (
+            <p className="text-[10px] text-stone-400 leading-tight max-w-[130px] text-right">選ぶと次の一歩を提案します</p>
           )}
         </div>
-      ) : (
-        <div style={{ animation: 'fadeUp .2s ease-out both' }}>
-          <p className="text-[11px] text-stone-400 mb-2">今の状態に近いのは？</p>
-          <div className="flex flex-wrap gap-1.5">
-            {REL_OPTIONS.map(({ id, label }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => {
-                  onRelChange(label, id)
-                  setRelPickerOpen(false)
-                  setRelJustUpdated(true)
-                  setTimeout(() => setRelJustUpdated(false), 2000)
-                }}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
-                  displayRelStatus === label
-                    ? 'bg-stone-700 text-white'
-                    : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+        <EmotionQuickSelect onSelect={(e) => { onSelectEmotion(e); setShowFirstVisitHint(false) }} />
+      </div>
+    )}
 
-{flow.step === 'idle' && (
-  <div style={{ animation: 'fadeUp .3s ease-out both' }}>
-    <div className="my-2 h-px bg-stone-100" />
-    <div className="mb-4 flex items-center justify-between px-1">
-      <p className="text-base font-bold text-stone-800">今の気持ちは？</p>
-      {showFirstVisitHint && (
-        <p className="text-[10px] text-stone-400 leading-tight max-w-[130px] text-right">選ぶと次の一歩を提案します</p>
-      )}
-    </div>
-    <EmotionQuickSelect onSelect={(e) => { onSelectEmotion(e); setShowFirstVisitHint(false) }} />
-  </div>
-)}
+    {/* ③ 背景 + メモ */}
+    {flow.step === 'composing' && flow.emotion && (
+      <>
+        <button
+          type="button"
+          onClick={onGoBack}
+          className="flex items-center gap-1 px-1 text-xs text-stone-400 hover:text-stone-600 transition active:scale-95"
+        >
+          ← 戻る
+        </button>
+        <EmotionComposerSheet
+          emotion={flow.emotion} note={flow.note}
+          selectedBackgroundIds={flow.selectedBackgroundIds}
+          lonelyTag={flow.lonelyTag}
+          setNote={onSetNote} setBackgroundIds={onSetBackgroundIds}
+          setLonelyTag={onSetLonelyTag}
+          onSubmit={onSubmit} onBack={onGoBack} isLoading={flow.isLoadingAi}
+        />
+      </>
+    )}
 
-{flow.step === 'composing' && flow.emotion && (
-  <>
-    <button
-      type="button"
-      onClick={onGoBack}
-      className="flex items-center gap-1 px-1 text-xs text-stone-400 hover:text-stone-600 transition active:scale-95"
-    >
-      ← 戻る
-    </button>
-    <EmotionComposerSheet
-      emotion={flow.emotion} note={flow.note}
-      selectedBackgroundIds={flow.selectedBackgroundIds}
-      setNote={onSetNote} setBackgroundIds={onSetBackgroundIds}
-      onSubmit={onSubmit} onBack={onGoBack} isLoading={flow.isLoadingAi}
-    />
-  </>
-)}
+    {/* loading */}
+    {flow.step === 'responding' && (
+      <div className="rounded-3xl bg-white px-5 py-8 text-center shadow-sm ring-1 ring-black/5">
+        <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-indigo-500" />
+        <p className="text-sm font-semibold text-stone-500">気持ちを整理してる…</p>
+      </div>
+    )}
 
-      {flow.step === 'responding' && (
-        <div className="rounded-3xl bg-white px-5 py-8 text-center shadow-sm ring-1 ring-black/5">
-          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-indigo-500" />
-          <p className="text-sm font-semibold text-stone-500">気持ちを整理してる…</p>
-        </div>
-      )}
+    {/* done フロー */}
+    {flow.step === 'done' && flow.emotion && flow.aiResponse && (
+      <div style={{ animation: 'fadeUp .3s ease-out both' }}>
+        <div className="relative pl-6 space-y-8">
+          {/* タイムライン縦線 */}
+          <div className="absolute left-[11px] top-2 bottom-3 w-px bg-stone-100" />
 
-      {flow.step === 'done' && flow.emotion && flow.aiResponse && (
-        <div style={{ animation: 'fadeUp .3s ease-out both' }}>
-          {/* 関係：最上部に軽く */}
-          <div className="mb-4 flex items-center gap-2 px-1">
-            <p className="text-[11px] text-stone-400">最近の関係：<span className="font-semibold text-stone-500">{displayRelStatus}</span></p>
+          {/* ④ AI整理（1行） */}
+          <div className="relative">
+            <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 ring-2 ring-white">
+              <span className="h-2 w-2 rounded-full bg-stone-300" />
+            </span>
+            <AiResponseCard response={flow.aiResponse} emotion={flow.emotion} />
           </div>
 
-          <div className="relative pl-6 space-y-8">
-            {/* タイムライン縦線 */}
-            <div className="absolute left-[11px] top-2 bottom-3 w-px bg-stone-100" />
-
-            {/* AI整理 */}
+          {/* ⑤ まず一歩（主役） */}
+          {flow.actionSuggestion && (
             <div className="relative">
-              <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 ring-2 ring-white">
+              <span className="absolute -left-6 top-6 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 ring-2 ring-white">
+                <span className="h-2 w-2 rounded-full bg-indigo-400" />
+              </span>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-2">まず一歩</p>
+              <ActionSuggestionCard suggestion={flow.actionSuggestion} recovered={flow.recovered} onRecovered={onRecovered} />
+              {/* ⑥ 代替行動（小さく） */}
+              {flow.altSuggestions.length > 0 && !flow.recovered && (
+                <div className="flex gap-2 mt-2">
+                  {flow.altSuggestions.slice(0, 2).map((s, i) => (
+                    <div key={i} className="flex-1 rounded-2xl bg-stone-100 px-3 py-2.5">
+                      <p className="text-xs font-medium text-stone-500 leading-snug">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ⑦ 伝えるならこんな感じ */}
+          {flow.sharePlan && (
+            <div className="relative">
+              <span className="absolute -left-6 top-6 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 ring-2 ring-white">
+                <span className="h-2 w-2 rounded-full bg-emerald-400" />
+              </span>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-2">伝えるならこんな感じ</p>
+              <ShareOptionSelector plan={flow.sharePlan} selectedId={flow.selectedShareOptionId} onSelect={onSelectShareOption} />
+            </div>
+          )}
+
+          {/* 翻訳メッセージ */}
+          {flow.translated && (
+            <div className="relative">
+              <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-teal-100 ring-2 ring-white">
+                <span className="h-2 w-2 rounded-full bg-teal-400" />
+              </span>
+              <ShareTranslationCard
+                translated={flow.translated}
+                hasPartner={hasPartner}
+                isSharing={flow.isSharing}
+                isShared={flow.isShared}
+                onShare={onShare}
+                tone={shareTone}
+                onToneChange={onToneChange}
+              />
+            </div>
+          )}
+
+          {/* 完了後 */}
+          {(flow.recovered || flow.isShared) && (
+            <div className="relative">
+              <span className="absolute -left-6 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 ring-2 ring-white">
                 <span className="h-2 w-2 rounded-full bg-stone-300" />
               </span>
-              <AiResponseCard response={flow.aiResponse} emotion={flow.emotion} />
+              <p className="text-xs text-stone-400 pl-1">{getRecoveryMessage(flow.emotion)}</p>
+              <button
+                onClick={onReset}
+                className="mt-3 pl-1 text-xs text-stone-400 underline underline-offset-2 hover:text-stone-600 transition"
+              >
+                もう一度整理する
+              </button>
             </div>
-
-            {/* まず一歩 */}
-            {flow.actionSuggestion && (
-              <div className="relative">
-                <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 ring-2 ring-white">
-                  <span className="h-2 w-2 rounded-full bg-indigo-400" />
-                </span>
-                <ActionSuggestionCard suggestion={flow.actionSuggestion} altSuggestions={flow.altSuggestions} recovered={flow.recovered} onRecovered={onRecovered} />
-              </div>
-            )}
-
-            {/* してほしいこと */}
-            {flow.sharePlan && (
-              <div className="relative">
-                <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-100 ring-2 ring-white">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                </span>
-                <ShareOptionSelector plan={flow.sharePlan} selectedId={flow.selectedShareOptionId} onSelect={onSelectShareOption} />
-              </div>
-            )}
-
-            {/* やわらかく伝える */}
-            {flow.translated && (
-              <div className="relative">
-                <span className="absolute -left-6 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-teal-100 ring-2 ring-white">
-                  <span className="h-2 w-2 rounded-full bg-teal-400" />
-                </span>
-                <ShareTranslationCard
-                  translated={flow.translated}
-                  hasPartner={hasPartner}
-                  isSharing={flow.isSharing}
-                  isShared={flow.isShared}
-                  onShare={onShare}
-                  tone={shareTone}
-                  onToneChange={onToneChange}
-                />
-              </div>
-            )}
-
-            {/* 共有済み・落ち着いた後の軽いメッセージ */}
-            {(flow.recovered || flow.isShared) && (
-              <div className="relative">
-                <span className="absolute -left-6 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-stone-100 ring-2 ring-white">
-                  <span className="h-2 w-2 rounded-full bg-stone-300" />
-                </span>
-                <p className="text-xs text-stone-400 pl-1">{getRecoveryMessage(flow.emotion)}</p>
-                <button
-                  onClick={onReset}
-                  className="mt-3 pl-1 text-xs text-stone-400 underline underline-offset-2 hover:text-stone-600 transition"
-                >
-                  もう一度整理する
-                </button>
-              </div>
-            )}
-          </div>
+          )}
         </div>
-      )}
-    </div>
-  )
+      </div>
+    )}
+  </div>
+)
 }
 
 
@@ -3028,6 +3252,7 @@ const {
   selectEmotion,
   setNote,
   setBackgroundIds,
+  setLonelyTag,
   submit,
   reset,
   markRecovered,
@@ -3260,6 +3485,7 @@ const {
             
 <HomeTab
   events={events}
+  sharedEvents={partnerEvents}
   flow={flow}
   onSelectEmotion={selectEmotion}
   onSetNote={setNote}
@@ -3277,6 +3503,7 @@ const {
   onToneChange={setShareTone}
   relStatus={relStatus}
   onRelChange={handleRelChange}
+  onSetLonelyTag={setLonelyTag}
 />
           )}
 
