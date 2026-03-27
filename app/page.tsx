@@ -2012,17 +2012,21 @@ function PartnerSupportCard({ event, onReact }: { event: EmotionEvent; onReact: 
       )}
 
       {reactedText ? (
-        <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-4">
-          <p className="text-sm font-bold text-emerald-700">{reactedText}</p>
-          {reactedAtText && (
-            <p className="mt-1 text-xs text-emerald-600/80">
-              {reactedAtText}に返してくれた
-            </p>
-          )}
-        </div>
+        <p className="mt-3 text-xs text-stone-400">「{reactedText}」と伝えた</p>
       ) : (
         <div className="mt-4 grid grid-cols-3 gap-2">
-          {/* 既存の3ボタンはそのまま */}
+          {(['ack', 'soon', 'on_it'] as const).map(r => {
+            const labels: Record<typeof r, string> = { ack: 'わかったよ', soon: 'あとで行くね', on_it: 'やっておくね' }
+            return (
+              <button
+                key={r}
+                onClick={() => onReact(r)}
+                className="rounded-2xl bg-stone-100 px-2 py-3 text-xs font-semibold text-stone-600 transition hover:bg-stone-200 active:scale-95"
+              >
+                {labels[r]}
+              </button>
+            )
+          })}
         </div>
       )}
     </div>
@@ -2678,6 +2682,32 @@ return (
       </div>
     )}
 
+    {/* パートナーからの共有 */}
+    {flow.step === 'idle' && partnerLatest && isToday(new Date(partnerLatest.created_at)) && (
+      <div className="rounded-3xl bg-stone-50 ring-1 ring-stone-100 px-5 py-4" style={{ animation: 'fadeUp .3s ease-out both' }}>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-2">パートナーから</p>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-base">{emMeta(partnerLatest.emotion_type).emoji}</span>
+          <p className="text-xs text-stone-500">{PARTNER_EMOTION_HINTS[partnerLatest.emotion_type]}</p>
+        </div>
+        {!partnerLatest.partner_reaction ? (
+          <div className="flex gap-2">
+            {(['ack', 'soon', 'on_it'] as const).map(r => {
+              const labels: Record<typeof r, string> = { ack: 'わかったよ', soon: 'あとで行くね', on_it: 'やっておくね' }
+              return (
+                <button key={r} onClick={() => void onReactToPartnerEvent(partnerLatest.id, r)}
+                  className="flex-1 rounded-2xl bg-white ring-1 ring-stone-200 py-2.5 text-xs font-semibold text-stone-600 transition hover:bg-stone-100 active:scale-95">
+                  {labels[r]}
+                </button>
+              )
+            })}
+          </div>
+        ) : (
+          <p className="text-xs text-stone-400">「{partnerLatest.partner_reaction === 'ack' ? 'わかったよ' : partnerLatest.partner_reaction === 'soon' ? 'あとで行くね' : 'やっておくね'}」と伝えた</p>
+        )}
+      </div>
+    )}
+
     {/* ② 感情選択 */}
     {flow.step === 'idle' && (
       <div style={{ animation: 'fadeUp .3s ease-out both' }}>
@@ -2795,6 +2825,22 @@ return (
                 />
               </div>
             )}
+
+            {/* ⑤ パートナーの反応（calm 除外、共有済み） */}
+            {flow.emotion !== 'calm' && flow.isShared && (() => {
+              const myEvent = events.find(e => e.id === flow.savedEventId)
+              const reactionText = myEvent ? getPartnerReactionText(myEvent.partner_reaction) : null
+              return (
+                <div className="relative">
+                  <span className="absolute -left-6 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-stone-50 ring-2 ring-white">
+                    <span className="h-1.5 w-1.5 rounded-full bg-stone-200" />
+                  </span>
+                  <p className="pl-1 text-xs text-stone-400">
+                    {reactionText ?? '返事を待っています…'}
+                  </p>
+                </div>
+              )
+            })()}
 
             {/* calm の閉じるボタン */}
             {flow.emotion === 'calm' && (
