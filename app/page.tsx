@@ -1704,6 +1704,8 @@ function useEmotionFlow(
   shareTone: ShareTone,
 ) {
   const [flow, setFlow] = useState<FlowState>(INIT_FLOW)
+  const flowRef = useRef<FlowState>(INIT_FLOW)
+  useEffect(() => { flowRef.current = flow }, [flow])
   const savedEventIdRef = useRef<string | null>(null)
 
   // Step 1 → Step 2: emotion selected
@@ -1728,7 +1730,15 @@ function useEmotionFlow(
     setFlow(prev => ({ ...prev, step: 'resolved_done' }))
   }, [])
   const startSharing = useCallback(() => {
-    setFlow(prev => ({ ...prev, step: 'sharing' }))
+    const f = flowRef.current
+    const mappedId = f.selectedSupport
+      ? (SUPPORT_TO_SHARE_OPTION[f.selectedSupport] ?? f.selectedShareOptionId)
+      : f.selectedShareOptionId
+    setFlow(prev => ({
+      ...prev,
+      step: 'sharing',
+      selectedShareOptionId: mappedId ?? prev.selectedShareOptionId,
+    }))
   }, [])
 
   const selectShareOption = useCallback((optionId: string) => {
@@ -1808,20 +1818,19 @@ function useEmotionFlow(
   ])
 
   // tone 変更時に翻訳を再生成して flow.translated を更新する
+  // flowRef を使うことでクロージャの陳腐化を防ぐ
   const retranslate = useCallback(async (newTone: ShareTone) => {
-    if (!flow.emotion || !flow.sharePlan || !flow.selectedShareOptionId) return
-    const selectedOption = flow.sharePlan.options.find(o => o.id === flow.selectedShareOptionId)
+    const f = flowRef.current
+    if (!f.emotion || !f.sharePlan || !f.selectedShareOptionId) return
+    const selectedOption = f.sharePlan.options.find(o => o.id === f.selectedShareOptionId)
     if (!selectedOption) return
-    const mergedTags = flow.selectedBackgroundIds.length > 0 ? flow.selectedBackgroundIds : backgroundTags
+    const mergedTags = f.selectedBackgroundIds.length > 0 ? f.selectedBackgroundIds : backgroundTags
     const translated =
-      flow.emotion === 'lonely'
-        ? await translateLonelyForPartner(flow.lonelyTag, selectedOption, newTone)
-        : await translateForPartner(flow.emotion, null, selectedOption, mergedTags, newTone)
+      f.emotion === 'lonely'
+        ? await translateLonelyForPartner(f.lonelyTag, selectedOption, newTone)
+        : await translateForPartner(f.emotion, null, selectedOption, mergedTags, newTone)
     setFlow(prev => ({ ...prev, translated }))
-  }, [
-    flow.emotion, flow.lonelyTag, flow.sharePlan,
-    flow.selectedShareOptionId, flow.selectedBackgroundIds, backgroundTags,
-  ])
+  }, [backgroundTags])
 
   const shareWithPartner = useCallback(async (message?: string) => {
     const eventId = savedEventIdRef.current ?? flow.savedEventId
@@ -2811,6 +2820,14 @@ const SUPPORT_OPTIONS: { id: string; label: string; Icon: React.ElementType }[] 
   { id: 'space',   label: 'そっとしておいてほしい', Icon: Leaf        },
   { id: 'listen',  label: '少し話を聞いてほしい',   Icon: Mic         },
 ]
+
+// SupportCarousel の選択を sharePlan のオプション ID に対応させるマッピング
+const SUPPORT_TO_SHARE_OPTION: Record<string, string> = {
+  empathy: 'notice_me',
+  help:    'one_help',
+  space:   'leave_me_alone',
+  listen:  'listen_10m',
+}
 
 function SupportCarousel({ selected, onSelect }: {
   selected: string | null
