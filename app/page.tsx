@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Activity, Baby, BatteryLow, Briefcase, ChevronLeft, CloudRain, Coffee, DollarSign, Flame, HandHelping, Handshake, Heart, Home, Leaf, Mic, Moon, Settings, Smile, Thermometer, User, Wallet, Zap } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { RealtimeChannel, Session } from '@supabase/supabase-js'
 
@@ -189,6 +190,42 @@ const EMOTIONS: {
 const emMeta = (t: EmotionType | string) =>
   EMOTIONS.find(e => e.type === t) ?? EMOTIONS.find(e => e.type === 'calm')!
 
+/* ═══════════════════════════════════════════════════
+   BACKGROUND OPTION ICONS (Lucide)
+═══════════════════════════════════════════════════ */
+
+const BACKGROUND_OPTION_ICONS: Record<BackgroundOptionId, React.ElementType> = {
+  sleep_dep:    Moon,
+  sick:         Thermometer,
+  chore_burden: Coffee,
+  child_care:   Baby,
+  work_stress:  Briefcase,
+  isolated:     User,
+  relationship: Handshake,
+  financial:    Wallet,
+}
+
+/* ═══════════════════════════════════════════════════
+   BACKGROUND TAG → HUMAN SENTENCE
+═══════════════════════════════════════════════════ */
+
+const BACKGROUND_TAG_SENTENCES: Record<BackgroundOptionId, string> = {
+  sleep_dep:    '寝不足が続いてたみたい',
+  child_care:   '育児で余裕がなかったみたい',
+  chore_burden: '家事の負担が重かったみたい',
+  work_stress:  '仕事のプレッシャーがあったみたい',
+  isolated:     '一人時間が取れなかったみたい',
+  relationship: 'すれ違いを感じてたみたい',
+  sick:         '体調が優れなかったみたい',
+  financial:    'お金の不安があったみたい',
+}
+
+const BACKGROUND_OPTION_IDS = new Set<string>([
+  'sleep_dep', 'child_care', 'chore_burden', 'work_stress',
+  'isolated', 'relationship', 'sick', 'financial',
+])
+
+// noteToContextText is defined after extractContexts (see below)
 
 /* ═══════════════════════════════════════════════════
    CONTEXT TAG EXTRACTION
@@ -223,6 +260,15 @@ function extractContexts(note: string | null): [ContextTag, ContextTag | null] {
   const n = note.toLowerCase()
   const hits = CONTEXT_RULES.filter(([re]) => re.test(n)).map(([, t]) => t)
   return hits.length === 0 ? ['none', null] : [hits[0], hits[1] ?? null]
+}
+
+function noteToContextText(note: string | null): string | null {
+  if (!note?.trim()) return null
+  const [c1, c2] = extractContexts(note)
+  const candidates = ([c1, c2] as (ContextTag | null)[])
+    .filter((t): t is ContextTag => !!t && t !== 'none' && BACKGROUND_OPTION_IDS.has(t))
+  if (candidates.length === 0) return null
+  return BACKGROUND_TAG_SENTENCES[candidates[0] as BackgroundOptionId] ?? null
 }
 
 function pickPrimaryContext(
@@ -2022,28 +2068,19 @@ function Toasts({ toasts }: { toasts: Toast[] }) {
   )
 }
 
-function NavIcon({ id, active }: { id: Tab; active: boolean }) {
+function NavIcon({ id, active }: { id: Tab; active: boolean }): React.ReactElement {
   const color = active ? '#7c3aed' : '#a8a29e'
-  if (id === 'home') return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <path d="M 12 3 L 4 10 L 4 20 L 9 20 L 9 14 L 15 14 L 15 20 L 20 20 L 20 10 Z" fill={active ? color : 'none'} stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  )
-  if (id === 'history') return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <path d="M 3 17 Q 7 11 10 13 Q 13 15 16 9 Q 19 3 21 7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-      <circle cx="21" cy="7" r="2.5" fill={color}/>
-    </svg>
-  )
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="12" r="3" fill={color}/>
-      <path d="M 12 2 L 12 5 M 12 19 L 12 22 M 2 12 L 5 12 M 19 12 L 22 12 M 4.9 4.9 L 7.1 7.1 M 16.9 16.9 L 19.1 19.1 M 4.9 19.1 L 7.1 16.9 M 16.9 7.1 L 19.1 4.9" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>
-    </svg>
-  )
+  const w = active ? 2.5 : 2
+  if (id === 'home')     return <Home     size={22} strokeWidth={w} color={color} />
+  if (id === 'history')  return <Activity size={22} strokeWidth={w} color={color} />
+  return                        <Settings size={22} strokeWidth={w} color={color} />
 }
 
-function BottomNav({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
+function BottomNav({ active, onChange, badgeCounts }: {
+  active: Tab
+  onChange: (t: Tab) => void
+  badgeCounts?: Partial<Record<Tab, number>>
+}) {
   const tabs: { id: Tab; label: string }[] = [
     { id: 'home',     label: '気持ち' },
     { id: 'history',  label: '履歴'   },
@@ -2054,13 +2091,19 @@ function BottomNav({ active, onChange }: { active: Tab; onChange: (t: Tab) => vo
       <div className="mx-auto flex max-w-md pb-safe">
         {tabs.map(({ id, label }) => {
           const on = active === id
+          const badge = badgeCounts?.[id] ?? 0
           return (
             <button key={id} onClick={() => onChange(id)} className="relative flex flex-1 flex-col items-center gap-1 py-3.5 transition-all active:scale-95">
               {on && (
                 <span className="absolute left-1/2 top-0 h-[2px] w-10 -translate-x-1/2 rounded-full bg-violet-500" />
               )}
-              <span className={`transition-transform duration-150 ${on ? 'scale-110' : 'scale-100'}`}>
+              <span className={`relative transition-transform duration-150 ${on ? 'scale-110' : 'scale-100'}`}>
                 <NavIcon id={id} active={on} />
+                {badge > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                    {badge > 9 ? '9+' : badge}
+                  </span>
+                )}
               </span>
               <span className={`text-[10px] font-bold tracking-wide ${on ? 'text-violet-600' : 'text-stone-400'}`}>{label}</span>
             </button>
@@ -2086,7 +2129,7 @@ function BackgroundSelector({ selectedIds, onChange, label }: { selectedIds: Bac
             <button key={option.id} type="button" onClick={() => toggle(option.id)}
               className={`rounded-2xl border p-4 text-left transition active:scale-[0.98] ${active ? 'border-indigo-300 bg-indigo-50 ring-2 ring-indigo-100' : 'border-stone-200 bg-white hover:bg-stone-50'}`}>
               <div className="flex items-start gap-3">
-                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-lg ${active ? 'bg-white' : 'bg-stone-100'}`}>{option.emoji}</div>
+                {(() => { const IC = BACKGROUND_OPTION_ICONS[option.id]; return <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? 'bg-white' : 'bg-stone-100'}`}><IC size={18} color={active ? '#6366f1' : '#78716c'} strokeWidth={2} /></div> })()}
                 <div className="min-w-0">
                   <p className={`text-sm font-bold leading-tight ${active ? 'text-indigo-700' : 'text-stone-800'}`}>{option.label}</p>
                   <p className="mt-1 text-[11px] leading-relaxed text-stone-400">{option.description}</p>
@@ -2101,100 +2144,34 @@ function BackgroundSelector({ selectedIds, onChange, label }: { selectedIds: Bac
 }
 
 /* ═══════════════════════════════════════════════════
-   EMOTION FACE  (SVG illustration)
+   EMOTION FACE  (Lucide Icons)
 ═══════════════════════════════════════════════════ */
 
+const EMOTION_FACE_CONFIG: Record<EmotionType, { LucideIcon: React.ElementType; bg: string; color: string }> = {
+  calm:        { LucideIcon: Smile,      bg: '#bae6fd', color: '#0284c7' },
+  irritated:   { LucideIcon: Flame,      bg: '#fecaca', color: '#dc2626' },
+  sad:         { LucideIcon: CloudRain,  bg: '#bfdbfe', color: '#2563eb' },
+  tired:       { LucideIcon: BatteryLow, bg: '#fde68a', color: '#d97706' },
+  overwhelmed: { LucideIcon: Zap,        bg: '#e9d5ff', color: '#7c3aed' },
+  lonely:      { LucideIcon: Heart,      bg: '#fbcfe8', color: '#db2777' },
+}
+
 function EmotionFace({ type, size = 64 }: { type: EmotionType; size?: number }) {
-  const faces: Record<EmotionType, { bg: string; ink: string; nodes: React.ReactNode }> = {
-    calm: {
-      bg: '#bae6fd', ink: '#0284c7',
-      nodes: (
-        <>
-          {/* closed crescent eyes — smiling squint */}
-          <path d="M 33 47 Q 38 41 43 47" stroke="#0284c7" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
-          <path d="M 57 47 Q 62 41 67 47" stroke="#0284c7" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
-          {/* warm wide smile */}
-          <path d="M 33 59 Q 50 73 67 59" stroke="#0284c7" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
-        </>
-      )
-    },
-    irritated: {
-      bg: '#fecaca', ink: '#dc2626',
-      nodes: (
-        <>
-          {/* angled brows */}
-          <line x1="31" y1="37" x2="43" y2="44" stroke="#dc2626" strokeWidth="3" strokeLinecap="round"/>
-          <line x1="69" y1="37" x2="57" y2="44" stroke="#dc2626" strokeWidth="3" strokeLinecap="round"/>
-          {/* round eyes */}
-          <circle cx="38" cy="51" r="5" fill="#dc2626"/>
-          <circle cx="62" cy="51" r="5" fill="#dc2626"/>
-          {/* downward mouth */}
-          <path d="M 38 65 Q 50 59 62 65" stroke="#dc2626" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
-        </>
-      )
-    },
-    sad: {
-      bg: '#bfdbfe', ink: '#2563eb',
-      nodes: (
-        <>
-          <circle cx="37" cy="48" r="5" fill="#2563eb"/>
-          <circle cx="63" cy="48" r="5" fill="#2563eb"/>
-          {/* downward-curving mouth */}
-          <path d="M 37 65 Q 50 58 63 65" stroke="#2563eb" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
-          {/* teardrop */}
-          <ellipse cx="63" cy="57" rx="3" ry="4" fill="#93c5fd"/>
-        </>
-      )
-    },
-    tired: {
-      bg: '#fde68a', ink: '#d97706',
-      nodes: (
-        <>
-          {/* eyes with drooping lids (arc over circle) */}
-          <circle cx="37" cy="51" r="5" fill="#d97706"/>
-          <path d="M 31 49 Q 37 43 43 49" stroke="#fde68a" strokeWidth="5" fill="none" strokeLinecap="round"/>
-          <circle cx="63" cy="51" r="5" fill="#d97706"/>
-          <path d="M 57 49 Q 63 43 69 49" stroke="#fde68a" strokeWidth="5" fill="none" strokeLinecap="round"/>
-          {/* slight frown */}
-          <path d="M 40 64 Q 50 60 60 64" stroke="#d97706" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
-        </>
-      )
-    },
-    overwhelmed: {
-      bg: '#e9d5ff', ink: '#7c3aed',
-      nodes: (
-        <>
-          {/* large wide eyes */}
-          <circle cx="37" cy="48" r="7.5" fill="#7c3aed"/>
-          <circle cx="63" cy="48" r="7.5" fill="#7c3aed"/>
-          {/* highlight dots */}
-          <circle cx="39" cy="46" r="2.5" fill="white"/>
-          <circle cx="65" cy="46" r="2.5" fill="white"/>
-          {/* open oval mouth */}
-          <ellipse cx="50" cy="64" rx="8" ry="6.5" fill="#7c3aed"/>
-        </>
-      )
-    },
-    lonely: {
-      bg: '#fbcfe8', ink: '#db2777',
-      nodes: (
-        <>
-          <circle cx="37" cy="48" r="5" fill="#db2777"/>
-          <circle cx="63" cy="48" r="5" fill="#db2777"/>
-          {/* gentle smile */}
-          <path d="M 37 62 Q 50 69 63 62" stroke="#db2777" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
-          {/* single teardrop */}
-          <ellipse cx="63" cy="57" rx="2.5" ry="3.5" fill="#f9a8d4"/>
-        </>
-      )
-    },
-  }
-  const { bg, nodes } = faces[type]
+  const { LucideIcon, bg, color } = EMOTION_FACE_CONFIG[type] ?? EMOTION_FACE_CONFIG.calm
+  const iconSize = Math.round(size * 0.52)
   return (
-    <svg viewBox="0 0 100 100" width={size} height={size} style={{ display: 'block' }} aria-label={emMeta(type).label}>
-      <circle cx="50" cy="50" r="47" fill={bg}/>
-      {nodes}
-    </svg>
+    <div
+      aria-label={emMeta(type).label}
+      style={{
+        width: size, height: size,
+        background: bg,
+        borderRadius: '50%',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0,
+      }}
+    >
+      <LucideIcon size={iconSize} color={color} strokeWidth={2} />
+    </div>
   )
 }
 
@@ -2308,14 +2285,13 @@ function LonelySelectorSection({ selectedTag, onSelect }: {
 }
 
 function EmotionComposerSheet({
-  emotion, note, selectedBackgroundIds, lonelyTag, setNote, setBackgroundIds, setLonelyTag, onSubmit, onBack, isLoading, gender,
+  emotion, note, selectedBackgroundIds, lonelyTag, setNote, setBackgroundIds, setLonelyTag, onSubmit, onBack, isLoading,
 }: {
   emotion: EmotionType; note: string; selectedBackgroundIds: BackgroundOptionId[]
   lonelyTag: LonelyTag | null
   setNote: (n: string) => void; setBackgroundIds: (ids: BackgroundOptionId[]) => void
   setLonelyTag: (tag: LonelyTag | null) => void
   onSubmit: () => void; onBack: () => void; isLoading: boolean
-  gender: Gender
 }) {
   const meta = emMeta(emotion)
   const isCalm = emotion === 'calm'
@@ -2323,7 +2299,7 @@ function EmotionComposerSheet({
   return (
     <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5" style={{ animation: 'sheetUp .25s ease-out both' }}>
       <div className="mb-5 flex items-center gap-3">
-        <EmotionIcon type={emotion} gender={gender} size={48} />
+        <EmotionFace type={emotion} size={48} />
         <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
       </div>
       {isLonely && (
@@ -2716,7 +2692,7 @@ function ContextSelector({
                       ? `${meta.activeBg} ${meta.color} shadow-sm`
                       : 'bg-white text-stone-500 ring-1 ring-stone-100 hover:ring-stone-200'
                   }`}>
-                  <span className="text-sm leading-none">{opt.emoji}</span>
+                  {(() => { const IC = BACKGROUND_OPTION_ICONS[opt.id]; return <IC size={14} strokeWidth={2} /> })()}
                   <span>{opt.label}</span>
                 </button>
               )
@@ -2829,12 +2805,12 @@ function ActionCarousel({ emotion, backgroundIds, selected, onSelect }: {
 
 /* ─── SupportCarousel ─── */
 
-const SUPPORT_OPTIONS = [
-  { id: 'empathy',  label: '共感してほしい',       emoji: '🤝' },
-  { id: 'help',     label: '少し手伝ってほしい',   emoji: '🙏' },
-  { id: 'space',    label: 'そっとしておいてほしい', emoji: '🌿' },
-  { id: 'listen',   label: '少し話を聞いてほしい', emoji: '👂' },
-] as const
+const SUPPORT_OPTIONS: { id: string; label: string; Icon: React.ElementType }[] = [
+  { id: 'empathy', label: '共感してほしい',         Icon: Heart       },
+  { id: 'help',    label: '少し手伝ってほしい',     Icon: HandHelping },
+  { id: 'space',   label: 'そっとしておいてほしい', Icon: Leaf        },
+  { id: 'listen',  label: '少し話を聞いてほしい',   Icon: Mic         },
+]
 
 function SupportCarousel({ selected, onSelect }: {
   selected: string | null
@@ -2861,7 +2837,7 @@ function SupportCarousel({ selected, onSelect }: {
                   : 'bg-white shadow-sm ring-1 ring-stone-100 hover:shadow-md'
               }`}
             >
-              <span className="text-2xl leading-none">{opt.emoji}</span>
+              <opt.Icon size={22} color={isSelected ? '#7c3aed' : '#a8a29e'} strokeWidth={2} />
               <span className={`text-[11px] font-bold leading-tight text-center ${isSelected ? 'text-violet-600' : 'text-stone-500'}`}>{opt.label}</span>
             </button>
           )
@@ -2879,11 +2855,9 @@ function BackButton({ onBack }: { onBack: () => void }) {
     <button
       type="button"
       onClick={onBack}
-      className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-stone-400 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:text-stone-600 active:scale-95"
+      className="flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-stone-400 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:text-stone-600 active:scale-95"
     >
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-        <path d="M 8 2 L 4 6 L 8 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
+      <ChevronLeft size={14} strokeWidth={2} />
       戻る
     </button>
   )
@@ -3408,6 +3382,8 @@ function PartnerLatestCard({
 
   if (!isRecent) return null
 
+  const contextText = noteToContextText(event.note)
+
   return (
     <div
       className={`rounded-3xl px-5 py-5 ring-1 ${
@@ -3422,6 +3398,9 @@ function PartnerLatestCard({
         <EmotionFace type={event.emotion_type} size={44} />
         <div>
           <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
+          {contextText && (
+            <p className="mt-0.5 text-[10px] leading-snug text-stone-500">{contextText}</p>
+          )}
           <p className="text-[10px] text-stone-400">{relTime(event.created_at)}</p>
         </div>
       </div>
@@ -3457,6 +3436,8 @@ function HistoryEventCard({ item, gender }: {
   const meta = emMeta(event.emotion_type)
   const reaction = reactionWord(event.partner_reaction)
 
+  const contextText = noteToContextText(event.note)
+
   if (item.kind === 'mine') {
     return (
       <div className={`overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-stone-100`}>
@@ -3467,6 +3448,11 @@ function HistoryEventCard({ item, gender }: {
             <p className="text-[10px] text-stone-300">{fmtTime(event.created_at)}</p>
           </div>
         </div>
+        {contextText && (
+          <div className="px-5 pb-1">
+            <p className="text-[11px] leading-relaxed text-stone-400">{contextText}</p>
+          </div>
+        )}
         {event.ai_response_short && (
           <div className="px-5 pb-3">
             <p className="text-xs leading-relaxed text-stone-400">{event.ai_response_short}</p>
@@ -3498,9 +3484,14 @@ function HistoryEventCard({ item, gender }: {
         <p className={`text-[10px] font-bold uppercase tracking-widest ${meta.color} opacity-60`}>パートナーから</p>
         <p className="text-[10px] text-stone-300">{fmtTime(event.created_at)}</p>
       </div>
-      <div className="flex items-center gap-3 px-5 pb-3">
+      <div className="flex items-center gap-3 px-5 pb-2">
         <EmotionFace type={event.emotion_type} size={38} />
-        <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
+        <div>
+          <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
+          {contextText && (
+            <p className="mt-0.5 text-[10px] leading-snug text-stone-500">{contextText}</p>
+          )}
+        </div>
       </div>
       {event.shared_message && (
         <div className="border-t border-stone-100 px-5 py-3">
@@ -3715,7 +3706,7 @@ function SettingsTab({ session, profile, partner, pairInput, setPairInput, onPai
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
         <div className="border-b border-stone-100 px-5 py-3.5"><h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-500">アイコン設定</h2></div>
         <div className="px-5 py-4">
-          <p className="mb-3 text-xs text-stone-500">感情アイコンの性別を選んでください</p>
+          <p className="mb-3 text-xs text-stone-500">あなたの性別を選んでください（表示ラベルに使います）</p>
           <div className="flex gap-3">
             {(['female', 'male'] as const).map(g => (
               <button
@@ -3728,7 +3719,7 @@ function SettingsTab({ session, profile, partner, pairInput, setPairInput, onPai
                     : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
                 }`}
               >
-                <EmotionIcon type="calm" gender={g} size={32} />
+                <User size={18} strokeWidth={2} />
                 <span>{g === 'female' ? '女性' : '男性'}</span>
               </button>
             ))}
@@ -4222,7 +4213,7 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
           )}
         </main>
 
-        <BottomNav active={tab} onChange={setTab} />
+        <BottomNav active={tab} onChange={setTab} badgeCounts={{ history: partnerEvents.filter(e => !e.partner_reaction).length }} />
         <Toasts toasts={toasts} />
       </div>
     </>
