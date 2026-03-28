@@ -178,12 +178,12 @@ const EMOTIONS: {
   type: EmotionType; emoji: string; label: string
   color: string; bg: string; activeBg: string; border: string
 }[] = [
-  { type: 'calm',       emoji: '🙂', label: 'おちついてる', color: 'text-teal-700',   bg: 'bg-teal-50',   activeBg: 'bg-teal-100',   border: 'border-teal-200'   },
-  { type: 'irritated',  emoji: '😠', label: 'いらいら',    color: 'text-red-700',    bg: 'bg-red-50',    activeBg: 'bg-red-100',    border: 'border-red-200'    },
-  { type: 'sad',        emoji: '😢', label: 'つらい',      color: 'text-blue-700',   bg: 'bg-blue-50',   activeBg: 'bg-blue-100',   border: 'border-blue-200'   },
-  { type: 'tired',      emoji: '😩', label: 'つかれた',    color: 'text-amber-700',  bg: 'bg-amber-50',  activeBg: 'bg-amber-100',  border: 'border-amber-200'  },
-  { type: 'overwhelmed',emoji: '😫', label: 'しんどい',    color: 'text-violet-700', bg: 'bg-violet-50', activeBg: 'bg-violet-100', border: 'border-violet-200' },
-  { type: 'lonely',     emoji: '🥲', label: 'さみしい',    color: 'text-rose-700',   bg: 'bg-rose-50',   activeBg: 'bg-rose-100',   border: 'border-rose-200'   },
+  { type: 'calm',       emoji: '🙂', label: 'おちついてる', color: 'text-sky-600',    bg: 'bg-sky-50',    activeBg: 'bg-sky-100',    border: 'border-sky-200'    },
+  { type: 'irritated',  emoji: '😠', label: 'いらいら',    color: 'text-red-500',    bg: 'bg-red-50',    activeBg: 'bg-red-100',    border: 'border-red-200'    },
+  { type: 'sad',        emoji: '😢', label: 'つらい',      color: 'text-blue-500',   bg: 'bg-blue-50',   activeBg: 'bg-blue-100',   border: 'border-blue-200'   },
+  { type: 'tired',      emoji: '😩', label: 'つかれた',    color: 'text-amber-600',  bg: 'bg-amber-50',  activeBg: 'bg-amber-100',  border: 'border-amber-200'  },
+  { type: 'overwhelmed',emoji: '😫', label: 'しんどい',    color: 'text-purple-600', bg: 'bg-purple-50', activeBg: 'bg-purple-100', border: 'border-purple-200' },
+  { type: 'lonely',     emoji: '🥲', label: 'さみしい',    color: 'text-pink-500',   bg: 'bg-pink-50',   activeBg: 'bg-pink-100',   border: 'border-pink-200'   },
 ]
 
 const emMeta = (t: EmotionType | string) =>
@@ -2022,22 +2022,47 @@ function Toasts({ toasts }: { toasts: Toast[] }) {
   )
 }
 
+function NavIcon({ id, active }: { id: Tab; active: boolean }) {
+  const color = active ? '#7c3aed' : '#a8a29e'
+  if (id === 'home') return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path d="M 12 3 L 4 10 L 4 20 L 9 20 L 9 14 L 15 14 L 15 20 L 20 20 L 20 10 Z" fill={active ? color : 'none'} stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+  if (id === 'history') return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <path d="M 3 17 Q 7 11 10 13 Q 13 15 16 9 Q 19 3 21 7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="21" cy="7" r="2.5" fill={color}/>
+    </svg>
+  )
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="3" fill={color}/>
+      <path d="M 12 2 L 12 5 M 12 19 L 12 22 M 2 12 L 5 12 M 19 12 L 22 12 M 4.9 4.9 L 7.1 7.1 M 16.9 16.9 L 19.1 19.1 M 4.9 19.1 L 7.1 16.9 M 16.9 7.1 L 19.1 4.9" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
 function BottomNav({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
-  const tabs: { id: Tab; icon: string; label: string }[] = [
-    { id: 'home',     icon: '💭', label: '気持ち' },
-    { id: 'history',  icon: '📖', label: '履歴'   },
-    { id: 'settings', icon: '⚙️', label: '設定'   },
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'home',     label: '気持ち' },
+    { id: 'history',  label: '履歴'   },
+    { id: 'settings', label: '設定'   },
   ]
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-stone-100/80 bg-white/95 backdrop-blur-md">
-      <div className="mx-auto flex max-w-md">
-        {tabs.map(({ id, icon, label }) => {
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-stone-100/60 bg-white/96 backdrop-blur-lg">
+      <div className="mx-auto flex max-w-md pb-safe">
+        {tabs.map(({ id, label }) => {
           const on = active === id
           return (
-            <button key={id} onClick={() => onChange(id)} className="relative flex flex-1 flex-col items-center gap-0.5 py-3 transition-all">
-              {on && <span className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-full bg-indigo-500" />}
-              <span className={`text-xl leading-none transition-transform duration-150 ${on ? 'scale-110' : 'scale-100'}`}>{icon}</span>
-              <span className={`text-[10px] font-semibold ${on ? 'text-indigo-500' : 'text-stone-400'}`}>{label}</span>
+            <button key={id} onClick={() => onChange(id)} className="relative flex flex-1 flex-col items-center gap-1 py-3.5 transition-all active:scale-95">
+              {on && (
+                <span className="absolute left-1/2 top-0 h-[2px] w-10 -translate-x-1/2 rounded-full bg-violet-500" />
+              )}
+              <span className={`transition-transform duration-150 ${on ? 'scale-110' : 'scale-100'}`}>
+                <NavIcon id={id} active={on} />
+              </span>
+              <span className={`text-[10px] font-bold tracking-wide ${on ? 'text-violet-600' : 'text-stone-400'}`}>{label}</span>
             </button>
           )
         })}
@@ -2072,6 +2097,104 @@ function BackgroundSelector({ selectedIds, onChange, label }: { selectedIds: Bac
         })}
       </div>
     </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════
+   EMOTION FACE  (SVG illustration)
+═══════════════════════════════════════════════════ */
+
+function EmotionFace({ type, size = 64 }: { type: EmotionType; size?: number }) {
+  const faces: Record<EmotionType, { bg: string; ink: string; nodes: React.ReactNode }> = {
+    calm: {
+      bg: '#bae6fd', ink: '#0284c7',
+      nodes: (
+        <>
+          {/* closed crescent eyes — smiling squint */}
+          <path d="M 33 47 Q 38 41 43 47" stroke="#0284c7" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
+          <path d="M 57 47 Q 62 41 67 47" stroke="#0284c7" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
+          {/* warm wide smile */}
+          <path d="M 33 59 Q 50 73 67 59" stroke="#0284c7" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
+        </>
+      )
+    },
+    irritated: {
+      bg: '#fecaca', ink: '#dc2626',
+      nodes: (
+        <>
+          {/* angled brows */}
+          <line x1="31" y1="37" x2="43" y2="44" stroke="#dc2626" strokeWidth="3" strokeLinecap="round"/>
+          <line x1="69" y1="37" x2="57" y2="44" stroke="#dc2626" strokeWidth="3" strokeLinecap="round"/>
+          {/* round eyes */}
+          <circle cx="38" cy="51" r="5" fill="#dc2626"/>
+          <circle cx="62" cy="51" r="5" fill="#dc2626"/>
+          {/* downward mouth */}
+          <path d="M 38 65 Q 50 59 62 65" stroke="#dc2626" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
+        </>
+      )
+    },
+    sad: {
+      bg: '#bfdbfe', ink: '#2563eb',
+      nodes: (
+        <>
+          <circle cx="37" cy="48" r="5" fill="#2563eb"/>
+          <circle cx="63" cy="48" r="5" fill="#2563eb"/>
+          {/* downward-curving mouth */}
+          <path d="M 37 65 Q 50 58 63 65" stroke="#2563eb" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
+          {/* teardrop */}
+          <ellipse cx="63" cy="57" rx="3" ry="4" fill="#93c5fd"/>
+        </>
+      )
+    },
+    tired: {
+      bg: '#fde68a', ink: '#d97706',
+      nodes: (
+        <>
+          {/* eyes with drooping lids (arc over circle) */}
+          <circle cx="37" cy="51" r="5" fill="#d97706"/>
+          <path d="M 31 49 Q 37 43 43 49" stroke="#fde68a" strokeWidth="5" fill="none" strokeLinecap="round"/>
+          <circle cx="63" cy="51" r="5" fill="#d97706"/>
+          <path d="M 57 49 Q 63 43 69 49" stroke="#fde68a" strokeWidth="5" fill="none" strokeLinecap="round"/>
+          {/* slight frown */}
+          <path d="M 40 64 Q 50 60 60 64" stroke="#d97706" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
+        </>
+      )
+    },
+    overwhelmed: {
+      bg: '#e9d5ff', ink: '#7c3aed',
+      nodes: (
+        <>
+          {/* large wide eyes */}
+          <circle cx="37" cy="48" r="7.5" fill="#7c3aed"/>
+          <circle cx="63" cy="48" r="7.5" fill="#7c3aed"/>
+          {/* highlight dots */}
+          <circle cx="39" cy="46" r="2.5" fill="white"/>
+          <circle cx="65" cy="46" r="2.5" fill="white"/>
+          {/* open oval mouth */}
+          <ellipse cx="50" cy="64" rx="8" ry="6.5" fill="#7c3aed"/>
+        </>
+      )
+    },
+    lonely: {
+      bg: '#fbcfe8', ink: '#db2777',
+      nodes: (
+        <>
+          <circle cx="37" cy="48" r="5" fill="#db2777"/>
+          <circle cx="63" cy="48" r="5" fill="#db2777"/>
+          {/* gentle smile */}
+          <path d="M 37 62 Q 50 69 63 62" stroke="#db2777" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
+          {/* single teardrop */}
+          <ellipse cx="63" cy="57" rx="2.5" ry="3.5" fill="#f9a8d4"/>
+        </>
+      )
+    },
+  }
+  const { bg, nodes } = faces[type]
+  return (
+    <svg viewBox="0 0 100 100" width={size} height={size} style={{ display: 'block' }} aria-label={emMeta(type).label}>
+      <circle cx="50" cy="50" r="47" fill={bg}/>
+      {nodes}
+    </svg>
   )
 }
 
@@ -2115,8 +2238,8 @@ function EmotionIcon({
 }
 
 /**
- * EmotionSelector — 3×2 グリッドの絵文字選択UI。
- * EmotionIcon (画像) は将来の画像差し替え用に残す。
+ * EmotionSelector — 3×2 グリッドのイラスト顔選択UI。
+ * EmotionFace (SVG) を使用。EmotionIcon (画像) は将来の差し替え用に残す。
  */
 function EmotionSelector({
   selected,
@@ -2134,14 +2257,16 @@ function EmotionSelector({
             key={em.type}
             type="button"
             onClick={() => onSelect(em.type)}
-            className={`flex flex-col items-center gap-1.5 rounded-2xl px-1 py-3 transition-all duration-150 active:scale-95 ${
+            className={`group flex flex-col items-center gap-2 rounded-3xl px-2 py-4 transition-all duration-200 active:scale-95 ${
               isSelected
-                ? `${em.activeBg} ring-2 ${em.border.replace('border-', 'ring-')}`
-                : `${em.bg} ring-1 ring-transparent hover:ring-stone-200`
+                ? `${em.activeBg} shadow-sm ring-2 ${em.border.replace('border-', 'ring-')}`
+                : 'bg-white shadow-sm ring-1 ring-stone-100 hover:shadow-md'
             }`}
           >
-            <span className="text-4xl leading-none">{em.emoji}</span>
-            <span className={`text-[11px] font-semibold leading-tight ${isSelected ? em.color : 'text-stone-500'}`}>
+            <div className={`transition-transform duration-200 ${isSelected ? 'scale-110' : 'group-hover:scale-105'}`}>
+              <EmotionFace type={em.type} size={60} />
+            </div>
+            <span className={`text-[11px] font-bold leading-tight tracking-wide ${isSelected ? em.color : 'text-stone-400'}`}>
               {em.label}
             </span>
           </button>
@@ -2551,24 +2676,26 @@ function ContextSelector({
   }
   return (
     <div className="space-y-5" style={{ animation: 'fadeUp .25s ease-out both' }}>
-      <button type="button" onClick={onBack} className="hidden">
-        ← 選びなおす
-      </button>
-      <div className={`flex items-center gap-2.5 rounded-2xl ${meta.bg} px-4 py-2.5`}>
-        <span className="text-base">{meta.emoji}</span>
-        <span className={`text-sm font-semibold ${meta.color}`}>{meta.label}</span>
+      <button type="button" onClick={onBack} className="hidden">← 選びなおす</button>
+
+      {/* Emotion identity pill */}
+      <div className={`inline-flex items-center gap-2.5 rounded-2xl ${meta.activeBg} px-4 py-2.5`}>
+        <EmotionFace type={emotion} size={28} />
+        <span className={`text-sm font-bold ${meta.color}`}>{meta.label}</span>
       </div>
 
       {isLonely ? (
         <div>
-          <p className="mb-3 text-xs font-semibold text-stone-500">どんなさみしさ？（任意）</p>
+          <p className="mb-3 text-xs font-semibold tracking-wide text-stone-400">どんなさみしさ？（任意）</p>
           <div className="flex flex-wrap gap-2">
             {LONELY_OPTIONS.map(opt => {
               const active = lonelyTag === opt.id
               return (
                 <button key={opt.id} type="button" onClick={() => onLonelyTagChange(active ? null : opt.id)}
-                  className={`rounded-full px-3.5 py-2 text-sm font-medium transition active:scale-95 ${
-                    active ? 'bg-rose-500 text-white shadow-sm' : 'bg-rose-50 text-rose-700 border border-rose-100'
+                  className={`rounded-2xl px-4 py-2 text-sm font-semibold transition-all duration-150 active:scale-95 ${
+                    active
+                      ? 'bg-pink-400 text-white shadow-sm shadow-pink-200'
+                      : 'bg-white text-pink-500 ring-1 ring-pink-200 hover:bg-pink-50'
                   }`}>
                   {opt.label}
                 </button>
@@ -2578,16 +2705,18 @@ function ContextSelector({
         </div>
       ) : (
         <div>
-          <p className="mb-3 text-xs font-semibold text-stone-500">背景にあるもの（複数OK）</p>
+          <p className="mb-3 text-xs font-semibold tracking-wide text-stone-400">背景にあるもの（複数OK）</p>
           <div className="flex flex-wrap gap-2">
             {BACKGROUND_OPTIONS.map(opt => {
               const active = selectedIds.includes(opt.id)
               return (
                 <button key={opt.id} type="button" onClick={() => toggle(opt.id)}
-                  className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition active:scale-95 ${
-                    active ? 'bg-indigo-500 text-white shadow-sm' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                  className={`flex items-center gap-1.5 rounded-2xl px-3.5 py-2 text-sm font-semibold transition-all duration-150 active:scale-95 ${
+                    active
+                      ? `${meta.activeBg} ${meta.color} shadow-sm`
+                      : 'bg-white text-stone-500 ring-1 ring-stone-100 hover:ring-stone-200'
                   }`}>
-                  <span className="text-base leading-none">{opt.emoji}</span>
+                  <span className="text-sm leading-none">{opt.emoji}</span>
                   <span>{opt.label}</span>
                 </button>
               )
@@ -2596,19 +2725,25 @@ function ContextSelector({
         </div>
       )}
 
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onSubmit}
-          disabled={isLoading}
-          className="flex-1 rounded-2xl bg-indigo-500 py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-600 disabled:opacity-60 active:scale-95"
-        >
-          {isLoading ? '整えています…' : '整理する'}
-        </button>
-        <button onClick={onSubmit} disabled={isLoading}
-          className="text-xs text-stone-300 underline underline-offset-2 hover:text-stone-500 transition">
-          スキップ
-        </button>
-      </div>
+      <button
+        onClick={onSubmit}
+        disabled={isLoading}
+        className={`w-full rounded-2xl py-4 text-sm font-bold text-white shadow-sm transition-all duration-150 active:scale-[0.98] disabled:opacity-60 ${
+          isLoading ? 'bg-stone-300' : `bg-gradient-to-r from-${meta.border.replace('border-','').replace('-200','')}-400 to-${meta.border.replace('border-','').replace('-200','')}-500`
+        }`}
+        style={{
+          background: isLoading ? undefined : (
+            emotion === 'calm'       ? 'linear-gradient(135deg, #38bdf8, #0ea5e9)' :
+            emotion === 'irritated'  ? 'linear-gradient(135deg, #fb7185, #ef4444)' :
+            emotion === 'sad'        ? 'linear-gradient(135deg, #60a5fa, #3b82f6)' :
+            emotion === 'tired'      ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' :
+            emotion === 'overwhelmed'? 'linear-gradient(135deg, #c084fc, #9333ea)' :
+                                       'linear-gradient(135deg, #f472b6, #ec4899)'
+          )
+        }}
+      >
+        {isLoading ? '整えています…' : '整理する →'}
+      </button>
     </div>
   )
 }
@@ -2649,10 +2784,23 @@ function ActionCarousel({ emotion, backgroundIds, selected, onSelect }: {
     [emotion, backgroundIds.join(',')]
   )
   const meta = emMeta(emotion)
+
+  // emotion-specific accent colors for the left stripe
+  const accentColor =
+    emotion === 'calm'        ? '#0ea5e9' :
+    emotion === 'irritated'   ? '#ef4444' :
+    emotion === 'sad'         ? '#3b82f6' :
+    emotion === 'tired'       ? '#f59e0b' :
+    emotion === 'overwhelmed' ? '#9333ea' :
+                                '#ec4899'
+
   return (
     <div>
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-400">まず一歩</p>
-      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+      <p className="mb-2.5 text-[10px] font-bold uppercase tracking-widest text-stone-400">まず一歩</p>
+      <div
+        className="flex gap-3 overflow-x-auto pb-2"
+        style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
+      >
         {candidates.map((c, i) => {
           const isSelected = selected === c.label
           return (
@@ -2660,18 +2808,20 @@ function ActionCarousel({ emotion, backgroundIds, selected, onSelect }: {
               key={i}
               type="button"
               onClick={() => onSelect(isSelected ? '' : c.label)}
-              style={{ scrollSnapAlign: 'start', minWidth: '72%' }}
-              className={`shrink-0 rounded-2xl px-5 py-4 text-left transition-all duration-150 active:scale-95 ${
+              style={{ scrollSnapAlign: 'start', minWidth: '78%', borderLeft: `3px solid ${isSelected ? accentColor : 'transparent'}` }}
+              className={`shrink-0 rounded-2xl px-5 py-4 text-left transition-all duration-200 active:scale-[0.97] ${
                 isSelected
-                  ? `${meta.activeBg} ring-2 ${meta.border.replace('border-', 'ring-')}`
-                  : 'bg-white ring-1 ring-stone-200 hover:ring-stone-300'
+                  ? `${meta.activeBg} shadow-sm`
+                  : 'bg-white shadow-sm ring-1 ring-stone-100 hover:shadow-md'
               }`}
             >
               <p className={`text-sm font-bold leading-snug ${isSelected ? meta.color : 'text-stone-800'}`}>{c.label}</p>
-              {c.reason && <p className="mt-1.5 text-[11px] leading-relaxed text-stone-400">{c.reason}</p>}
+              {c.reason && <p className="mt-2 text-[11px] leading-relaxed text-stone-400">{c.reason}</p>}
             </button>
           )
         })}
+        {/* Spacer so last card doesn't snap flush to edge */}
+        <div className="w-4 shrink-0" />
       </div>
     </div>
   )
@@ -2692,8 +2842,11 @@ function SupportCarousel({ selected, onSelect }: {
 }) {
   return (
     <div>
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-400">パートナーにしてほしいこと</p>
-      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+      <p className="mb-2.5 text-[10px] font-bold uppercase tracking-widest text-stone-400">パートナーにしてほしいこと</p>
+      <div
+        className="flex gap-3 overflow-x-auto pb-2"
+        style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
+      >
         {SUPPORT_OPTIONS.map(opt => {
           const isSelected = selected === opt.id
           return (
@@ -2701,18 +2854,19 @@ function SupportCarousel({ selected, onSelect }: {
               key={opt.id}
               type="button"
               onClick={() => onSelect(isSelected ? '' : opt.id)}
-              style={{ scrollSnapAlign: 'start', minWidth: '58%' }}
-              className={`shrink-0 flex flex-col items-center gap-1.5 rounded-2xl px-4 py-3.5 transition-all duration-150 active:scale-95 ${
+              style={{ scrollSnapAlign: 'start', minWidth: '48%' }}
+              className={`shrink-0 flex flex-col items-center gap-2 rounded-2xl px-4 py-4 transition-all duration-200 active:scale-95 ${
                 isSelected
-                  ? 'bg-indigo-50 ring-2 ring-indigo-300 text-indigo-700'
-                  : 'bg-white ring-1 ring-stone-200 text-stone-600 hover:ring-stone-300'
+                  ? 'bg-violet-50 ring-2 ring-violet-200 shadow-sm'
+                  : 'bg-white shadow-sm ring-1 ring-stone-100 hover:shadow-md'
               }`}
             >
-              <span className="text-2xl">{opt.emoji}</span>
-              <span className="text-xs font-semibold leading-tight text-center">{opt.label}</span>
+              <span className="text-2xl leading-none">{opt.emoji}</span>
+              <span className={`text-[11px] font-bold leading-tight text-center ${isSelected ? 'text-violet-600' : 'text-stone-500'}`}>{opt.label}</span>
             </button>
           )
         })}
+        <div className="w-4 shrink-0" />
       </div>
     </div>
   )
@@ -2725,9 +2879,12 @@ function BackButton({ onBack }: { onBack: () => void }) {
     <button
       type="button"
       onClick={onBack}
-      className="flex items-center gap-1 text-xs text-stone-400 hover:text-stone-600 transition active:scale-95"
+      className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-stone-400 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:text-stone-600 active:scale-95"
     >
-      ← 戻る
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M 8 2 L 4 6 L 8 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+      戻る
     </button>
   )
 }
@@ -2758,7 +2915,9 @@ function ResponseCard({
     <div className="space-y-5" style={{ animation: 'fadeUp .3s ease-out both' }}>
       {/* AI一言 */}
       {aiText && (
-        <p className="px-1 text-sm leading-relaxed text-stone-500">{aiText}</p>
+        <div className="rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-stone-100">
+          <p className="text-sm leading-relaxed text-stone-600">{aiText}</p>
+        </div>
       )}
 
       {/* まず一歩 カルーセル */}
@@ -2777,26 +2936,26 @@ function ResponseCard({
         onSelect={id => onSetSelectedSupport(id || null)}
       />
 
-      {/* 3択 */}
-      <div className="space-y-2 pt-1">
+      {/* 3択ボタン */}
+      <div className="space-y-2.5 pt-1">
         <button
           onClick={onResolveLight}
-          className="w-full rounded-2xl bg-stone-50 py-3.5 text-sm font-semibold text-stone-600 ring-1 ring-stone-200 transition hover:bg-stone-100 active:scale-95"
+          className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
         >
-          👍 少し楽になった
+          少し楽になった
         </button>
         <button
           onClick={onResolveDone}
-          className="w-full rounded-2xl bg-stone-50 py-3.5 text-sm font-semibold text-stone-600 ring-1 ring-stone-200 transition hover:bg-stone-100 active:scale-95"
+          className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
         >
-          😌 もう大丈夫
+          もう大丈夫
         </button>
         {flow.translated && (
           <button
             onClick={onStartSharing}
-            className="w-full rounded-2xl bg-indigo-50 py-3.5 text-sm font-semibold text-indigo-600 ring-1 ring-indigo-200 transition hover:bg-indigo-100 active:scale-95"
+            className="w-full rounded-2xl bg-gradient-to-r from-violet-400 to-indigo-400 py-4 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition-all duration-150 active:scale-[0.98]"
           >
-            💬 パートナーに伝える
+            パートナーに伝える
           </button>
         )}
       </div>
@@ -2838,43 +2997,49 @@ function SharePanel({
   return (
     <div className="space-y-4" style={{ animation: 'fadeUp .25s ease-out both' }}>
       {/* トーン選択 */}
-      <div className="flex gap-2">
-        {TONES.map(t => (
-          <button key={t.id} type="button" onClick={() => onToneChange(t.id)}
-            className={`flex-1 rounded-xl py-2 text-xs font-semibold transition active:scale-95 ${
-              shareTone === t.id
-                ? 'bg-indigo-500 text-white shadow-sm'
-                : 'border border-stone-200 bg-white text-stone-500'
-            }`}>
-            {t.label}
-          </button>
-        ))}
+      <div className="rounded-2xl bg-white p-1 shadow-sm ring-1 ring-stone-100">
+        <div className="flex gap-1">
+          {TONES.map(t => (
+            <button key={t.id} type="button" onClick={() => onToneChange(t.id)}
+              className={`flex-1 rounded-xl py-2.5 text-xs font-bold transition-all duration-150 active:scale-95 ${
+                shareTone === t.id
+                  ? 'bg-gradient-to-r from-violet-400 to-indigo-400 text-white shadow-sm'
+                  : 'text-stone-400 hover:text-stone-600'
+              }`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 生成メッセージ */}
-      <div className="rounded-2xl bg-white px-4 py-4 ring-1 ring-stone-200">
+      <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-stone-300 mb-2">メッセージ</p>
         <p className="text-sm leading-relaxed text-stone-700">「{message}」</p>
       </div>
 
       {/* アクション */}
       <div className="flex gap-2">
         <button onClick={handleCopy}
-          className="flex-1 rounded-2xl border border-stone-200 bg-white py-3 text-sm font-semibold text-stone-600 transition hover:bg-stone-50 active:scale-95">
-          {copied ? 'コピーしました ✓' : 'コピー'}
+          className="flex-1 rounded-2xl bg-white py-3.5 text-sm font-semibold text-stone-500 shadow-sm ring-1 ring-stone-100 transition-all active:scale-[0.98]">
+          {copied ? '✓ コピー済み' : 'コピー'}
         </button>
         {hasPartner && !flow.isShared && (
           <button onClick={() => onShare(message)}
             disabled={flow.isSharing}
-            className="flex-1 rounded-2xl bg-indigo-500 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-600 disabled:opacity-60 active:scale-95">
-            {flow.isSharing ? '送信中…' : '送る'}
+            className="flex-[1.4] rounded-2xl bg-gradient-to-r from-violet-400 to-indigo-400 py-3.5 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition-all disabled:opacity-60 active:scale-[0.98]">
+            {flow.isSharing ? '送信中…' : 'やさしく送る'}
           </button>
         )}
         {flow.isShared && (
-          <div className="flex flex-1 items-center justify-center rounded-2xl bg-emerald-50 py-3 ring-1 ring-emerald-200">
-            <p className="text-sm font-semibold text-emerald-600">送りました ✓</p>
+          <div className="flex flex-[1.4] items-center justify-center gap-1.5 rounded-2xl bg-emerald-50 py-3.5 ring-1 ring-emerald-200">
+            <span className="text-sm font-bold text-emerald-600">✓ 送りました</span>
           </div>
         )}
       </div>
+      {!hasPartner && (
+        <p className="text-center text-[11px] text-stone-300">連携すると、このまま相手に届きます</p>
+      )}
     </div>
   )
 }
@@ -2923,7 +3088,8 @@ function HomeTab({
       {/* Step 1: 感情選択 */}
       {flow.step === 'selectingEmotion' && (
         <div style={{ animation: 'fadeUp .25s ease-out both' }}>
-          <p className="mb-4 text-base font-bold text-stone-800">今どう？</p>
+          <p className="mb-1.5 text-xl font-extrabold text-stone-700">今、どんな気持ち？</p>
+          <p className="mb-5 text-sm text-stone-400">ひとつ選んでみて</p>
           <EmotionSelector selected={null} onSelect={onSelectEmotion} />
         </div>
       )}
@@ -2949,9 +3115,12 @@ function HomeTab({
 
       {/* Step 3: Loading */}
       {flow.step === 'responding' && flow.isLoadingAi && (
-        <div className="rounded-3xl bg-white px-5 py-10 text-center shadow-sm ring-1 ring-black/5">
-          <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-indigo-500" />
-          <p className="text-sm font-semibold text-stone-400">言葉を整えています…</p>
+        <div className="rounded-3xl bg-white px-5 py-14 text-center shadow-sm ring-1 ring-stone-100" style={{ animation: 'fadeUp .2s ease-out both' }}>
+          <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-violet-50">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-100 border-t-violet-400" />
+          </div>
+          <p className="text-sm font-semibold text-stone-400">言葉を整えています</p>
+          <p className="mt-1 text-xs text-stone-300">少しだけ待ってね</p>
         </div>
       )}
 
@@ -2969,10 +3138,15 @@ function HomeTab({
 
       {/* resolved_light */}
       {flow.step === 'resolved_light' && (
-        <div className="space-y-4 text-center py-6" style={{ animation: 'fadeUp .3s ease-out both' }}>
-          <p className="text-base font-semibold text-stone-600">少し落ち着いたね。</p>
-          <p className="text-sm text-stone-400">ひとまず整えられたね。</p>
-          <button onClick={onReset} className="mt-2 text-xs text-stone-300 underline underline-offset-2 hover:text-stone-500 transition">
+        <div className="rounded-3xl bg-sky-50 px-6 py-10 text-center ring-1 ring-sky-100" style={{ animation: 'fadeUp .3s ease-out both' }}>
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-sky-100">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <path d="M 5 13 L 9 17 L 19 7" stroke="#0ea5e9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+          <p className="text-base font-bold text-sky-700">少し楽になったね</p>
+          <p className="mt-1 text-sm text-sky-500/80">ひとまず整えられたね。</p>
+          <button onClick={onReset} className="mt-5 rounded-full bg-white px-5 py-2 text-xs font-semibold text-stone-400 shadow-sm ring-1 ring-stone-100 transition hover:text-stone-600 active:scale-95">
             もう一度整理する
           </button>
         </div>
@@ -2980,10 +3154,15 @@ function HomeTab({
 
       {/* resolved_done */}
       {flow.step === 'resolved_done' && (
-        <div className="space-y-4 text-center py-6" style={{ animation: 'fadeUp .3s ease-out both' }}>
-          <p className="text-base font-semibold text-stone-600">よかった。</p>
-          <p className="text-sm text-stone-400">またここでね。</p>
-          <button onClick={onReset} className="mt-2 text-xs text-stone-300 underline underline-offset-2 hover:text-stone-500 transition">
+        <div className="rounded-3xl bg-emerald-50 px-6 py-10 text-center ring-1 ring-emerald-100" style={{ animation: 'fadeUp .3s ease-out both' }}>
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+              <path d="M 12 5 Q 18 9 12 19 Q 6 9 12 5" fill="#10b981" opacity="0.8"/>
+            </svg>
+          </div>
+          <p className="text-base font-bold text-emerald-700">よかった。</p>
+          <p className="mt-1 text-sm text-emerald-600/70">またここでね。</p>
+          <button onClick={onReset} className="mt-5 rounded-full bg-white px-5 py-2 text-xs font-semibold text-stone-400 shadow-sm ring-1 ring-stone-100 transition hover:text-stone-600 active:scale-95">
             もう一度整理する
           </button>
         </div>
@@ -3134,21 +3313,33 @@ function RelWaveChart({ events, sharedEvents, period }: {
     <div>
       <div className="relative">
         <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
-          <path d={d} fill="none" stroke="#d6d3d1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          {/* Gradient fill under the wave */}
+          <defs>
+            <linearGradient id="waveGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#c4b5fd" stopOpacity="0.25"/>
+              <stop offset="100%" stopColor="#c4b5fd" stopOpacity="0"/>
+            </linearGradient>
+          </defs>
+          {/* Fill path */}
+          <path
+            d={`${d} L ${pts[pts.length-1][0]} ${H} L ${pts[0][0]} ${H} Z`}
+            fill="url(#waveGrad)"
+          />
+          <path d={d} fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
           {lastPt && (
             <>
-              <circle cx={lastPt[0]} cy={lastPt[1]} r="7" fill="#a8a29e" opacity={0.15} />
-              <circle cx={lastPt[0]} cy={lastPt[1]} r="4.5" fill="#57534e" />
-              <circle cx={lastPt[0]} cy={lastPt[1]} r="1.8" fill="white" />
+              <circle cx={lastPt[0]} cy={lastPt[1]} r="8" fill="#7c3aed" opacity={0.12} />
+              <circle cx={lastPt[0]} cy={lastPt[1]} r="5" fill="#7c3aed" />
+              <circle cx={lastPt[0]} cy={lastPt[1]} r="2" fill="white" />
             </>
           )}
         </svg>
         {/* Date axis */}
-        <div className="relative mt-1 h-4">
+        <div className="relative mt-2 h-4">
           {axisLabels.map((l, i) => (
             <span
               key={i}
-              className="absolute text-[9px] text-stone-400 -translate-x-1/2"
+              className="absolute text-[9px] font-medium text-stone-300 -translate-x-1/2"
               style={{ left: `${l.pct}%` }}
             >
               {l.label}
@@ -3219,21 +3410,23 @@ function PartnerLatestCard({
 
   return (
     <div
-      className={`rounded-3xl px-5 py-4 ring-1 ${
-        !event.partner_reaction ? 'bg-amber-50 ring-amber-200' : 'bg-stone-50 ring-stone-100'
+      className={`rounded-3xl px-5 py-5 ring-1 ${
+        !event.partner_reaction
+          ? `${meta.bg} ${meta.border}`
+          : 'bg-white ring-stone-100'
       }`}
       style={{ animation: 'fadeUp .3s ease-out both' }}
     >
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-400">パートナーから</p>
-      <div className="flex items-center gap-2.5 mb-3">
-        <EmotionIcon type={event.emotion_type} gender={gender} size={40} />
+      <p className={`mb-3 text-[10px] font-bold uppercase tracking-widest ${meta.color} opacity-60`}>パートナーから</p>
+      <div className="flex items-center gap-3 mb-3">
+        <EmotionFace type={event.emotion_type} size={44} />
         <div>
           <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
           <p className="text-[10px] text-stone-400">{relTime(event.created_at)}</p>
         </div>
       </div>
       {event.shared_message && (
-        <p className="mb-3 text-xs leading-relaxed text-stone-600">「{event.shared_message}」</p>
+        <p className="mb-4 rounded-2xl bg-white/60 px-3 py-2.5 text-xs leading-relaxed text-stone-600">「{event.shared_message}」</p>
       )}
       {!event.partner_reaction ? (
         <div className="flex gap-2">
@@ -3241,14 +3434,14 @@ function PartnerLatestCard({
             const labels = { ack: 'わかったよ', soon: 'あとで行くね', on_it: 'やっておくね' } as const
             return (
               <button key={r} onClick={() => onReact(event.id, r)}
-                className="flex-1 rounded-xl bg-white py-2 text-xs font-semibold text-stone-600 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-95">
+                className="flex-1 rounded-2xl bg-white py-2.5 text-xs font-bold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all active:scale-95 hover:shadow-md">
                 {labels[r]}
               </button>
             )
           })}
         </div>
       ) : (
-        <p className="text-[11px] text-stone-400">「{reaction}」と返した</p>
+        <p className="text-[11px] font-medium text-stone-400">「{reaction}」と返した</p>
       )}
     </div>
   )
@@ -3266,9 +3459,9 @@ function HistoryEventCard({ item, gender }: {
 
   if (item.kind === 'mine') {
     return (
-      <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5">
+      <div className={`overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-stone-100`}>
         <div className="flex items-center gap-3 px-5 pt-4 pb-3">
-          <EmotionIcon type={event.emotion_type} gender={gender} size={40} />
+          <EmotionFace type={event.emotion_type} size={38} />
           <div className="min-w-0 flex-1">
             <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
             <p className="text-[10px] text-stone-300">{fmtTime(event.created_at)}</p>
@@ -3281,12 +3474,12 @@ function HistoryEventCard({ item, gender }: {
         )}
         {event.share_status === 'sent' && event.shared_message && (
           <div className="border-t border-stone-50 px-5 py-3">
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-stone-300">伝えたこと</p>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-stone-200">伝えたこと</p>
             <p className="text-xs leading-relaxed text-stone-600">「{event.shared_message}」</p>
             {reaction ? (
-              <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1">
+              <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 ring-1 ring-emerald-100">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                <p className="text-[11px] font-semibold text-emerald-700">「{reaction}」と返ってきた</p>
+                <p className="text-[11px] font-semibold text-emerald-600">「{reaction}」と返ってきた</p>
               </div>
             ) : (
               <p className="mt-1.5 text-[10px] text-stone-300">返事を待っています…</p>
@@ -3300,13 +3493,13 @@ function HistoryEventCard({ item, gender }: {
   /* partner card */
   const myReaction = reactionWord(event.partner_reaction)
   return (
-    <div className="overflow-hidden rounded-3xl bg-stone-50 ring-1 ring-stone-100">
+    <div className={`overflow-hidden rounded-3xl ${meta.bg} ring-1 ${meta.border}`}>
       <div className="flex items-center gap-2 px-5 pt-3 pb-1">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">パートナーから</p>
+        <p className={`text-[10px] font-bold uppercase tracking-widest ${meta.color} opacity-60`}>パートナーから</p>
         <p className="text-[10px] text-stone-300">{fmtTime(event.created_at)}</p>
       </div>
       <div className="flex items-center gap-3 px-5 pb-3">
-        <EmotionIcon type={event.emotion_type} gender={gender} size={40} />
+        <EmotionFace type={event.emotion_type} size={38} />
         <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
       </div>
       {event.shared_message && (
@@ -3369,8 +3562,13 @@ function HistoryTab({
 
   if (dayGroups.length === 0) {
     return (
-      <div className="rounded-3xl bg-white px-5 py-12 text-center shadow-sm ring-1 ring-black/5">
-        <p className="text-sm text-stone-400">まだ記録がありません</p>
+      <div className="rounded-3xl bg-white px-6 py-14 text-center shadow-sm ring-1 ring-stone-100">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-50">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M 3 17 Q 7 11 10 13 Q 13 15 16 9 Q 19 3 21 7" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </div>
+        <p className="text-sm font-semibold text-stone-500">まだ記録がありません</p>
         <p className="mt-1 text-xs text-stone-300">気持ちを整理するとここに残ります</p>
       </div>
     )
@@ -3381,17 +3579,19 @@ function HistoryTab({
   return (
     <div className="space-y-5">
       {/* 期間トグル + 波グラフ */}
-      <div className="rounded-3xl bg-white px-5 pt-4 pb-4 shadow-sm ring-1 ring-black/5">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">関係の流れ</p>
-          <div className="flex gap-1 rounded-xl bg-stone-100 p-0.5">
+      <div className="rounded-3xl bg-white px-5 pt-4 pb-5 shadow-sm ring-1 ring-stone-100">
+        <div className="mb-4 flex items-center justify-between">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-300">関係の流れ</p>
+          <div className="flex gap-0.5 rounded-xl bg-stone-50 p-0.5 ring-1 ring-stone-100">
             {(['1week', 'all'] as const).map(p => (
               <button
                 key={p}
                 type="button"
                 onClick={() => setPeriod(p)}
-                className={`rounded-lg px-3 py-1 text-[11px] font-semibold transition ${
-                  period === p ? 'bg-white text-stone-700 shadow-sm' : 'text-stone-400'
+                className={`rounded-lg px-3.5 py-1.5 text-[11px] font-bold transition-all duration-150 ${
+                  period === p
+                    ? 'bg-white text-violet-600 shadow-sm ring-1 ring-violet-100'
+                    : 'text-stone-400 hover:text-stone-500'
                 }`}
               >
                 {p === '1week' ? '1週間' : '全体'}
@@ -3404,8 +3604,8 @@ function HistoryTab({
 
       {/* 一言分析 */}
       {(events.length + sharedEvents.length) >= 3 && (
-        <div className="rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
-          <p className="text-xs text-stone-500">{insight}</p>
+        <div className="rounded-2xl bg-violet-50 px-4 py-3 ring-1 ring-violet-100">
+          <p className="text-xs font-medium text-violet-600">{insight}</p>
         </div>
       )}
 
@@ -3899,45 +4099,47 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
     return (
       <>
      
-        <main className="min-h-screen bg-stone-50 px-4 py-10">
-          <div className="mx-auto max-w-md">
-            <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
-              <div className="mb-6 text-center">
-                <p className="text-sm font-semibold tracking-wide text-stone-400">
-                  感情が壊れる前に、ひと呼吸
-                </p>
-                <h1 className="mt-2 text-2xl font-extrabold text-stone-900">
-                  感情メモ
-                </h1>
+        <main className="min-h-screen bg-[#faf8f5] px-4 py-14">
+          <div className="mx-auto max-w-sm">
+            {/* Logo area */}
+            <div className="mb-10 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-violet-400 to-indigo-400 shadow-lg shadow-violet-100">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                  <path d="M 16 8 Q 24 12 16 26 Q 8 12 16 8" fill="white" opacity="0.9"/>
+                </svg>
               </div>
+              <h1 className="text-2xl font-extrabold tracking-tight text-stone-800">きもちの整理</h1>
+              <p className="mt-1.5 text-sm text-stone-400">ふたりの感情を、やさしくつなぐ</p>
+            </div>
 
+            <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-100">
               <div className="space-y-3">
                 <input
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   type="email"
                   placeholder="メールアドレス"
-                  className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none ring-0 placeholder:text-stone-300"
+                  className="w-full rounded-2xl bg-stone-50 px-4 py-3.5 text-sm text-stone-700 outline-none ring-1 ring-stone-100 transition placeholder:text-stone-300 focus:bg-white focus:ring-violet-200"
                 />
                 <input
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   type="password"
                   placeholder="パスワード"
-                  className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm outline-none ring-0 placeholder:text-stone-300"
+                  className="w-full rounded-2xl bg-stone-50 px-4 py-3.5 text-sm text-stone-700 outline-none ring-1 ring-stone-100 transition placeholder:text-stone-300 focus:bg-white focus:ring-violet-200"
                 />
               </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3">
+              <div className="mt-5 space-y-2.5">
                 <button
                   onClick={() => void handleSignIn()}
-                  className="w-full rounded-xl bg-indigo-500 py-4 text-sm font-bold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-600 active:scale-95"
+                  className="w-full rounded-2xl bg-gradient-to-r from-violet-400 to-indigo-400 py-4 text-sm font-bold text-white shadow-sm shadow-violet-100 transition active:scale-[0.98]"
                 >
                   ログイン
                 </button>
                 <button
                   onClick={() => void handleSignUp()}
-                  className="w-full rounded-xl border border-stone-200 bg-white py-4 text-sm font-medium text-stone-600 transition hover:bg-stone-50 active:scale-95"
+                  className="w-full rounded-2xl bg-stone-50 py-4 text-sm font-semibold text-stone-500 ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-[0.98]"
                 >
                   新規登録
                 </button>
@@ -3953,14 +4155,14 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
   return (
     <>
   
-      <div className="min-h-screen bg-stone-50">
-        <header className="sticky top-0 z-30 border-b border-stone-100/80 bg-white/90 px-5 py-4 backdrop-blur-md">
+      <div className="min-h-screen bg-[#faf8f5]">
+        <header className="sticky top-0 z-30 bg-[#faf8f5]/95 px-5 py-4 backdrop-blur-md">
           <div className="mx-auto flex max-w-md items-center justify-between">
-            <h1 className="text-base font-extrabold text-stone-900">
+            <h1 className="text-base font-extrabold text-stone-700">
               {TITLE[tab]}
             </h1>
             {tab === 'home' && profile?.partner_id && (
-              <div className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1">
+              <div className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 ring-1 ring-emerald-100">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
                 <span className="text-[10px] font-semibold text-emerald-600">
                   連携中
@@ -3970,7 +4172,7 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
           </div>
         </header>
 
-        <main className="mx-auto max-w-md px-4 pb-28 pt-6">
+        <main className="mx-auto max-w-md px-4 pb-28 pt-4">
           
           {tab === 'home' && (
             
