@@ -103,6 +103,8 @@ type FlowState = {
   isShared: boolean
   isLoadingAi: boolean
   isSharing: boolean
+  selectedAction: string | null
+  selectedSupport: string | null
 }
 
 type ShareOptionId =
@@ -176,12 +178,12 @@ const EMOTIONS: {
   type: EmotionType; emoji: string; label: string
   color: string; bg: string; activeBg: string; border: string
 }[] = [
-  { type: 'calm',       emoji: '😌', label: 'おちついてる', color: 'text-teal-700',   bg: 'bg-teal-50',   activeBg: 'bg-teal-100',   border: 'border-teal-200'   },
-  { type: 'irritated',  emoji: '😤', label: 'いらいら',    color: 'text-red-700',    bg: 'bg-red-50',    activeBg: 'bg-red-100',    border: 'border-red-200'    },
+  { type: 'calm',       emoji: '🙂', label: 'おちついてる', color: 'text-teal-700',   bg: 'bg-teal-50',   activeBg: 'bg-teal-100',   border: 'border-teal-200'   },
+  { type: 'irritated',  emoji: '😠', label: 'いらいら',    color: 'text-red-700',    bg: 'bg-red-50',    activeBg: 'bg-red-100',    border: 'border-red-200'    },
   { type: 'sad',        emoji: '😢', label: 'つらい',      color: 'text-blue-700',   bg: 'bg-blue-50',   activeBg: 'bg-blue-100',   border: 'border-blue-200'   },
   { type: 'tired',      emoji: '😩', label: 'つかれた',    color: 'text-amber-700',  bg: 'bg-amber-50',  activeBg: 'bg-amber-100',  border: 'border-amber-200'  },
-  { type: 'overwhelmed',emoji: '😰', label: 'しんどい',    color: 'text-violet-700', bg: 'bg-violet-50', activeBg: 'bg-violet-100', border: 'border-violet-200' },
-  { type: 'lonely',     emoji: '🥺', label: 'さみしい',    color: 'text-rose-700',   bg: 'bg-rose-50',   activeBg: 'bg-rose-100',   border: 'border-rose-200'   },
+  { type: 'overwhelmed',emoji: '😫', label: 'しんどい',    color: 'text-violet-700', bg: 'bg-violet-50', activeBg: 'bg-violet-100', border: 'border-violet-200' },
+  { type: 'lonely',     emoji: '🥲', label: 'さみしい',    color: 'text-rose-700',   bg: 'bg-rose-50',   activeBg: 'bg-rose-100',   border: 'border-rose-200'   },
 ]
 
 const emMeta = (t: EmotionType | string) =>
@@ -1635,6 +1637,8 @@ const INIT_FLOW: FlowState = {
   isShared: false,
   isLoadingAi: false,
   isSharing: false,
+  selectedAction: null,
+  selectedSupport: null,
 }
 
 function useEmotionFlow(
@@ -1683,6 +1687,14 @@ function useEmotionFlow(
 
   const selectShareOption = useCallback((optionId: string) => {
     setFlow(prev => ({ ...prev, selectedShareOptionId: optionId }))
+  }, [])
+
+  const setSelectedAction = useCallback((action: string | null) => {
+    setFlow(prev => ({ ...prev, selectedAction: action }))
+  }, [])
+
+  const setSelectedSupport = useCallback((support: string | null) => {
+    setFlow(prev => ({ ...prev, selectedSupport: support }))
   }, [])
 
   const submit = useCallback(async () => {
@@ -1801,6 +1813,8 @@ function useEmotionFlow(
     resolveLight,
     resolveDone,
     startSharing,
+    setSelectedAction,
+    setSelectedSupport,
   }
 }
 
@@ -2101,15 +2115,13 @@ function EmotionIcon({
 }
 
 /**
- * EmotionSelector — 3×2 グリッドの顔アイコン選択UI。
- * 履歴・パートナー画面でも再利用可能。
+ * EmotionSelector — 3×2 グリッドの絵文字選択UI。
+ * EmotionIcon (画像) は将来の画像差し替え用に残す。
  */
 function EmotionSelector({
-  gender,
   selected,
   onSelect,
 }: {
-  gender: Gender
   selected?: EmotionType | null
   onSelect: (e: EmotionType) => void
 }) {
@@ -2128,7 +2140,7 @@ function EmotionSelector({
                 : `${em.bg} ring-1 ring-transparent hover:ring-stone-200`
             }`}
           >
-            <EmotionIcon type={em.type} gender={gender} size={68} selected={isSelected} />
+            <span className="text-4xl leading-none">{em.emoji}</span>
             <span className={`text-[11px] font-semibold leading-tight ${isSelected ? em.color : 'text-stone-500'}`}>
               {em.label}
             </span>
@@ -2539,7 +2551,7 @@ function ContextSelector({
   }
   return (
     <div className="space-y-5" style={{ animation: 'fadeUp .25s ease-out both' }}>
-      <button type="button" onClick={onBack} className="flex items-center gap-1 text-xs text-stone-400 hover:text-stone-600 transition">
+      <button type="button" onClick={onBack} className="hidden">
         ← 選びなおす
       </button>
       <div className={`flex items-center gap-2.5 rounded-2xl ${meta.bg} px-4 py-2.5`}>
@@ -2601,16 +2613,139 @@ function ContextSelector({
   )
 }
 
+/* ─── Action candidates helper ─── */
+
+function getActionCandidates(emotion: EmotionType, backgroundIds: BackgroundOptionId[]): ActionSuggestion[] {
+  const table = ACTION_TABLE[emotion]
+  if (!table) return [ACTION_FALLBACK[emotion]]
+  const seen = new Set<string>()
+  const result: ActionSuggestion[] = []
+  // prioritize background-specific actions first
+  for (const bg of backgroundIds) {
+    const a = table[bg as ContextTag]
+    if (a && !seen.has(a.label)) { seen.add(a.label); result.push(a) }
+    if (result.length >= 4) break
+  }
+  // fill with remaining table entries
+  for (const a of Object.values(table)) {
+    if (a && !seen.has(a.label)) { seen.add(a.label); result.push(a) }
+    if (result.length >= 4) break
+  }
+  if (result.length === 0) result.push(ACTION_FALLBACK[emotion])
+  return result
+}
+
+/* ─── ActionCarousel ─── */
+
+function ActionCarousel({ emotion, backgroundIds, selected, onSelect }: {
+  emotion: EmotionType
+  backgroundIds: BackgroundOptionId[]
+  selected: string | null
+  onSelect: (label: string) => void
+}) {
+  const candidates = useMemo(
+    () => getActionCandidates(emotion, backgroundIds),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [emotion, backgroundIds.join(',')]
+  )
+  const meta = emMeta(emotion)
+  return (
+    <div>
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-400">まず一歩</p>
+      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+        {candidates.map((c, i) => {
+          const isSelected = selected === c.label
+          return (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onSelect(isSelected ? '' : c.label)}
+              style={{ scrollSnapAlign: 'start', minWidth: '72%' }}
+              className={`shrink-0 rounded-2xl px-5 py-4 text-left transition-all duration-150 active:scale-95 ${
+                isSelected
+                  ? `${meta.activeBg} ring-2 ${meta.border.replace('border-', 'ring-')}`
+                  : 'bg-white ring-1 ring-stone-200 hover:ring-stone-300'
+              }`}
+            >
+              <p className={`text-sm font-bold leading-snug ${isSelected ? meta.color : 'text-stone-800'}`}>{c.label}</p>
+              {c.reason && <p className="mt-1.5 text-[11px] leading-relaxed text-stone-400">{c.reason}</p>}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* ─── SupportCarousel ─── */
+
+const SUPPORT_OPTIONS = [
+  { id: 'empathy',  label: '共感してほしい',       emoji: '🤝' },
+  { id: 'help',     label: '少し手伝ってほしい',   emoji: '🙏' },
+  { id: 'space',    label: 'そっとしておいてほしい', emoji: '🌿' },
+  { id: 'listen',   label: '少し話を聞いてほしい', emoji: '👂' },
+] as const
+
+function SupportCarousel({ selected, onSelect }: {
+  selected: string | null
+  onSelect: (id: string) => void
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-400">パートナーにしてほしいこと</p>
+      <div className="flex gap-3 overflow-x-auto pb-1" style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}>
+        {SUPPORT_OPTIONS.map(opt => {
+          const isSelected = selected === opt.id
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => onSelect(isSelected ? '' : opt.id)}
+              style={{ scrollSnapAlign: 'start', minWidth: '58%' }}
+              className={`shrink-0 flex flex-col items-center gap-1.5 rounded-2xl px-4 py-3.5 transition-all duration-150 active:scale-95 ${
+                isSelected
+                  ? 'bg-indigo-50 ring-2 ring-indigo-300 text-indigo-700'
+                  : 'bg-white ring-1 ring-stone-200 text-stone-600 hover:ring-stone-300'
+              }`}
+            >
+              <span className="text-2xl">{opt.emoji}</span>
+              <span className="text-xs font-semibold leading-tight text-center">{opt.label}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* ─── BackButton ─── */
+
+function BackButton({ onBack }: { onBack: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onBack}
+      className="flex items-center gap-1 text-xs text-stone-400 hover:text-stone-600 transition active:scale-95"
+    >
+      ← 戻る
+    </button>
+  )
+}
+
 function ResponseCard({
   flow,
   onResolveLight,
   onResolveDone,
   onStartSharing,
+  onSetSelectedAction,
+  onSetSelectedSupport,
 }: {
   flow: FlowState
   onResolveLight: () => void
   onResolveDone: () => void
   onStartSharing: () => void
+  onSetSelectedAction: (a: string | null) => void
+  onSetSelectedSupport: (s: string | null) => void
 }) {
   const aiText = (() => {
     if (!flow.aiResponse) return null
@@ -2626,20 +2761,24 @@ function ResponseCard({
         <p className="px-1 text-sm leading-relaxed text-stone-500">{aiText}</p>
       )}
 
-      {/* アクション提案 */}
-      {flow.actionSuggestion && (
-        <div className="rounded-3xl bg-white px-6 py-6 shadow-sm ring-1 ring-stone-100">
-          <p className="text-2xl font-bold leading-snug tracking-tight text-stone-800">
-            {flow.actionSuggestion.label}
-          </p>
-          {flow.actionSuggestion.reason && (
-            <p className="mt-2 text-xs text-stone-400">{flow.actionSuggestion.reason}</p>
-          )}
-        </div>
+      {/* まず一歩 カルーセル */}
+      {flow.emotion && (
+        <ActionCarousel
+          emotion={flow.emotion}
+          backgroundIds={flow.selectedBackgroundIds}
+          selected={flow.selectedAction}
+          onSelect={label => onSetSelectedAction(label || null)}
+        />
       )}
 
+      {/* パートナーにしてほしいこと カルーセル */}
+      <SupportCarousel
+        selected={flow.selectedSupport}
+        onSelect={id => onSetSelectedSupport(id || null)}
+      />
+
       {/* 3択 */}
-      <div className="space-y-2">
+      <div className="space-y-2 pt-1">
         <button
           onClick={onResolveLight}
           className="w-full rounded-2xl bg-stone-50 py-3.5 text-sm font-semibold text-stone-600 ring-1 ring-stone-200 transition hover:bg-stone-100 active:scale-95"
@@ -2698,10 +2837,6 @@ function SharePanel({
 
   return (
     <div className="space-y-4" style={{ animation: 'fadeUp .25s ease-out both' }}>
-      <button type="button" onClick={onBack} className="flex items-center gap-1 text-xs text-stone-400 hover:text-stone-600 transition">
-        ← 戻る
-      </button>
-
       {/* トーン選択 */}
       <div className="flex gap-2">
         {TONES.map(t => (
@@ -2761,6 +2896,8 @@ function HomeTab({
   gender,
   onSetLonelyTag,
   hasPartner,
+  onSetSelectedAction,
+  onSetSelectedSupport,
 }: {
   flow: FlowState
   onSelectEmotion: (e: EmotionType) => void
@@ -2778,6 +2915,8 @@ function HomeTab({
   gender: Gender
   onSetLonelyTag: (tag: LonelyTag | null) => void
   hasPartner: boolean
+  onSetSelectedAction: (a: string | null) => void
+  onSetSelectedSupport: (s: string | null) => void
 }) {
   return (
     <div className="space-y-4">
@@ -2785,8 +2924,13 @@ function HomeTab({
       {flow.step === 'selectingEmotion' && (
         <div style={{ animation: 'fadeUp .25s ease-out both' }}>
           <p className="mb-4 text-base font-bold text-stone-800">今どう？</p>
-          <EmotionSelector gender={gender} selected={null} onSelect={onSelectEmotion} />
+          <EmotionSelector selected={null} onSelect={onSelectEmotion} />
         </div>
+      )}
+
+      {/* 戻るボタン (selectingEmotion 以外で表示) */}
+      {flow.step !== 'selectingEmotion' && flow.step !== 'resolved_light' && flow.step !== 'resolved_done' && (
+        <BackButton onBack={onGoBack} />
       )}
 
       {/* Step 2: 背景選択 */}
@@ -2818,6 +2962,8 @@ function HomeTab({
           onResolveLight={onResolveLight}
           onResolveDone={onResolveDone}
           onStartSharing={onStartSharing}
+          onSetSelectedAction={onSetSelectedAction}
+          onSetSelectedSupport={onSetSelectedSupport}
         />
       )}
 
@@ -2902,15 +3048,23 @@ function smoothWave(points: number[]): number[] {
   })
 }
 
-function RelWaveChart({ events, sharedEvents }: { events: EmotionEvent[]; sharedEvents: EmotionEvent[] }) {
+function RelWaveChart({ events, sharedEvents, period }: {
+  events: EmotionEvent[]
+  sharedEvents: EmotionEvent[]
+  period: '1week' | 'all'
+}) {
   const negativeEmotions = new Set(['irritated', 'sad', 'tired', 'overwhelmed', 'lonely'])
   const allItems = useMemo(() => {
     const combined = [
       ...events.map(e => ({ e, mine: true })),
       ...sharedEvents.map(e => ({ e, mine: false })),
     ].sort((a, b) => new Date(a.e.created_at).getTime() - new Date(b.e.created_at).getTime())
-    return combined.slice(-14)
-  }, [events, sharedEvents])
+    if (period === '1week') {
+      const cutoff = Date.now() - 7 * 24 * 3600 * 1000
+      return combined.filter(({ e }) => new Date(e.created_at).getTime() >= cutoff)
+    }
+    return combined.slice(-28)
+  }, [events, sharedEvents, period])
 
   const wavePoints = useMemo(() => {
     const rawHistory = allItems.map(({ e }) => {
@@ -2921,6 +3075,43 @@ function RelWaveChart({ events, sharedEvents }: { events: EmotionEvent[]; shared
     return smoothWave(generateWave(rawHistory))
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allItems])
+
+  // Date axis labels
+  const axisLabels = useMemo(() => {
+    if (allItems.length < 2) return []
+    if (period === '1week') {
+      const today = new Date()
+      const labels: { label: string; pct: number }[] = []
+      const first = new Date(allItems[0].e.created_at).getTime()
+      const last = new Date(allItems[allItems.length - 1].e.created_at).getTime()
+      const range = last - first || 1
+      // Show up to 4 date labels across the week
+      for (let d = 6; d >= 0; d -= 2) {
+        const t = new Date(today)
+        t.setDate(t.getDate() - d)
+        const ts = t.getTime()
+        if (ts >= first && ts <= last) {
+          const pct = ((ts - first) / range) * 100
+          const m = t.getMonth() + 1
+          const day = t.getDate()
+          const label = d === 0 ? '今日' : `${m}/${day}`
+          labels.push({ label, pct })
+        }
+      }
+      if (labels.length === 0) {
+        const m0 = new Date(first).getMonth() + 1; const d0 = new Date(first).getDate()
+        labels.push({ label: `${m0}/${d0}`, pct: 0 })
+        labels.push({ label: '今日', pct: 100 })
+      }
+      return labels
+    } else {
+      return [
+        { label: '過去', pct: 0 },
+        { label: '中間', pct: 50 },
+        { label: '今', pct: 100 },
+      ]
+    }
+  }, [allItems, period])
 
   if (allItems.length < 2) return null
 
@@ -2940,10 +3131,7 @@ function RelWaveChart({ events, sharedEvents }: { events: EmotionEvent[]; shared
 
   const lastPt = pts[pts.length - 1]
   return (
-    <div className="mb-4 rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-black/5">
-      <div className="mb-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">関係の流れ</p>
-      </div>
+    <div>
       <div className="relative">
         <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
           <path d={d} fill="none" stroke="#d6d3d1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -2955,9 +3143,17 @@ function RelWaveChart({ events, sharedEvents }: { events: EmotionEvent[]; shared
             </>
           )}
         </svg>
-        <div className="flex justify-between mt-1">
-          <span className="text-[9px] text-stone-300">過去</span>
-          <span className="text-[9px] text-stone-400">今</span>
+        {/* Date axis */}
+        <div className="relative mt-1 h-4">
+          {axisLabels.map((l, i) => (
+            <span
+              key={i}
+              className="absolute text-[9px] text-stone-400 -translate-x-1/2"
+              style={{ left: `${l.pct}%` }}
+            >
+              {l.label}
+            </span>
+          ))}
         </div>
       </div>
     </div>
@@ -3142,6 +3338,8 @@ function HistoryTab({
   onReactToPartnerEvent: (id: string, r: 'ack' | 'soon' | 'on_it') => void
   gender: Gender
 }) {
+  const [period, setPeriod] = useState<'1week' | 'all'>('1week')
+
   // Partner latest (unreacted first, then most recent)
   const partnerLatest = useMemo(() => {
     const sorted = [...sharedEvents].sort(
@@ -3182,8 +3380,27 @@ function HistoryTab({
 
   return (
     <div className="space-y-5">
-      {/* 波グラフ */}
-      <RelWaveChart events={events} sharedEvents={sharedEvents} />
+      {/* 期間トグル + 波グラフ */}
+      <div className="rounded-3xl bg-white px-5 pt-4 pb-4 shadow-sm ring-1 ring-black/5">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">関係の流れ</p>
+          <div className="flex gap-1 rounded-xl bg-stone-100 p-0.5">
+            {(['1week', 'all'] as const).map(p => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriod(p)}
+                className={`rounded-lg px-3 py-1 text-[11px] font-semibold transition ${
+                  period === p ? 'bg-white text-stone-700 shadow-sm' : 'text-stone-400'
+                }`}
+              >
+                {p === '1week' ? '1週間' : '全体'}
+              </button>
+            ))}
+          </div>
+        </div>
+        <RelWaveChart events={events} sharedEvents={sharedEvents} period={period} />
+      </div>
 
       {/* 一言分析 */}
       {(events.length + sharedEvents.length) >= 3 && (
@@ -3521,6 +3738,8 @@ const {
   resolveLight,
   resolveDone,
   startSharing,
+  setSelectedAction,
+  setSelectedSupport,
 } = useEmotionFlow(
   userId,
   profile?.partner_id ?? null,
@@ -3772,6 +3991,8 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
   onToneChange={handleToneChange}
   onSetLonelyTag={setLonelyTag}
   gender={gender}
+  onSetSelectedAction={setSelectedAction}
+  onSetSelectedSupport={setSelectedSupport}
 />
           )}
 
