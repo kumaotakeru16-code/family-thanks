@@ -1831,6 +1831,56 @@ function useEmotionFlow(
     }))
   }, [flow.savedEventId, flow.isShared, markShared])
 
+  const quickSubmit = useCallback(async (emotion: EmotionType) => {
+    if (!userId) return
+    savedEventIdRef.current = null
+    setFlow({ ...INIT_FLOW, step: 'responding', emotion, isLoadingAi: true })
+
+    const isLonelyFlow = emotion === 'lonely'
+    let ai: AiResponse
+    let action: ActionSuggestion
+    let sharePlan: SharePlan
+
+    if (isLonelyFlow) {
+      ai = generateLonelyAiResponse(null)
+      action = generateLonelyActionSuggestion(null)
+      sharePlan = generateLonelySharePlan(null)
+    } else {
+      ;[ai, action, sharePlan] = await Promise.all([
+        Promise.resolve(generateAiResponse(emotion, null, backgroundTags)),
+        generateActionSuggestion(emotion, null, backgroundTags),
+        generateSharePlan(emotion, null, backgroundTags),
+      ])
+    }
+
+    const altSuggestions = generateAltSuggestions(emotion)
+    const selectedShareOptionId = sharePlan.recommendedId
+    const selectedOption =
+      sharePlan.options.find(o => o.id === selectedShareOptionId) ??
+      sharePlan.options[0]
+
+    const translated = isLonelyFlow
+      ? await translateLonelyForPartner(null, selectedOption, shareTone)
+      : await translateForPartner(emotion, null, selectedOption, backgroundTags, shareTone)
+
+    const saved = await saveEvent(userId, partnerId, emotion, null, ai, translated, selectedShareOptionId)
+    savedEventIdRef.current = saved?.id ?? null
+
+    setFlow(prev => ({
+      ...prev,
+      step: 'done',
+      aiResponse: ai,
+      actionSuggestion: action,
+      altSuggestions,
+      sharePlan,
+      selectedShareOptionId,
+      translated,
+      savedEventId: saved?.id ?? null,
+      isLoadingAi: false,
+      isShared: saved?.share_status === 'sent',
+    }))
+  }, [userId, partnerId, backgroundTags, saveEvent, shareTone])
+
   const markRecovered = useCallback(() => {
     setFlow(prev => ({ ...prev, recovered: true }))
   }, [])
@@ -1858,6 +1908,7 @@ function useEmotionFlow(
     selectShareOption,
     regenerateTranslatedMessage,
     shareWithPartner,
+    quickSubmit,
     goBack,
   }
 }
@@ -2646,6 +2697,92 @@ function getTodayRelStatus(events: EmotionEvent[]) {
 
 
 
+/* ═══════════════════════════════════════════════════
+   CONTEXT CHIPS
+═══════════════════════════════════════════════════ */
+
+const CONTEXT_CHIPS: { id: BackgroundOptionId; label: string }[] = [
+  { id: 'sleep_dep',    label: '寝不足' },
+  { id: 'child_care',   label: '育児' },
+  { id: 'chore_burden', label: '家事' },
+  { id: 'work_stress',  label: '仕事' },
+  { id: 'isolated',     label: '一人時間なし' },
+  { id: 'sick',         label: '体調不良' },
+]
+
+function ContextChips({
+  selected,
+  onChange,
+}: {
+  selected: BackgroundOptionId[]
+  onChange: (ids: BackgroundOptionId[]) => void
+}) {
+  const toggle = (id: BackgroundOptionId) => {
+    const next = selected.includes(id)
+      ? selected.filter(x => x !== id)
+      : [...selected, id]
+    onChange(next)
+  }
+  return (
+    <div className="flex flex-wrap gap-2">
+      {CONTEXT_CHIPS.map(({ id, label }) => {
+        const active = selected.includes(id)
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => toggle(id)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition active:scale-95 ${
+              active
+                ? 'bg-stone-700 text-white'
+                : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+            }`}
+          >
+            {label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════
+   TRANSLATION HERO CARD
+═══════════════════════════════════════════════════ */
+
+function TranslationHeroCard({
+  message,
+  isLoading = false,
+}: {
+  message: string | null
+  isLoading?: boolean
+}) {
+  if (isLoading) {
+    return (
+      <div className="rounded-3xl bg-white px-5 py-6 shadow-sm ring-1 ring-black/5">
+        <div className="mb-3 h-2.5 w-20 animate-pulse rounded-full bg-stone-100" />
+        <div className="space-y-2.5">
+          <div className="h-4 w-full animate-pulse rounded-full bg-stone-100" />
+          <div className="h-4 w-5/6 animate-pulse rounded-full bg-stone-100" />
+          <div className="h-4 w-2/3 animate-pulse rounded-full bg-stone-100" />
+        </div>
+      </div>
+    )
+  }
+  if (!message) return null
+  return (
+    <div
+      className="rounded-3xl bg-white px-5 py-6 shadow-sm ring-1 ring-black/5"
+      style={{ animation: 'fadeUp .3s ease-out both' }}
+    >
+      <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-stone-400">
+        パートナーへの言葉
+      </p>
+      <p className="text-base font-medium leading-relaxed text-stone-700">{message}</p>
+    </div>
+  )
+}
+
 function HomeTab({
   events,
   sharedEvents,
@@ -2669,6 +2806,7 @@ function HomeTab({
   onSetLonelyTag,
   myGender = 'female',
   partnerGender = 'male',
+  onQuickSubmit,
 }: {
   flow: FlowState
   events: EmotionEvent[]
@@ -2695,6 +2833,7 @@ function HomeTab({
   onSetLonelyTag: (tag: LonelyTag | null) => void
   myGender?: Gender
   partnerGender?: Gender
+  onQuickSubmit: (emotion: EmotionType) => void
 }) {
   const [relPickerOpen, setRelPickerOpen] = useState(false)
   const [relJustUpdated, setRelJustUpdated] = useState(false)
@@ -2875,146 +3014,149 @@ return (
         <div className="mb-4 flex items-center justify-between px-1">
           <p className="text-base font-bold text-stone-800">今どう？</p>
           {showFirstVisitHint && (
-            <p className="text-[10px] text-stone-400 leading-tight max-w-[130px] text-right">選ぶと次の一歩を提案します</p>
+            <p className="text-[10px] text-stone-400 leading-tight max-w-[130px] text-right">選ぶと言葉に変えます</p>
           )}
         </div>
-        <EmotionQuickSelect onSelect={(e) => { onSelectEmotion(e); setShowFirstVisitHint(false) }} gender={myGender} />
-      </div>
-    )}
-
-    {/* ③ 背景 + メモ */}
-    {flow.step === 'composing' && flow.emotion && (
-      <>
-        <button
-          type="button"
-          onClick={onGoBack}
-          className="flex items-center gap-1 px-1 text-xs text-stone-400 hover:text-stone-600 transition active:scale-95"
-        >
-          ← 戻る
-        </button>
-        <EmotionComposerSheet
-          emotion={flow.emotion} note={flow.note}
-          selectedBackgroundIds={flow.selectedBackgroundIds}
-          lonelyTag={flow.lonelyTag}
-          setNote={onSetNote} setBackgroundIds={onSetBackgroundIds}
-          setLonelyTag={onSetLonelyTag}
-          onSubmit={onSubmit} onBack={onGoBack} isLoading={flow.isLoadingAi}
+        <EmotionQuickSelect
+          onSelect={(e) => { onQuickSubmit(e); setShowFirstVisitHint(false) }}
+          gender={myGender}
         />
-      </>
-    )}
-
-    {/* loading */}
-    {flow.step === 'responding' && (
-      <div className="rounded-3xl bg-white px-5 py-8 text-center shadow-sm ring-1 ring-black/5">
-        <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-stone-200 border-t-indigo-500" />
-        <p className="text-sm font-semibold text-stone-400">言葉を整えています…</p>
       </div>
     )}
 
-    {/* done フロー */}
-    {flow.step === 'done' && flow.emotion && flow.aiResponse && (
+    {/* loading — 感情バッジ + スケルトン */}
+    {flow.step === 'responding' && flow.emotion && (
+      <div className="space-y-4" style={{ animation: 'fadeUp .2s ease-out both' }}>
+        {(() => {
+          const meta = emMeta(flow.emotion)
+          return (
+            <div className="flex items-center gap-2 px-1">
+              <FaceIcon type={flow.emotion} colorClass={meta.color} gender={myGender} size={20} />
+              <p className={`text-sm font-semibold ${meta.color}`}>{meta.label}</p>
+            </div>
+          )
+        })()}
+        <TranslationHeroCard message={null} isLoading />
+      </div>
+    )}
+
+    {/* done — 新4ステップUX */}
+    {flow.step === 'done' && flow.emotion && (
       <div style={{ animation: 'fadeUp .3s ease-out both' }}>
         {exitMessage ? (
           <div className="py-10 text-center" style={{ animation: 'fadeUp .3s ease-out both' }}>
             <p className="text-sm text-stone-400">{exitMessage}</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {/* ① AI一言（補助・最上位） */}
-            <AiResponseCard response={flow.aiResponse} />
+          <div className="space-y-4">
 
-            {/* ② まず一歩（主役） */}
-            {flow.actionSuggestion && (
-              <div>
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-400">まず一歩</p>
-                <ActionSuggestionCard
-                  suggestion={flow.actionSuggestion}
-                  recovered={flow.recovered}
-                  onRecovered={onRecovered}
-                  hideRecoveryButton={flow.emotion === 'calm'}
-                  isCalm={flow.emotion === 'calm'}
-                />
-                {flow.altSuggestions.length > 0 && !flow.recovered && (
-                  <div className="mt-4">
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-300">他の案</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {flow.altSuggestions.slice(0, 2).map((s, i) => (
-                        <div key={i} className="rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
-                          <p className="text-sm font-medium text-stone-500 leading-snug">{s.label}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ③ 伝えるならこんな感じ（calm 除外） */}
-            {flow.emotion !== 'calm' && flow.sharePlan && (
-              <div>
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-400">伝えるならこんな感じ</p>
-                <ShareOptionSelector plan={flow.sharePlan} selectedId={flow.selectedShareOptionId} onSelect={onSelectShareOption} />
-              </div>
-            )}
-
-            {/* ④ 翻訳（calm 除外） */}
-            {flow.emotion !== 'calm' && flow.translated && (
-              <ShareTranslationCard
-                translated={flow.translated}
-                hasPartner={hasPartner}
-                isSharing={flow.isSharing}
-                isShared={flow.isShared}
-                onShare={onShare}
-                tone={shareTone}
-                onToneChange={onToneChange}
-              />
-            )}
-
-            {/* ⑤ パートナーの反応（calm 除外、共有済み） */}
-            {flow.emotion !== 'calm' && flow.isShared && (() => {
-              const myEvent = events.find(e => e.id === flow.savedEventId)
-              const reactionText = myEvent ? getPartnerReactionText(myEvent.partner_reaction) : null
-              const reactionMeaning = myEvent ? getPartnerReactionMeaning(myEvent.partner_reaction) : null
+            {/* 感情バッジ */}
+            {(() => {
+              const meta = emMeta(flow.emotion)
               return (
-                <div>
-                  {reactionText ? (
-                    <div style={{ animation: 'fadeUp .3s ease-out both' }}>
-                      <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                        <p className="text-[11px] font-semibold text-emerald-700">{reactionText}</p>
-                      </div>
-                      {reactionMeaning && (
-                        <p className="mt-1.5 pl-1 text-xs text-stone-400">{reactionMeaning}</p>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-stone-300">返事を待っています…</p>
-                  )}
+                <div className="flex items-center gap-2 px-1">
+                  <FaceIcon type={flow.emotion} colorClass={meta.color} gender={myGender} size={20} />
+                  <p className={`text-sm font-semibold ${meta.color}`}>{meta.label}</p>
                 </div>
               )
             })()}
 
-            {/* calm の閉じるボタン */}
-            {flow.emotion === 'calm' && (
-              <button
-                onClick={handleResetWithFade}
-                className="text-xs text-stone-400 underline underline-offset-2 hover:text-stone-600 transition"
-              >
-                閉じる
-              </button>
-            )}
-
-            {/* 完了後（calm 以外） */}
-            {flow.emotion !== 'calm' && (flow.recovered || flow.isShared) && (
-              <div>
-                <p className="text-xs text-stone-400">{getRecoveryMessage(flow.emotion)}</p>
+            {/* calm: AI一言 + 閉じる */}
+            {flow.emotion === 'calm' && flow.aiResponse && (
+              <div className="space-y-4">
+                <AiResponseCard response={flow.aiResponse} />
                 <button
                   onClick={handleResetWithFade}
-                  className="mt-3 text-xs text-stone-400 underline underline-offset-2 hover:text-stone-600 transition"
+                  className="text-xs text-stone-400 underline underline-offset-2 hover:text-stone-600 transition"
                 >
-                  もう一度整理する
+                  閉じる
                 </button>
               </div>
+            )}
+
+            {/* 非calm: 翻訳ヒーロー */}
+            {flow.emotion !== 'calm' && (
+              <TranslationHeroCard message={flow.translated?.message ?? null} isLoading={flow.isLoadingAi} />
+            )}
+
+            {/* 背景チップ（非calm、未送信） */}
+            {flow.emotion !== 'calm' && !flow.isShared && (
+              <div>
+                <p className="mb-2 px-1 text-[10px] font-bold uppercase tracking-widest text-stone-300">
+                  背景を追加（翻訳が変わります）
+                </p>
+                <ContextChips
+                  selected={flow.selectedBackgroundIds}
+                  onChange={onSetBackgroundIds}
+                />
+              </div>
+            )}
+
+            {/* トーン選択（非calm、未送信） */}
+            {flow.emotion !== 'calm' && !flow.isShared && (
+              <div className="flex gap-2">
+                {(['soft', 'normal', 'direct'] as const).map(t => {
+                  const labels = { soft: 'やわらかく', normal: 'ふつう', direct: 'まっすぐ' }
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => onToneChange(t)}
+                      className={`flex-1 rounded-full py-2 text-xs font-semibold transition active:scale-95 ${
+                        shareTone === t
+                          ? 'bg-stone-700 text-white'
+                          : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+                      }`}
+                    >
+                      {labels[t]}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* CTA（非calm） */}
+            {flow.emotion !== 'calm' && (
+              <>
+                {!flow.isShared ? (
+                  <button
+                    type="button"
+                    disabled={!hasPartner || flow.isSharing || !flow.translated}
+                    onClick={() => { if (flow.translated) onShare(flow.translated.message) }}
+                    className="w-full rounded-2xl bg-stone-800 py-4 text-sm font-bold text-white shadow-md transition hover:bg-stone-700 active:scale-95 disabled:opacity-40"
+                  >
+                    {flow.isSharing ? '送っています…' : 'この言葉で伝える'}
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    {(() => {
+                      const myEvent = events.find(e => e.id === flow.savedEventId)
+                      const reactionText = myEvent ? getPartnerReactionText(myEvent.partner_reaction) : null
+                      const reactionMeaning = myEvent ? getPartnerReactionMeaning(myEvent.partner_reaction) : null
+                      return reactionText ? (
+                        <div style={{ animation: 'fadeUp .3s ease-out both' }}>
+                          <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                            <p className="text-[11px] font-semibold text-emerald-700">{reactionText}</p>
+                          </div>
+                          {reactionMeaning && (
+                            <p className="mt-1.5 pl-1 text-xs text-stone-400">{reactionMeaning}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="px-1 text-xs text-stone-300">返事を待っています…</p>
+                      )
+                    })()}
+                    <p className="px-1 text-xs text-stone-400">{getRecoveryMessage(flow.emotion)}</p>
+                    <button
+                      onClick={handleResetWithFade}
+                      className="text-xs text-stone-400 underline underline-offset-2 hover:text-stone-600 transition"
+                    >
+                      もう一度整理する
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -3651,6 +3793,7 @@ const {
   savedEventIdRef,
   setFlow,
   shareWithPartner,
+  quickSubmit,
   goBack,
 } = useEmotionFlow(
   userId,
@@ -3904,6 +4047,7 @@ const handleShare = useCallback(async (message?: string) => {
   onSetLonelyTag={setLonelyTag}
   myGender={myGender}
   partnerGender={partnerGender}
+  onQuickSubmit={quickSubmit}
 />
           )}
 
