@@ -147,6 +147,8 @@ type BackgroundOption = {
   emoji: string
 }
 
+type Gender = 'male' | 'female'
+
 const BACKGROUND_OPTIONS: BackgroundOption[] = [
   { id: 'sleep_dep',    label: '睡眠不足',      description: '夜泣き・夜間対応・細切れ睡眠',     emoji: '😵' },
   { id: 'sick',         label: '体調不良',      description: '風邪・頭痛・だるさ',               emoji: '🤒' },
@@ -1866,11 +1868,11 @@ function useEmotionFlow(
 
 const SHARE_OPTION_LABELS: Record<ShareOptionId, string> = {
   swap_tonight:   '今夜だけ少し代わってほしい',
-  listen_10m:     '10分だけ話を聞いてほしい',
+  listen_10m:     'ゆっくり話を聞いてほしい',
   leave_me_alone: '今日はそっとしておいてほしい',
   take_one_task:  '家のことを1つ代わってほしい',
   rest_time:      '少し休む時間をもらいたい',
-  listen_5m:      '5分だけ様子を聞いてほしい',
+  listen_5m:      'ちょっとだけ様子を聞いてほしい',
   one_help:       '今日だけ1つ助けてほしい',
   quiet_time:     '少し一人になる時間がほしい',
   notice_me:      '今つらいことに少し気づいてほしい',
@@ -1884,23 +1886,23 @@ function getShareOptionLabel(optionId: ShareOptionId | string | null | undefined
 
 function buildPartnerSupportHint(optionId: ShareOptionId | null): string {
   switch (optionId) {
-    case 'swap_tonight':   return '今夜30分だけ代わる'
-    case 'take_one_task':  return '家のことを1つ代わる'
-    case 'listen_10m':     return '10分だけ話を聞く'
-    case 'listen_5m':      return '5分だけ気にかける'
-    case 'notice_me':      return '少し気にかける'
+    case 'swap_tonight':   return '今夜だけ少し代わってみる'
+    case 'take_one_task':  return '家のことを1つ代わってみる'
+    case 'listen_10m':     return 'ゆっくり話を聞いてみる'
+    case 'listen_5m':      return '少しだけ気にかけてみる'
+    case 'notice_me':      return '少し気にかけてみる'
     case 'leave_me_alone': return '今日はそっとしておく'
-    case 'rest_time':      return '少し休む時間をつくる'
-    case 'one_help':       return '今日だけ少し助ける'
-    case 'quiet_time':     return '10分だけ一人時間をつくる'
-    default:               return '今できる助け方を考える'
+    case 'rest_time':      return '少し休める時間をつくる'
+    case 'one_help':       return '今日だけ少し助けてみる'
+    case 'quiet_time':     return '少しひとり時間をつくる'
+    default:               return '今できることを一緒に考える'
   }
 }
 
 function getReactionLabel(reaction: 'ack' | 'soon' | 'on_it' | null): string | null {
   switch (reaction) {
     case 'ack':   return '了解'
-    case 'soon':  return 'あとで行くね'
+    case 'soon':  return 'あとから話しかけるね'
     case 'on_it': return 'やっておくね'
     default: return null
   }
@@ -1909,7 +1911,7 @@ function getReactionLabel(reaction: 'ack' | 'soon' | 'on_it' | null): string | n
 function getPartnerReactionText(reaction: 'ack' | 'soon' | 'on_it' | null): string | null {
   switch (reaction) {
     case 'ack':   return '「わかったよ」と返ってきた'
-    case 'soon':  return '「あとで行くね」と返ってきた'
+    case 'soon':  return '「あとから話しかけるね」と返ってきた'
     case 'on_it': return '「やっておくね」と返ってきた'
     default: return null
   }
@@ -1999,7 +2001,7 @@ function PartnerSupportCard({ event, onReact }: { event: EmotionEvent; onReact: 
     event.partner_reaction === 'ack'
       ? 'わかったよ'
       : event.partner_reaction === 'soon'
-      ? 'あとで行くね'
+      ? 'あとから話しかけるね'
       : event.partner_reaction === 'on_it'
       ? 'やっておくね'
       : null
@@ -2032,7 +2034,7 @@ function PartnerSupportCard({ event, onReact }: { event: EmotionEvent; onReact: 
       ) : (
         <div className="mt-4 grid grid-cols-3 gap-2">
           {(['ack', 'soon', 'on_it'] as const).map(r => {
-            const labels: Record<typeof r, string> = { ack: 'わかったよ', soon: 'あとで行くね', on_it: 'やっておくね' }
+            const labels: Record<typeof r, string> = { ack: 'わかったよ', soon: 'あとから話しかけるね', on_it: 'やっておくね' }
             return (
               <button
                 key={r}
@@ -2117,36 +2119,138 @@ function BackgroundSelector({ selectedIds, onChange, label }: { selectedIds: Bac
   )
 }
 
-function FaceIcon({ type, colorClass }: { type: EmotionType; colorClass: string }) {
-  const stroke = 'currentColor'
-  const sw = 1.8
-  // eyebrow paths and mouth paths per emotion
-  const faces: Record<EmotionType, { lBrow: string; rBrow: string; mouth: string }> = {
-    calm:    { lBrow: 'M5 7 Q6 6.5 7 7',      rBrow: 'M9 7 Q10 6.5 11 7',     mouth: 'M6 13 Q8 15 10 13' },
-    angry:   { lBrow: 'M5 7 Q6 5.5 7 6.5',    rBrow: 'M9 6.5 Q10 5.5 11 7',   mouth: 'M6 14 Q8 12 10 14' },
-    sad:     { lBrow: 'M5 7.5 Q6 6.5 7 7.5',  rBrow: 'M9 7.5 Q10 6.5 11 7.5', mouth: 'M6 14 Q8 12.5 10 14' },
-    tired:   { lBrow: 'M5 7 Q6 7.5 7 7',      rBrow: 'M9 7 Q10 7.5 11 7',     mouth: 'M6 13.5 Q8 14.5 10 13.5' },
-    anxious: { lBrow: 'M5 7 Q6 6 7 7',        rBrow: 'M9 7 Q10 6 11 7',       mouth: 'M6 13.5 Q8 12 10 13.5' },
-    lonely:  { lBrow: 'M5 7.5 Q6 7 7 7.5',   rBrow: 'M9 7.5 Q10 7 11 7.5',  mouth: 'M6 14 Q8 13 10 14' },
+/*
+ * FaceIcon — 感情 × 性別の表情アイコン
+ *
+ * 設計方針:
+ *  - viewBox="0 -3 16 19": 顔円(cx=8,cy=8,r=7)の上に髪の余白を確保
+ *  - 眉が感情の核。口が補助。目は tiredness 用に half-close のみ差分
+ *  - 男女差は髪型のみ（女性: 丸みを帯びた曲線+サイドストランド / 男性: 直線的なトップライン）
+ *  - stroke="currentColor" でTailwind colorClass がそのまま効く
+ *
+ * 眉の設計ルール:
+ *  - angry : 眉尻が外、眉頭が強く下がる（八の字型）→ 怒り最大
+ *  - sad   : 眉頭が上がり（逆ハの字）→ 困惑・悲しみ
+ *  - anxious: 左右非対称 — 片方だけ上げて不安定感
+ *  - tired : 全体的に重く下がる
+ *  - lonely: sad より弱い下がり — さみしさの控えめさ
+ *  - calm  : わずかに弧を描く中立
+ */
+function FaceIcon({
+  type,
+  colorClass,
+  gender = 'female',
+  size = 22,
+}: {
+  type: EmotionType
+  colorClass: string
+  gender?: Gender
+  size?: number
+}) {
+  const sw = 1.7
+  const c = 'currentColor'
+
+  type FaceData = { lBrow: string; rBrow: string; mouth: string; tiredEye?: true }
+
+  const faces: Record<EmotionType, FaceData> = {
+    // calm — 穏やかなアーチ眉 + 微笑
+    calm: {
+      lBrow: 'M3.5 5.5 Q5.5 4.5 7 5.5',
+      rBrow: 'M9 5.5 Q10.5 4.5 12.5 5.5',
+      mouth: 'M5 11.5 Q8 14 11 11.5',           // 笑顔（制御点が端点より下）
+    },
+    // angry — 眉頭が強く下がる（八の字の逆ハ）+ 逆U字口
+    angry: {
+      lBrow: 'M3.5 5.5 Q5.5 5 7 7',             // 外側高く・内側強く落ちる
+      rBrow: 'M9 7 Q10.5 5 12.5 5.5',           // ミラー
+      mouth: 'M5 13 Q8 11 11 13',               // 不満の口（制御点が上）
+    },
+    // sad — 眉頭が上がる逆ハの字 + 下がり口
+    sad: {
+      lBrow: 'M3.5 7 Q5 5 6.5 6',              // 外低・内高
+      rBrow: 'M9.5 6 Q11 5 12.5 7',            // ミラー
+      mouth: 'M5 12.5 Q8 11 11 12.5',          // 悲しみ口（制御点が上）
+    },
+    // tired — 眉全体が重く垂れ下がる + 平らな口 + 半開き目
+    tired: {
+      lBrow: 'M3.5 6 Q5.5 7 7 7',              // 外から内に下がる
+      rBrow: 'M9 7 Q10.5 7 12.5 6',            // ミラー
+      mouth: 'M5.5 12.5 Q8 13 10.5 12.5',      // ほぼ水平
+      tiredEye: true,
+    },
+    // anxious — 左右非対称眉 + わずかに引き攣った口
+    anxious: {
+      lBrow: 'M3.5 6 Q5.5 5.5 7 6',            // 比較的平ら
+      rBrow: 'M9 5 Q10.5 4.5 12.5 5',          // 片方だけ強く上がる（非対称）
+      mouth: 'M5.5 12.5 Q7 11 8.5 12 Q10 13 10.5 11.5', // 波打ち
+    },
+    // lonely — sad より弱いdownward眉 + 控えめな下がり口
+    lonely: {
+      lBrow: 'M3.5 6.5 Q5.5 5.5 7 7',          // やや内下がり（sad ほど急ではない）
+      rBrow: 'M9 7 Q10.5 5.5 12.5 6.5',        // ミラー
+      mouth: 'M5.5 12.5 Q8 11.5 10.5 12.5',    // 控えめなフラウン
+    },
   }
-  const { lBrow, rBrow, mouth } = faces[type]
+
+  const { lBrow, rBrow, mouth, tiredEye } = faces[type]
+
   return (
-    <svg width="22" height="22" viewBox="0 0 16 16" fill="none" className={colorClass} aria-hidden>
-      <circle cx="8" cy="8" r="7" stroke={stroke} strokeWidth={sw} />
-      <path d={lBrow} stroke={stroke} strokeWidth={sw} strokeLinecap="round" />
-      <path d={rBrow} stroke={stroke} strokeWidth={sw} strokeLinecap="round" />
-      <path d={mouth} stroke={stroke} strokeWidth={sw} strokeLinecap="round" fill="none" />
+    <svg
+      width={size} height={size}
+      viewBox="0 -3 16 19"
+      fill="none"
+      className={colorClass}
+      aria-hidden
+    >
+      {/* 髪型（性別差分） */}
+      {gender === 'female' ? (
+        <>
+          {/* トップアーチ — 丸みが強い */}
+          <path d="M4 2.5 Q8 -1.5 12 2.5" stroke={c} strokeWidth={1.3} strokeLinecap="round" opacity={0.65} />
+          {/* サイドストランド — 顔の外に少し流れる */}
+          <path d="M3 5.5 Q1.5 9 2.5 12" stroke={c} strokeWidth={1.1} strokeLinecap="round" opacity={0.45} />
+          <path d="M13 5.5 Q14.5 9 13.5 12" stroke={c} strokeWidth={1.1} strokeLinecap="round" opacity={0.45} />
+        </>
+      ) : (
+        /* トップライン — やや直線的・角がある */
+        <path d="M4 2.5 L8 1.5 L12 2.5" stroke={c} strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" opacity={0.65} />
+      )}
+
+      {/* 顔（円） */}
+      <circle cx="8" cy="8" r="7" stroke={c} strokeWidth={sw} />
+
+      {/* 眉 */}
+      <path d={lBrow} stroke={c} strokeWidth={sw} strokeLinecap="round" />
+      <path d={rBrow} stroke={c} strokeWidth={sw} strokeLinecap="round" />
+
+      {/* 目 */}
+      {tiredEye ? (
+        /* 半開き — 弧で重さを表現 */
+        <>
+          <path d="M4.5 7.5 Q5.5 9 6.5 7.5" stroke={c} strokeWidth={1.2} strokeLinecap="round" />
+          <path d="M9.5 7.5 Q10.5 9 11.5 7.5" stroke={c} strokeWidth={1.2} strokeLinecap="round" />
+        </>
+      ) : (
+        /* 通常 — 塗りつぶし円 */
+        <>
+          <circle cx="5.5" cy="7" r="0.85" fill={c} />
+          <circle cx="10.5" cy="7" r="0.85" fill={c} />
+        </>
+      )}
+
+      {/* 口 */}
+      <path d={mouth} stroke={c} strokeWidth={sw} strokeLinecap="round" fill="none" />
     </svg>
   )
 }
 
-function EmotionQuickSelect({ onSelect }: { onSelect: (e: EmotionType) => void }) {
+function EmotionQuickSelect({ onSelect, gender = 'female' }: { onSelect: (e: EmotionType) => void; gender?: Gender }) {
   return (
     <div className="grid grid-cols-2 gap-2">
       {EMOTIONS.map(em => (
         <button key={em.type} onClick={() => onSelect(em.type)}
           className={`flex items-center gap-2.5 rounded-2xl px-4 py-3 transition active:scale-95 hover:${em.activeBg} ${em.bg}`}>
-          <FaceIcon type={em.type} colorClass={em.color} />
+          <FaceIcon type={em.type} colorClass={em.color} gender={gender} />
           <span className={`text-sm font-semibold ${em.color}`}>{em.label}</span>
         </button>
       ))}
@@ -2502,12 +2606,12 @@ const PARTNER_EMOTION_HINTS: Record<EmotionType, string> = {
   lonely:  'パートナーが少しさみしさを感じているみたい',
 }
 
-function PartnerEmotionHint({ event }: { event: EmotionEvent }) {
+function PartnerEmotionHint({ event, gender = 'male' }: { event: EmotionEvent; gender?: Gender }) {
   const meta = emMeta(event.emotion_type)
   if (!isToday(new Date(event.created_at))) return null
   return (
     <div className={`flex items-center gap-2 rounded-2xl ${meta.bg} px-4 py-3`}>
-      <span className="text-lg">{meta.emoji}</span>
+      <FaceIcon type={event.emotion_type} colorClass={meta.color} gender={gender} size={20} />
       <div className="min-w-0 flex-1">
         <p className={`text-[12px] font-semibold ${meta.color}`}>{PARTNER_EMOTION_HINTS[event.emotion_type]}</p>
         <p className="text-[11px] text-stone-400 mt-0.5">{relTime(event.created_at)}</p>
@@ -2563,6 +2667,8 @@ function HomeTab({
   relStatus,
   onRelChange,
   onSetLonelyTag,
+  myGender = 'female',
+  partnerGender = 'male',
 }: {
   flow: FlowState
   events: EmotionEvent[]
@@ -2587,6 +2693,8 @@ function HomeTab({
   relStatus: string | null
   onRelChange: (label: string, id: string) => void
   onSetLonelyTag: (tag: LonelyTag | null) => void
+  myGender?: Gender
+  partnerGender?: Gender
 }) {
   const [relPickerOpen, setRelPickerOpen] = useState(false)
   const [relJustUpdated, setRelJustUpdated] = useState(false)
@@ -2715,13 +2823,13 @@ return (
       <div className="rounded-3xl bg-stone-50 ring-1 ring-stone-100 px-5 py-4" style={{ animation: 'fadeUp .3s ease-out both' }}>
         <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-2">パートナーから</p>
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-base">{emMeta(partnerLatest.emotion_type).emoji}</span>
+          <FaceIcon type={partnerLatest.emotion_type} colorClass={emMeta(partnerLatest.emotion_type).color} gender={partnerGender} size={20} />
           <p className="text-xs text-stone-500">{PARTNER_EMOTION_HINTS[partnerLatest.emotion_type]}</p>
         </div>
         {!partnerLatest.partner_reaction ? (
           <div className="flex gap-2">
             {(['ack', 'soon', 'on_it'] as const).map(r => {
-              const labels: Record<typeof r, string> = { ack: 'わかったよ', soon: 'あとで行くね', on_it: 'やっておくね' }
+              const labels: Record<typeof r, string> = { ack: 'わかったよ', soon: 'あとから話しかけるね', on_it: 'やっておくね' }
               return (
                 <button key={r} onClick={() => void onReactToPartnerEvent(partnerLatest.id, r)}
                   className="flex-1 rounded-2xl bg-white ring-1 ring-stone-200 py-2.5 text-xs font-semibold text-stone-600 transition hover:bg-stone-100 active:scale-95">
@@ -2731,7 +2839,7 @@ return (
             })}
           </div>
         ) : (
-          <p className="text-xs text-stone-400">「{partnerLatest.partner_reaction === 'ack' ? 'わかったよ' : partnerLatest.partner_reaction === 'soon' ? 'あとで行くね' : 'やっておくね'}」と伝えた</p>
+          <p className="text-xs text-stone-400">「{partnerLatest.partner_reaction === 'ack' ? 'わかったよ' : partnerLatest.partner_reaction === 'soon' ? 'あとから話しかけるね' : 'やっておくね'}」と伝えた</p>
         )}
       </div>
     )}
@@ -2770,7 +2878,7 @@ return (
             <p className="text-[10px] text-stone-400 leading-tight max-w-[130px] text-right">選ぶと次の一歩を提案します</p>
           )}
         </div>
-        <EmotionQuickSelect onSelect={(e) => { onSelectEmotion(e); setShowFirstVisitHint(false) }} />
+        <EmotionQuickSelect onSelect={(e) => { onSelectEmotion(e); setShowFirstVisitHint(false) }} gender={myGender} />
       </div>
     )}
 
@@ -2970,15 +3078,18 @@ function RelWaveChart({ events, sharedEvents }: { events: EmotionEvent[]; shared
     return combined.slice(-14)
   }, [events, sharedEvents])
 
-  const wavePoints = useMemo(() => {
-    const rawHistory = allItems.map(({ e }) => {
+  // rawHistory: ノイズなしのスコア列。getRelationState はここから読む（wave表示用ノイズと分離）
+  const rawHistory = useMemo(() =>
+    allItems.map(({ e }) => {
       const base = negativeEmotions.has(e.emotion_type) ? 0.2 : e.emotion_type === 'calm' ? 0.9 : 0.55
       const reactionBoost = e.partner_reaction ? 0.15 : 0
       return Math.min(1, base + reactionBoost)
-    })
-    return smoothWave(generateWave(rawHistory))
+    }),
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allItems])
+  [allItems])
+
+  // wavePoints: 視覚用のみ。ノイズはここで加える
+  const wavePoints = useMemo(() => smoothWave(generateWave(rawHistory)), [rawHistory])
 
   if (allItems.length < 2) return null
 
@@ -3025,9 +3136,13 @@ function RelWaveChart({ events, sharedEvents }: { events: EmotionEvent[]; shared
 function HistoryTab({
   events,
   sharedEvents,
+  myGender = 'female',
+  partnerGender = 'male',
 }: {
   events: EmotionEvent[]
   sharedEvents: EmotionEvent[]
+  myGender?: Gender
+  partnerGender?: Gender
 }) {
   type TLItem =
     | { kind: 'mine';    event: EmotionEvent }
@@ -3066,7 +3181,7 @@ function HistoryTab({
 
   const reactionWord = (r: EmotionEvent['partner_reaction']) => {
     if (r === 'ack')   return 'わかったよ'
-    if (r === 'soon')  return 'あとで行くね'
+    if (r === 'soon')  return 'あとから話しかけるね'
     if (r === 'on_it') return 'やっておくね'
     return null
   }
@@ -3083,7 +3198,7 @@ function HistoryTab({
       `${Math.round(diffMin / 1440)}日後に`
     switch (event.partner_reaction) {
       case 'ack':   return `${timeStr}受け止めてくれた`
-      case 'soon':  return `${timeStr}つながってくれた`
+      case 'soon':  return `${timeStr}声をかけてくれた`
       case 'on_it': return `${timeStr}動いてくれた`
     }
   }
@@ -3117,8 +3232,8 @@ function HistoryTab({
                 <div key={event.id} className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-black/5">
                   {/* 感情ヘッダー */}
                   <div className="flex items-center gap-3 px-5 pt-4 pb-3">
-                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-lg ${meta.bg}`}>
-                      {meta.emoji}
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ${meta.bg}`}>
+                      <FaceIcon type={event.emotion_type} colorClass={meta.color} gender={myGender} size={20} />
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
@@ -3173,8 +3288,8 @@ function HistoryTab({
                   <p className="text-[10px] text-stone-300">{fmtTime(event.created_at)}</p>
                 </div>
                 <div className="flex items-center gap-3 px-5 pb-3">
-                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-lg ${meta.bg}`}>
-                    {meta.emoji}
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ${meta.bg}`}>
+                    <FaceIcon type={event.emotion_type} colorClass={meta.color} gender={partnerGender} size={20} />
                   </span>
                   <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
                 </div>
@@ -3268,13 +3383,62 @@ function ConnectTab({ todayLogs, onRecordBackground }: { todayLogs: SoloLog[]; o
    SETTINGS TAB
 ═══════════════════════════════════════════════════ */
 
-function SettingsTab({ session, profile, partner, pairInput, setPairInput, onPair, onSignOut }: {
+function GenderPicker({ label, value, onChange }: { label: string; value: Gender; onChange: (g: Gender) => void }) {
+  return (
+    <div>
+      <p className="mb-2 text-xs font-medium text-stone-500">{label}</p>
+      <div className="flex gap-2">
+        {(['female', 'male'] as const).map(g => {
+          const active = value === g
+          const em: EmotionType = 'calm'
+          return (
+            <button
+              key={g}
+              type="button"
+              onClick={() => onChange(g)}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-2xl border py-3 transition active:scale-95 ${
+                active ? 'border-indigo-300 bg-indigo-50 ring-2 ring-indigo-100' : 'border-stone-200 bg-white hover:bg-stone-50'
+              }`}
+            >
+              <FaceIcon type={em} colorClass={active ? 'text-indigo-600' : 'text-stone-400'} gender={g} size={20} />
+              <span className={`text-sm font-semibold ${active ? 'text-indigo-700' : 'text-stone-500'}`}>
+                {g === 'female' ? '女性' : '男性'}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function SettingsTab({
+  session, profile, partner, pairInput, setPairInput, onPair, onSignOut,
+  myGender, partnerGender, onMyGenderChange, onPartnerGenderChange,
+}: {
   session: Session; profile: Profile | null; partner: Profile | null
   pairInput: string; setPairInput: (v: string) => void
   onPair: () => Promise<void>; onSignOut: () => Promise<void>
+  myGender: Gender; partnerGender: Gender
+  onMyGenderChange: (g: Gender) => void
+  onPartnerGenderChange: (g: Gender) => void
 }) {
   return (
     <div className="space-y-4 pb-4">
+      {/* アバター設定 */}
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
+        <div className="border-b border-stone-100 px-5 py-3.5">
+          <h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-500">アイコン設定</h2>
+        </div>
+        <div className="space-y-4 px-5 py-4">
+          <GenderPicker label="自分のアイコン" value={myGender} onChange={onMyGenderChange} />
+          <GenderPicker label="パートナーのアイコン" value={partnerGender} onChange={onPartnerGenderChange} />
+          <p className="text-[11px] leading-relaxed text-stone-400">
+            履歴や相手の感情カードに反映されます
+          </p>
+        </div>
+      </div>
+
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
         <div className="border-b border-stone-100 px-5 py-3.5"><h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-500">アカウント</h2></div>
         <div className="flex items-center gap-3 px-5 py-4">
@@ -3335,6 +3499,18 @@ export default function Page() {
   const [shareTone, setShareTone] = useState<'soft' | 'normal' | 'direct'>('normal')
   const [relStatus, setRelStatus] = useState<string | null>(null)
   const [relStatusId, setRelStatusId] = useState<string | null>(null)
+  const [myGender, setMyGender] = useState<Gender>(() =>
+    typeof window !== 'undefined' ? (localStorage.getItem('kt_my_gender') as Gender) ?? 'female' : 'female'
+  )
+  const [partnerGender, setPartnerGender] = useState<Gender>(() =>
+    typeof window !== 'undefined' ? (localStorage.getItem('kt_partner_gender') as Gender) ?? 'male' : 'male'
+  )
+  const handleMyGenderChange = useCallback((g: Gender) => {
+    setMyGender(g); localStorage.setItem('kt_my_gender', g)
+  }, [])
+  const handlePartnerGenderChange = useCallback((g: Gender) => {
+    setPartnerGender(g); localStorage.setItem('kt_partner_gender', g)
+  }, [])
 
   const handleRelChange = useCallback((label: string, id: string) => {
     setRelStatus(label)
@@ -3411,13 +3587,11 @@ const {
     [profile]
   )
 
-  const backgroundTags = useMemo(() => {
-    const tags = mergeBackgroundTags(todayBackgroundTags, profileBackgroundTags)
-    if (relStatusId === 'off' || relStatusId === 'distant') {
-      return mergeBackgroundTags(tags, ['relationship' as BackgroundOptionId])
-    }
-    return tags
-  }, [todayBackgroundTags, profileBackgroundTags, relStatusId])
+  // backgroundTags はプロフィール・今日のログのみ。relStatus は表示専用（AI応答に影響させない）
+  const backgroundTags = useMemo(
+    () => mergeBackgroundTags(todayBackgroundTags, profileBackgroundTags),
+    [todayBackgroundTags, profileBackgroundTags]
+  )
 
 const partnerLatest = useMemo(() => {
   return [...partnerEvents]
@@ -3728,6 +3902,8 @@ const handleShare = useCallback(async (message?: string) => {
   relStatus={relStatus}
   onRelChange={handleRelChange}
   onSetLonelyTag={setLonelyTag}
+  myGender={myGender}
+  partnerGender={partnerGender}
 />
           )}
 
@@ -3735,6 +3911,8 @@ const handleShare = useCallback(async (message?: string) => {
             <HistoryTab
               events={events}
               sharedEvents={partnerEvents}
+              myGender={myGender}
+              partnerGender={partnerGender}
             />
           )}
 
@@ -3747,6 +3925,10 @@ const handleShare = useCallback(async (message?: string) => {
               setPairInput={setPairInput}
               onPair={handlePair}
               onSignOut={handleSignOut}
+              myGender={myGender}
+              partnerGender={partnerGender}
+              onMyGenderChange={handleMyGenderChange}
+              onPartnerGenderChange={handlePartnerGenderChange}
             />
           )}
         </main>
