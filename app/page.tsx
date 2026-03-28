@@ -1484,10 +1484,13 @@ function useEmotionEvents(userId: string | null) {
     setEvents((data ?? []) as EmotionEvent[])
   }, [])
 
-  const markShared = useCallback(async (eventId: string) => {
+  const markShared = useCallback(async (eventId: string, message?: string) => {
+    const payload: { share_status: 'sent'; shared_message?: string } = { share_status: 'sent' }
+    if (message) payload.shared_message = message
+
     const { error } = await supabase
       .from('emotion_events')
-      .update({ share_status: 'sent' })
+      .update(payload)
       .eq('id', eventId)
 
     if (error) {
@@ -1496,7 +1499,11 @@ function useEmotionEvents(userId: string | null) {
     }
 
     setEvents(prev =>
-      prev.map(e => (e.id === eventId ? { ...e, share_status: 'sent' } : e))
+      prev.map(e =>
+        e.id === eventId
+          ? { ...e, share_status: 'sent', ...(message ? { shared_message: message } : {}) }
+          : e
+      )
     )
 
     return true
@@ -1646,7 +1653,7 @@ function useEmotionFlow(
     translated: TranslatedShare,
     selectedShareOptionId: string | null,
   ) => Promise<EmotionEvent | null>,
-  markShared: (eventId: string) => Promise<boolean>,
+  markShared: (eventId: string, message?: string) => Promise<boolean>,
   shareTone: 'soft' | 'normal' | 'direct',
 ) {
   const [flow, setFlow] = useState<FlowState>(INIT_FLOW)
@@ -1800,7 +1807,7 @@ function useEmotionFlow(
     void regenerateTranslatedMessage()
   }, [regenerateTranslatedMessage])
 
-  const shareWithPartner = useCallback(async () => {
+  const shareWithPartner = useCallback(async (message?: string) => {
     const eventId = savedEventIdRef.current ?? flow.savedEventId
 
     if (!eventId) return
@@ -1808,7 +1815,7 @@ function useEmotionFlow(
 
     setFlow(prev => ({ ...prev, isSharing: true }))
 
-    const ok = await markShared(eventId)
+    const ok = await markShared(eventId, message)
 
     if (!ok) {
       setFlow(prev => ({ ...prev, isSharing: false }))
@@ -1894,7 +1901,7 @@ function getReactionLabel(reaction: 'ack' | 'soon' | 'on_it' | null): string | n
   switch (reaction) {
     case 'ack':   return '了解'
     case 'soon':  return 'あとで行くね'
-    case 'on_it': return 'やるよ'
+    case 'on_it': return 'やっておくね'
     default: return null
   }
 }
@@ -2110,13 +2117,36 @@ function BackgroundSelector({ selectedIds, onChange, label }: { selectedIds: Bac
   )
 }
 
+function FaceIcon({ type, colorClass }: { type: EmotionType; colorClass: string }) {
+  const stroke = 'currentColor'
+  const sw = 1.8
+  // eyebrow paths and mouth paths per emotion
+  const faces: Record<EmotionType, { lBrow: string; rBrow: string; mouth: string }> = {
+    calm:    { lBrow: 'M5 7 Q6 6.5 7 7',      rBrow: 'M9 7 Q10 6.5 11 7',     mouth: 'M6 13 Q8 15 10 13' },
+    angry:   { lBrow: 'M5 7 Q6 5.5 7 6.5',    rBrow: 'M9 6.5 Q10 5.5 11 7',   mouth: 'M6 14 Q8 12 10 14' },
+    sad:     { lBrow: 'M5 7.5 Q6 6.5 7 7.5',  rBrow: 'M9 7.5 Q10 6.5 11 7.5', mouth: 'M6 14 Q8 12.5 10 14' },
+    tired:   { lBrow: 'M5 7 Q6 7.5 7 7',      rBrow: 'M9 7 Q10 7.5 11 7',     mouth: 'M6 13.5 Q8 14.5 10 13.5' },
+    anxious: { lBrow: 'M5 7 Q6 6 7 7',        rBrow: 'M9 7 Q10 6 11 7',       mouth: 'M6 13.5 Q8 12 10 13.5' },
+    lonely:  { lBrow: 'M5 7.5 Q6 7 7 7.5',   rBrow: 'M9 7.5 Q10 7 11 7.5',  mouth: 'M6 14 Q8 13 10 14' },
+  }
+  const { lBrow, rBrow, mouth } = faces[type]
+  return (
+    <svg width="22" height="22" viewBox="0 0 16 16" fill="none" className={colorClass} aria-hidden>
+      <circle cx="8" cy="8" r="7" stroke={stroke} strokeWidth={sw} />
+      <path d={lBrow} stroke={stroke} strokeWidth={sw} strokeLinecap="round" />
+      <path d={rBrow} stroke={stroke} strokeWidth={sw} strokeLinecap="round" />
+      <path d={mouth} stroke={stroke} strokeWidth={sw} strokeLinecap="round" fill="none" />
+    </svg>
+  )
+}
+
 function EmotionQuickSelect({ onSelect }: { onSelect: (e: EmotionType) => void }) {
   return (
     <div className="grid grid-cols-2 gap-2">
       {EMOTIONS.map(em => (
         <button key={em.type} onClick={() => onSelect(em.type)}
           className={`flex items-center gap-2.5 rounded-2xl px-4 py-3 transition active:scale-95 hover:${em.activeBg} ${em.bg}`}>
-          <span className="text-lg leading-none">{em.emoji}</span>
+          <FaceIcon type={em.type} colorClass={em.color} />
           <span className={`text-sm font-semibold ${em.color}`}>{em.label}</span>
         </button>
       ))}
@@ -2967,14 +2997,10 @@ function RelWaveChart({ events, sharedEvents }: { events: EmotionEvent[]; shared
   }).join(' ')
 
   const lastPt = pts[pts.length - 1]
-  const state = getRelationState(wavePoints)
-  const stateLabel = RELATION_LABEL[state]
-
   return (
     <div className="mb-4 rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-black/5">
-      <div className="flex items-center justify-between mb-3">
+      <div className="mb-3">
         <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">関係の流れ</p>
-        <p className="text-[11px] font-bold text-stone-500">{stateLabel}</p>
       </div>
       <div className="relative">
         <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
@@ -3045,6 +3071,23 @@ function HistoryTab({
     return null
   }
 
+  const fmtReactionContext = (event: EmotionEvent): string | null => {
+    if (!event.partner_reaction || !event.partner_reacted_at) return null
+    const createdMs = new Date(event.created_at).getTime()
+    const reactedMs = new Date(event.partner_reacted_at).getTime()
+    const diffMin = Math.round((reactedMs - createdMs) / 60000)
+    const timeStr =
+      diffMin < 1  ? 'すぐに' :
+      diffMin < 60 ? `${diffMin}分後に` :
+      diffMin < 1440 ? `${Math.round(diffMin / 60)}時間後に` :
+      `${Math.round(diffMin / 1440)}日後に`
+    switch (event.partner_reaction) {
+      case 'ack':   return `${timeStr}受け止めてくれた`
+      case 'soon':  return `${timeStr}つながってくれた`
+      case 'on_it': return `${timeStr}動いてくれた`
+    }
+  }
+
   if (dayGroups.length === 0) {
     return (
       <div className="rounded-3xl bg-white px-5 py-10 text-center shadow-sm ring-1 ring-black/5">
@@ -3098,11 +3141,16 @@ function HistoryTab({
                       </p>
                       <p className="text-xs leading-relaxed text-stone-600">「{event.shared_message}」</p>
                       {reaction ? (
-                        <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                          <p className="text-[11px] font-semibold text-emerald-700">
-                            「{reaction}」と返ってきた
-                          </p>
+                        <div className="mt-2 space-y-1">
+                          <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                            <p className="text-[11px] font-semibold text-emerald-700">
+                              「{reaction}」と返ってきた
+                            </p>
+                          </div>
+                          {fmtReactionContext(event) && (
+                            <p className="text-[10px] text-stone-400 px-1">{fmtReactionContext(event)}</p>
+                          )}
                         </div>
                       ) : (
                         <p className="mt-1.5 text-[10px] text-stone-300">返事を待っています…</p>
@@ -3439,6 +3487,14 @@ const {
   shareTone,
 )
 
+const handleShare = useCallback(async (message?: string) => {
+  await shareWithPartner(message)
+  if (userId) {
+    void fetchMy(userId)
+    void fetchSharedToMe(userId)
+  }
+}, [shareWithPartner, fetchMy, fetchSharedToMe, userId])
+
   useEffect(() => {
     console.log('[Page id check]', {
       sessionUserId: session?.user?.id ?? null,
@@ -3659,7 +3715,7 @@ const {
   onSetNote={setNote}
   onSetBackgroundIds={setBackgroundIds}
   onSubmit={submit}
-  onShare={shareWithPartner}
+  onShare={handleShare}
   onReset={reset}
   onRecovered={markRecovered}
   onSelectShareOption={selectShareOption}
