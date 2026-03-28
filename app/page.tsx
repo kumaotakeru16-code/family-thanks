@@ -3090,7 +3090,7 @@ function HomeTab({
         <BackButton onBack={onGoBack} />
       )}
 
-      {/* Step 2: 背景選択 */}
+      {/* ── Step 2: 背景選択のみ ─────────────────────────────── */}
       {flow.step === 'selectingContext' && flow.emotion && (
         <ContextSelector
           emotion={flow.emotion}
@@ -3104,7 +3104,7 @@ function HomeTab({
         />
       )}
 
-      {/* Step 3: Loading */}
+      {/* ── Step 3: ローディング ──────────────────────────────── */}
       {flow.step === 'responding' && flow.isLoadingAi && (
         <div className="rounded-3xl bg-white px-5 py-14 text-center shadow-sm ring-1 ring-stone-100" style={{ animation: 'fadeUp .2s ease-out both' }}>
           <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-violet-50">
@@ -3115,7 +3115,8 @@ function HomeTab({
         </div>
       )}
 
-      {/* Step 3: 結果 + 3択 */}
+      {/* ── Step 3: 解釈 + 行動選択 + パートナーにしてほしいこと + 3択 ── */}
+      {/* SupportCarousel はここのみ。Step2(selectingContext) には表示しない */}
       {flow.step === 'responding' && !flow.isLoadingAi && flow.aiResponse && (
         <ResponseCard
           flow={flow}
@@ -3888,43 +3889,14 @@ const {
     return tags
   }, [todayBackgroundTags, profileBackgroundTags, relStatusId])
 
-const partnerLatest = useMemo(() => {
-  return [...partnerEvents]
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() -
-        new Date(a.created_at).getTime()
-    )[0] ?? null
-}, [partnerEvents])
-    
-const [visiblePartnerEvent, setVisiblePartnerEvent] = useState<EmotionEvent | null>(null)
-const handlePartnerReactionForCard = useCallback(
+// partnerEvents を唯一の source of truth とし、反応後に DB から再取得して badge を同期
+const handleReactToPartnerEvent = useCallback(
   async (eventId: string, reaction: 'ack' | 'soon' | 'on_it') => {
-    const reactedAt = new Date().toISOString()
-
-    setVisiblePartnerEvent(prev =>
-      prev && prev.id === eventId
-        ? {
-            ...prev,
-            partner_reaction: reaction,
-            partner_reacted_at: reactedAt,
-          }
-        : prev
-    )
-
     await handlePartnerReaction(eventId, reaction)
+    if (userId) void fetchSharedToMe(userId)
   },
-  [handlePartnerReaction]
+  [handlePartnerReaction, fetchSharedToMe, userId]
 )
-useEffect(() => {
-  if (!partnerLatest) return
-  setVisiblePartnerEvent(partnerLatest)
-}, [
-  partnerLatest?.id,
-  partnerLatest?.partner_reaction,
-  partnerLatest?.partner_reacted_at,
-  partnerLatest?.shared_message,
-])
 
 
 const TITLE: Record<Tab, string> = {
@@ -3977,7 +3949,6 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
       profilePartnerId: profile?.partner_id ?? null,
       partnerId,
       partnerEventsCount: partnerEvents.length,
-      partnerLatestId: partnerLatest?.id ?? null,
     })
   }, [
     session?.user?.id,
@@ -3985,7 +3956,6 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
     profile?.partner_id,
     partnerId,
     partnerEvents.length,
-    partnerLatest?.id,
   ])
 
   useEffect(() => {
@@ -4210,7 +4180,7 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
             <HistoryTab
               events={events}
               sharedEvents={partnerEvents}
-              onReactToPartnerEvent={handlePartnerReaction}
+              onReactToPartnerEvent={handleReactToPartnerEvent}
               gender={gender}
             />
           )}
