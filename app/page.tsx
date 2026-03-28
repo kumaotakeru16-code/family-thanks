@@ -22,7 +22,8 @@ import type { RealtimeChannel, Session } from '@supabase/supabase-js'
 ═══════════════════════════════════════════════════ */
 
 type Tab = 'home' | 'history' | 'settings'
-type EmotionType = 'angry' | 'sad' | 'tired' | 'anxious' | 'lonely' | 'calm'
+type EmotionType = 'irritated' | 'sad' | 'tired' | 'overwhelmed' | 'lonely' | 'calm'
+type Gender = 'male' | 'female'
 type FlowStep =
   | 'idle'
   | 'composing'
@@ -176,12 +177,12 @@ const EMOTIONS: {
   type: EmotionType; emoji: string; label: string
   color: string; bg: string; activeBg: string; border: string
 }[] = [
-  { type: 'calm',    emoji: '😌', label: '落ち着いてる', color: 'text-teal-700',   bg: 'bg-teal-50',   activeBg: 'bg-teal-100',   border: 'border-teal-200'   },
-  { type: 'angry',   emoji: '😤', label: 'イライラ',     color: 'text-red-700',    bg: 'bg-red-50',    activeBg: 'bg-red-100',    border: 'border-red-200'    },
-  { type: 'sad',     emoji: '😢', label: 'つらい',       color: 'text-blue-700',   bg: 'bg-blue-50',   activeBg: 'bg-blue-100',   border: 'border-blue-200'   },
-  { type: 'tired',   emoji: '😩', label: 'つかれた',     color: 'text-amber-700',  bg: 'bg-amber-50',  activeBg: 'bg-amber-100',  border: 'border-amber-200'  },
-  { type: 'anxious', emoji: '😰', label: 'しんどい',     color: 'text-violet-700', bg: 'bg-violet-50', activeBg: 'bg-violet-100', border: 'border-violet-200' },
-  { type: 'lonely',  emoji: '🥺', label: 'さみしい',     color: 'text-rose-700',   bg: 'bg-rose-50',   activeBg: 'bg-rose-100',   border: 'border-rose-200'   },
+  { type: 'calm',       emoji: '😌', label: 'おちついてる', color: 'text-teal-700',   bg: 'bg-teal-50',   activeBg: 'bg-teal-100',   border: 'border-teal-200'   },
+  { type: 'irritated',  emoji: '😤', label: 'いらいら',    color: 'text-red-700',    bg: 'bg-red-50',    activeBg: 'bg-red-100',    border: 'border-red-200'    },
+  { type: 'sad',        emoji: '😢', label: 'つらい',      color: 'text-blue-700',   bg: 'bg-blue-50',   activeBg: 'bg-blue-100',   border: 'border-blue-200'   },
+  { type: 'tired',      emoji: '😩', label: 'つかれた',    color: 'text-amber-700',  bg: 'bg-amber-50',  activeBg: 'bg-amber-100',  border: 'border-amber-200'  },
+  { type: 'overwhelmed',emoji: '😰', label: 'しんどい',    color: 'text-violet-700', bg: 'bg-violet-50', activeBg: 'bg-violet-100', border: 'border-violet-200' },
+  { type: 'lonely',     emoji: '🥺', label: 'さみしい',    color: 'text-rose-700',   bg: 'bg-rose-50',   activeBg: 'bg-rose-100',   border: 'border-rose-200'   },
 ]
 
 const emMeta = (t: EmotionType) => EMOTIONS.find(e => e.type === t)!
@@ -237,10 +238,10 @@ function pickPrimaryContext(
 
   const emotionPriority: Record<EmotionType, ContextTag[]> = {
     calm:    ['relationship', 'isolated', 'child_care', 'sleep_dep', 'work_stress', 'chore_burden', 'sick', 'financial', 'none'],
-    angry:   ['relationship', 'chore_burden', 'sleep_dep', 'isolated', 'work_stress', 'child_care', 'sick', 'financial', 'none'],
+    irritated:   ['relationship', 'chore_burden', 'sleep_dep', 'isolated', 'work_stress', 'child_care', 'sick', 'financial', 'none'],
     sad:     ['relationship', 'isolated', 'sleep_dep', 'sick', 'child_care', 'work_stress', 'chore_burden', 'financial', 'none'],
     tired:   ['sleep_dep', 'child_care', 'chore_burden', 'work_stress', 'sick', 'isolated', 'relationship', 'financial', 'none'],
-    anxious: ['work_stress', 'financial', 'child_care', 'sick', 'relationship', 'isolated', 'sleep_dep', 'chore_burden', 'none'],
+    overwhelmed: ['work_stress', 'financial', 'child_care', 'sick', 'relationship', 'isolated', 'sleep_dep', 'chore_burden', 'none'],
     lonely:  ['relationship', 'isolated', 'sleep_dep', 'child_care', 'work_stress', 'chore_burden', 'sick', 'financial', 'none'],
   }
 
@@ -300,9 +301,9 @@ function pickPrimaryContext(
 
 export function generateDailyInsight(events: EmotionEvent[]) {
   const scoreMap: Record<string, number> = {
-    angry: -2,
+    irritated: -2,
     sad: -2,
-    anxious: -1,
+    overwhelmed: -1,
     tired: -1,
     lonely: -2,
   }
@@ -348,7 +349,7 @@ export function generateDailyInsight(events: EmotionEvent[]) {
 type ResponseTemplate = { empathy: string; interpretation: string; nextStep: string }
 
 const RESPONSE_MATRIX: Partial<Record<EmotionType, Partial<Record<ContextTag, ResponseTemplate>>>> = {
-  angry: {
+  irritated: {
     sick:         { empathy: '体調が悪いのに家事育児が落ちないのは、かなりきついよ。',               interpretation: '風邪をひいてる時は、普段できることが一気に重くなる。そこに怒りが出るのは当然。',    nextStep: '今日は「やらなくていいこと」を1つ決めて手放す。全部回そうとしないでいい。' },
     sleep_dep:    { empathy: '寝られてない中で怒りが出てくるのは、体が限界に来てるサインだよ。',       interpretation: '寝不足は判断力も感情の調節も狂わせる。イライラして当然の状態。',                    nextStep: '今すぐ全部解決しようとしない。「今夜だけ早く寝る」という1点に絞る。' },
     chore_burden: { empathy: '家事が全部のしかかってくる感覚、そりゃイライラするよ。',                 interpretation: '「なんで自分だけ」という怒りは、不公平さへの正当な反応。',                          nextStep: '感情がある程度落ち着いてから、1つだけ具体的に頼みたいことを伝える。' },
@@ -373,7 +374,7 @@ const RESPONSE_MATRIX: Partial<Record<EmotionType, Partial<Record<ContextTag, Re
     child_care:   { empathy: '育児って、終わりが見えない疲れだよ。それがずっと続いてるんだね。',          interpretation: 'ケアを与え続けることは消耗するけど、その大変さは見えにくい。',                          nextStep: '今日は「ありがとう」を自分に言ってみる。誰かに言ってもらえなくても。' },
     none:         { empathy: 'よくここまで頑張ってきたよ。',                                           interpretation: '疲れているのに動き続けていること、それ自体がしんどいことだと思う。',                  nextStep: '今日は1つだけ「やめる」選択をしてみる。' },
   },
-  anxious: {
+  overwhelmed: {
     sick:        { empathy: '体調が悪い中で不安が来ると、本当にしんどいよ。',           interpretation: '体が弱ってる時は不安が大きく感じやすい。今感じてることは、体調が戻ると変わることがある。', nextStep: '今日は「体を治すこと」だけを最優先にしていい。他は後回しにしていい。' },
     work_stress: { empathy: '仕事の不安が頭から離れないんだね。それは本当に消耗する。', interpretation: '仕事の心配は、考えれば考えるほど広がりやすい。止まらなくなることもある。',                    nextStep: '今日の不安を紙に1行だけ書き出してみる。頭の中に置いておくより少し楽になることがある。' },
     financial:   { empathy: 'お金の不安は、生活の基盤への不安だから、大きくなるのは自然だよ。', interpretation: '漠然とした不安は、具体化すると少し小さくなることがある。',                           nextStep: '今月の支出を1つだけ「確認する」ことから始めてみる。全部じゃなくていい。' },
@@ -391,10 +392,10 @@ const RESPONSE_MATRIX: Partial<Record<EmotionType, Partial<Record<ContextTag, Re
 
 const FALLBACK: Record<EmotionType, ResponseTemplate> = {
   calm:    { empathy: '落ち着いてる日、大事にしてね。',                  interpretation: '余裕がある時こそ、ふたりの関係を整えるチャンス。',             nextStep: '今日、パートナーに一言だけ声をかけてみる。' },
-  angry:   { empathy: 'そのイライラ、ちゃんと理由があると思う。',       interpretation: '怒りはたいてい「こうしてほしかった」が叶わなかったサイン。',   nextStep: '少し落ち着いたら、1つだけ頼みたいことを短く伝えてみる。' },
+  irritated:   { empathy: 'そのイライラ、ちゃんと理由があると思う。',       interpretation: '怒りはたいてい「こうしてほしかった」が叶わなかったサイン。',   nextStep: '少し落ち着いたら、1つだけ頼みたいことを短く伝えてみる。' },
   sad:     { empathy: 'そのつらさ、ちゃんと受け取ったよ。',             interpretation: '悲しさは無視できない感情。それを感じているのは本物。',          nextStep: '今日は「休む」か「話す」どちらか1つを選んでみて。' },
   tired:   { empathy: 'よくここまで頑張ってきたよ。',                   interpretation: '疲れているのに動き続けてきた、それ自体がしんどい。',            nextStep: '今日は1つだけ「やめる」選択をしてみる。' },
-  anxious: { empathy: 'そのしんどさ、放置しなくてよかったと思う。',     interpretation: '不安は言葉にするだけで少し輪郭が見えてくることがある。',        nextStep: '今一番気になっていることを、一言だけ声に出してみる。' },
+  overwhelmed: { empathy: 'そのしんどさ、放置しなくてよかったと思う。',     interpretation: '不安は言葉にするだけで少し輪郭が見えてくることがある。',        nextStep: '今一番気になっていることを、一言だけ声に出してみる。' },
   lonely:  { empathy: 'さみしかったんだね。そう感じてることを受け取ったよ。', interpretation: '一人で抱えてた感覚が、ここで少し緩まるといいな。',          nextStep: '「さみしかった」を誰かに伝えてみる。言葉にするだけで変わることがある。' },
 }
 function generateAiResponse(
@@ -425,11 +426,11 @@ function generateAiResponse(
 
   // ===== 🔥 hook（ここがバズの核） =====
   const hookLine = (() => {
-    if (emotion === 'angry') return 'なんで自分ばっかりって感じになるよね。'
+    if (emotion === 'irritated') return 'なんで自分ばっかりって感じになるよね。'
     if (emotion === 'lonely') return '近くにいるのに、一人でやってる感じするよね。'
     if (emotion === 'tired') return 'ずっと回し続けてる感じ、しんどいよね。'
     if (emotion === 'sad') return 'なんとなく気持ち落ちる日、あるよね。'
-    if (emotion === 'anxious') return 'なんかずっと落ち着かない感じ、あるよね。'
+    if (emotion === 'overwhelmed') return 'なんかずっと落ち着かない感じ、あるよね。'
     return ''
   })()
 
@@ -480,8 +481,8 @@ function generateAiResponse(
     }
   }
 
-  // ===== angry =====
-  if (emotion === 'angry') {
+  // ===== irritated =====
+  if (emotion === 'irritated') {
     if (isRelationshipIssue) {
       return {
         empathy: `${hookLine}わかってほしいのに伝わらないと、イライラするよね。`,
@@ -522,8 +523,8 @@ function generateAiResponse(
     }
   }
 
-  // ===== anxious =====
-  if (emotion === 'anxious') {
+  // ===== overwhelmed =====
+  if (emotion === 'overwhelmed') {
     if (isRelationshipIssue) {
       return {
         empathy: `${hookLine}どう伝えたらいいか考えるほど、不安になるよね。`,
@@ -554,7 +555,7 @@ function generateAiResponse(
 ═══════════════════════════════════════════════════ */
 
 const ACTION_TABLE: Partial<Record<EmotionType, Partial<Record<ContextTag | 'none', ActionSuggestion>>>> = {
-  angry: {
+  irritated: {
     sick:         { label: '今日は家事を全部スキップしていい',               reason: '体調が悪い日は動くほど回復が遅れる、休むことが正解',  impact: 'high'   },
     sleep_dep:    { label: '今夜は1つだけ手放していい',                      reason: '寝不足の日はどうせ全部できない、1つ減らすだけでいい',  impact: 'high'   },
     chore_burden: { label: '「これだけ代わってほしい」を1つ決めておいていい', reason: '全部頼まなくていい、1つ伝えるだけで状況は動き始める',  impact: 'medium' },
@@ -579,7 +580,7 @@ const ACTION_TABLE: Partial<Record<EmotionType, Partial<Record<ContextTag | 'non
     child_care:   { label: '「今夜30分だけ代わってほしい」と伝えていい', reason: '一人でやり続けるより頼んだ方が、お互いのためになることがある', impact: 'high'   },
     none:         { label: '今夜はスマホを置いて早めに横になっていい',   reason: 'スマホを置くだけで脳の休息モードに切り替わりやすくなる',  impact: 'medium' },
   },
-  anxious: {
+  overwhelmed: {
     sick:        { label: '今日は「体を治す」だけでいい',               reason: '体を治すことを優先すると、気持ちも自然と落ち着いてくる',     impact: 'high'   },
     work_stress: { label: '今一番気になってることを1行だけメモしていい', reason: '頭の中にある不安を外に出すだけで、実際より小さく見えてくる',  impact: 'medium' },
     financial:   { label: '今月の支出を1項目だけ確認すればいい',        reason: '全部を一度に見ようとすると不安が大きくなる、1項目から始めていい', impact: 'medium' },
@@ -600,10 +601,10 @@ const ACTION_TABLE: Partial<Record<EmotionType, Partial<Record<ContextTag | 'non
 
 const ACTION_FALLBACK: Record<EmotionType, ActionSuggestion> = {
   calm:    { label: '今日の余裕を誰かと共有する',                          impact: 'medium' },
-  angry:   { label: 'まず5分だけ一人になる',                              impact: 'high'   },
+  irritated:   { label: 'まず5分だけ一人になる',                              impact: 'high'   },
   sad:     { label: '今日は「やらない」を1つだけ選んでみる',               impact: 'low'    },
   tired:   { label: '今夜、いつもより30分早く休んでみる',                  impact: 'medium' },
-  anxious: { label: '気になっていることを紙に1行だけ書き出してみる',       impact: 'medium' },
+  overwhelmed: { label: '気になっていることを紙に1行だけ書き出してみる',       impact: 'medium' },
   lonely:  { label: '「さみしかった」の一言だけ、誰かに伝えてみる',        impact: 'medium' },
 }
 
@@ -700,8 +701,8 @@ async function generateActionSuggestion(
     }
   }
 
-  // ===== angry =====
-  if (emotion === 'angry') {
+  // ===== irritated =====
+  if (emotion === 'irritated') {
     if (isRelationshipIssue) {
       return {
         label: '本音を1つだけ言う',
@@ -738,8 +739,8 @@ async function generateActionSuggestion(
     }
   }
 
-  // ===== anxious =====
-  if (emotion === 'anxious') {
+  // ===== overwhelmed =====
+  if (emotion === 'overwhelmed') {
     if (isRelationshipIssue) {
       return {
         label: 'お願いを1つに絞る',
@@ -770,7 +771,7 @@ function generateAltSuggestions(emotion: EmotionType): ActionSuggestion[] {
       { label: 'ありがとうを伝える',  impact: 'medium' },
       { label: '少しだけ話す',        impact: 'high'   },
     ],
-    angry: [
+    irritated: [
       { label: '5分だけ一人になる',       impact: 'medium' },
       { label: '今は余裕ないと伝える',    impact: 'high'   },
     ],
@@ -782,7 +783,7 @@ function generateAltSuggestions(emotion: EmotionType): ActionSuggestion[] {
       { label: '早めに横になる',          impact: 'medium' },
       { label: '家事を1つ飛ばす',         impact: 'low'    },
     ],
-    anxious: [
+    overwhelmed: [
       { label: '心配を1行書き出す',        impact: 'low'    },
       { label: '今日決めないことを決める', impact: 'medium' },
     ],
@@ -814,7 +815,7 @@ async function generateSharePlan(
   if (primary === 'isolated' || primary === 'relationship')
     return { options: [makeShareOption('listen_10m'), makeShareOption('notice_me'), makeShareOption('leave_me_alone')], recommendedId: (emotion === 'lonely' || emotion === 'sad') ? 'notice_me' : 'listen_10m' }
   if (primary === 'work_stress')
-    return { options: [makeShareOption('quiet_time'), makeShareOption('one_help'), makeShareOption('listen_10m')], recommendedId: emotion === 'anxious' ? 'quiet_time' : 'one_help' }
+    return { options: [makeShareOption('quiet_time'), makeShareOption('one_help'), makeShareOption('listen_10m')], recommendedId: emotion === 'overwhelmed' ? 'quiet_time' : 'one_help' }
   if (primary === 'child_care' || has('child_care')) {
     if (emotion === 'tired' || has('sleep_dep'))
       return { options: [makeShareOption('swap_tonight'), makeShareOption('rest_time'), makeShareOption('take_one_task')], recommendedId: 'swap_tonight' }
@@ -826,7 +827,7 @@ async function generateSharePlan(
     return { options: [makeShareOption('listen_10m'), makeShareOption('notice_me'), makeShareOption('one_help')], recommendedId: 'listen_10m' }
   if (emotion === 'lonely')
     return { options: [makeShareOption('notice_me'), makeShareOption('listen_10m'), makeShareOption('leave_me_alone')], recommendedId: 'notice_me' }
-  if (emotion === 'anxious')
+  if (emotion === 'overwhelmed')
     return { options: [makeShareOption('quiet_time'), makeShareOption('listen_10m'), makeShareOption('one_help')], recommendedId: 'quiet_time' }
   return { options: [makeShareOption('listen_10m'), makeShareOption('one_help'), makeShareOption('leave_me_alone')], recommendedId: 'listen_10m' }
 }
@@ -873,7 +874,7 @@ async function translateForPartner(
     includesAny([/限界/, /いっぱいいっぱい/, /もう無理/, /しんどすぎ/, /きつい/])
 
   const openerOptions = (() => {
-    if (emotion === 'angry') {
+    if (emotion === 'irritated') {
       if (isHouseworkIssue) {
         return [
           'ちょっと余裕なくなってるかも。',
@@ -932,7 +933,7 @@ async function translateForPartner(
       ]
     }
 
-    if (emotion === 'anxious') {
+    if (emotion === 'overwhelmed') {
       return [
         'ちょっと落ち着かないかも。',
         '少し不安が強めかも。',
@@ -1044,7 +1045,7 @@ async function translateForPartner(
   })()
 
   const closerOptions =
-    emotion === 'angry' && isStrongState
+    emotion === 'irritated' && isStrongState
       ? ['責めたいわけじゃないよ。', '', '']
       : emotion === 'lonely'
       ? ['うまく言えないけど、そんな感じ。', '重く受け取らなくて大丈夫。', 'それだけ伝えたかった。']
@@ -2117,39 +2118,80 @@ function BackgroundSelector({ selectedIds, onChange, label }: { selectedIds: Bac
   )
 }
 
-function FaceIcon({ type, colorClass }: { type: EmotionType; colorClass: string }) {
-  const stroke = 'currentColor'
-  const sw = 1.8
-  // eyebrow paths and mouth paths per emotion
-  const faces: Record<EmotionType, { lBrow: string; rBrow: string; mouth: string }> = {
-    calm:    { lBrow: 'M5 7 Q6 6.5 7 7',      rBrow: 'M9 7 Q10 6.5 11 7',     mouth: 'M6 13 Q8 15 10 13' },
-    angry:   { lBrow: 'M5 7 Q6 5.5 7 6.5',    rBrow: 'M9 6.5 Q10 5.5 11 7',   mouth: 'M6 14 Q8 12 10 14' },
-    sad:     { lBrow: 'M5 7.5 Q6 6.5 7 7.5',  rBrow: 'M9 7.5 Q10 6.5 11 7.5', mouth: 'M6 14 Q8 12.5 10 14' },
-    tired:   { lBrow: 'M5 7 Q6 7.5 7 7',      rBrow: 'M9 7 Q10 7.5 11 7',     mouth: 'M6 13.5 Q8 14.5 10 13.5' },
-    anxious: { lBrow: 'M5 7 Q6 6 7 7',        rBrow: 'M9 7 Q10 6 11 7',       mouth: 'M6 13.5 Q8 12 10 13.5' },
-    lonely:  { lBrow: 'M5 7.5 Q6 7 7 7.5',   rBrow: 'M9 7.5 Q10 7 11 7.5',  mouth: 'M6 14 Q8 13 10 14' },
-  }
-  const { lBrow, rBrow, mouth } = faces[type]
+/* ═══════════════════════════════════════════════════
+   EMOTION ICON (image-based, gender-aware)
+═══════════════════════════════════════════════════ */
+
+/**
+ * EmotionIcon — renders /public/emotions/{gender}/{type}.png
+ * 画像は 1:1 比率（トリミング済み）を前提。
+ */
+function EmotionIcon({
+  type,
+  gender,
+  size = 64,
+  selected = false,
+}: {
+  type: EmotionType
+  gender: Gender
+  size?: number
+  selected?: boolean
+}) {
   return (
-    <svg width="22" height="22" viewBox="0 0 16 16" fill="none" className={colorClass} aria-hidden>
-      <circle cx="8" cy="8" r="7" stroke={stroke} strokeWidth={sw} />
-      <path d={lBrow} stroke={stroke} strokeWidth={sw} strokeLinecap="round" />
-      <path d={rBrow} stroke={stroke} strokeWidth={sw} strokeLinecap="round" />
-      <path d={mouth} stroke={stroke} strokeWidth={sw} strokeLinecap="round" fill="none" />
-    </svg>
+    <div
+      style={{ width: size, height: size }}
+      className={`relative shrink-0 overflow-hidden rounded-xl transition-transform duration-150 ${
+        selected ? 'scale-105' : 'scale-100'
+      }`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={`/emotions/${gender}/${type}.png`}
+        alt={emMeta(type).label}
+        width={size}
+        height={size}
+        className="h-full w-full object-cover"
+        draggable={false}
+      />
+    </div>
   )
 }
 
-function EmotionQuickSelect({ onSelect }: { onSelect: (e: EmotionType) => void }) {
+/**
+ * EmotionSelector — 3×2 グリッドの顔アイコン選択UI。
+ * 履歴・パートナー画面でも再利用可能。
+ */
+function EmotionSelector({
+  gender,
+  selected,
+  onSelect,
+}: {
+  gender: Gender
+  selected?: EmotionType | null
+  onSelect: (e: EmotionType) => void
+}) {
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {EMOTIONS.map(em => (
-        <button key={em.type} onClick={() => onSelect(em.type)}
-          className={`flex items-center gap-2.5 rounded-2xl px-4 py-3 transition active:scale-95 hover:${em.activeBg} ${em.bg}`}>
-          <FaceIcon type={em.type} colorClass={em.color} />
-          <span className={`text-sm font-semibold ${em.color}`}>{em.label}</span>
-        </button>
-      ))}
+    <div className="grid grid-cols-3 gap-3">
+      {EMOTIONS.map(em => {
+        const isSelected = selected === em.type
+        return (
+          <button
+            key={em.type}
+            type="button"
+            onClick={() => onSelect(em.type)}
+            className={`flex flex-col items-center gap-1.5 rounded-2xl px-1 py-3 transition-all duration-150 active:scale-95 ${
+              isSelected
+                ? `${em.activeBg} ring-2 ${em.border.replace('border-', 'ring-')}`
+                : `${em.bg} ring-1 ring-transparent hover:ring-stone-200`
+            }`}
+          >
+            <EmotionIcon type={em.type} gender={gender} size={68} selected={isSelected} />
+            <span className={`text-[11px] font-semibold leading-tight ${isSelected ? em.color : 'text-stone-500'}`}>
+              {em.label}
+            </span>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -2186,13 +2228,14 @@ function LonelySelectorSection({ selectedTag, onSelect }: {
 }
 
 function EmotionComposerSheet({
-  emotion, note, selectedBackgroundIds, lonelyTag, setNote, setBackgroundIds, setLonelyTag, onSubmit, onBack, isLoading,
+  emotion, note, selectedBackgroundIds, lonelyTag, setNote, setBackgroundIds, setLonelyTag, onSubmit, onBack, isLoading, gender,
 }: {
   emotion: EmotionType; note: string; selectedBackgroundIds: BackgroundOptionId[]
   lonelyTag: LonelyTag | null
   setNote: (n: string) => void; setBackgroundIds: (ids: BackgroundOptionId[]) => void
   setLonelyTag: (tag: LonelyTag | null) => void
   onSubmit: () => void; onBack: () => void; isLoading: boolean
+  gender: Gender
 }) {
   const meta = emMeta(emotion)
   const isCalm = emotion === 'calm'
@@ -2200,7 +2243,7 @@ function EmotionComposerSheet({
   return (
     <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5" style={{ animation: 'sheetUp .25s ease-out both' }}>
       <div className="mb-5 flex items-center gap-3">
-        <span className="text-2xl">{meta.emoji}</span>
+        <EmotionIcon type={emotion} gender={gender} size={48} />
         <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
       </div>
       {isLonely && (
@@ -2302,13 +2345,13 @@ function getRecoveryMessage(emotion?: EmotionType) {
   switch (emotion) {
     case 'calm':
       return '余裕がある日は、その気持ちをふたりで共有できるといいですね'
-    case 'angry':
+    case 'irritated':
       return '少し落ち着けていたらそれで十分です'
     case 'sad':
       return 'その気持ちを言葉にできただけでも大事な一歩です'
     case 'tired':
       return '今日はここまでで十分頑張っています'
-    case 'anxious':
+    case 'overwhelmed':
       return '少しでも落ち着けていたら大丈夫です'
     case 'lonely':
       return 'ひとりで抱えずに言葉にできたのは大きいです'
@@ -2495,10 +2538,10 @@ function ShareTranslationCard({
 
 const PARTNER_EMOTION_HINTS: Record<EmotionType, string> = {
   calm:    'パートナーが今日は落ち着いているみたい',
-  angry:   'パートナーが少し余裕をなくしているみたい',
+  irritated:   'パートナーが少し余裕をなくしているみたい',
   sad:     'パートナーがしんどさを感じているみたい',
   tired:   'パートナーが疲れているみたい',
-  anxious: 'パートナーが何か気になっていることがあるみたい',
+  overwhelmed: 'パートナーが何か気になっていることがあるみたい',
   lonely:  'パートナーが少しさみしさを感じているみたい',
 }
 
@@ -2532,7 +2575,7 @@ const REL_OPTIONS = [
 function getTodayRelStatus(events: EmotionEvent[]) {
   const recent = events.slice(-3)
   const negative = recent.filter(e =>
-    ['angry', 'sad', 'tired', 'anxious', 'lonely'].includes(e.emotion_type)
+    ['irritated', 'sad', 'tired', 'overwhelmed', 'lonely'].includes(e.emotion_type)
   ).length
   if (negative === 0) return 'いい感じ'
   if (negative <= 1) return '大きく崩れてない'
@@ -2563,6 +2606,7 @@ function HomeTab({
   relStatus,
   onRelChange,
   onSetLonelyTag,
+  gender,
 }: {
   flow: FlowState
   events: EmotionEvent[]
@@ -2587,6 +2631,7 @@ function HomeTab({
   relStatus: string | null
   onRelChange: (label: string, id: string) => void
   onSetLonelyTag: (tag: LonelyTag | null) => void
+  gender: Gender
 }) {
   const [relPickerOpen, setRelPickerOpen] = useState(false)
   const [relJustUpdated, setRelJustUpdated] = useState(false)
@@ -2770,7 +2815,11 @@ return (
             <p className="text-[10px] text-stone-400 leading-tight max-w-[130px] text-right">選ぶと次の一歩を提案します</p>
           )}
         </div>
-        <EmotionQuickSelect onSelect={(e) => { onSelectEmotion(e); setShowFirstVisitHint(false) }} />
+        <EmotionSelector
+          gender={gender}
+          selected={null}
+          onSelect={(e) => { onSelectEmotion(e); setShowFirstVisitHint(false) }}
+        />
       </div>
     )}
 
@@ -2791,6 +2840,7 @@ return (
           setNote={onSetNote} setBackgroundIds={onSetBackgroundIds}
           setLonelyTag={onSetLonelyTag}
           onSubmit={onSubmit} onBack={onGoBack} isLoading={flow.isLoadingAi}
+          gender={gender}
         />
       </>
     )}
@@ -2961,7 +3011,7 @@ function smoothWave(points: number[]): number[] {
 }
 
 function RelWaveChart({ events, sharedEvents }: { events: EmotionEvent[]; sharedEvents: EmotionEvent[] }) {
-  const negativeEmotions = new Set(['angry', 'sad', 'tired', 'anxious', 'lonely'])
+  const negativeEmotions = new Set(['irritated', 'sad', 'tired', 'overwhelmed', 'lonely'])
   const allItems = useMemo(() => {
     const combined = [
       ...events.map(e => ({ e, mine: true })),
@@ -3268,10 +3318,11 @@ function ConnectTab({ todayLogs, onRecordBackground }: { todayLogs: SoloLog[]; o
    SETTINGS TAB
 ═══════════════════════════════════════════════════ */
 
-function SettingsTab({ session, profile, partner, pairInput, setPairInput, onPair, onSignOut }: {
+function SettingsTab({ session, profile, partner, pairInput, setPairInput, onPair, onSignOut, gender, onGenderChange }: {
   session: Session; profile: Profile | null; partner: Profile | null
   pairInput: string; setPairInput: (v: string) => void
   onPair: () => Promise<void>; onSignOut: () => Promise<void>
+  gender: Gender; onGenderChange: (g: Gender) => void
 }) {
   return (
     <div className="space-y-4 pb-4">
@@ -3280,6 +3331,30 @@ function SettingsTab({ session, profile, partner, pairInput, setPairInput, onPai
         <div className="flex items-center gap-3 px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-500">{(session.user.email ?? '?')[0].toUpperCase()}</div>
           <div className="min-w-0"><p className="truncate text-sm font-medium text-stone-800">{session.user.email}</p><p className="text-[10px] text-stone-400">ログイン中</p></div>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
+        <div className="border-b border-stone-100 px-5 py-3.5"><h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-500">アイコン設定</h2></div>
+        <div className="px-5 py-4">
+          <p className="mb-3 text-xs text-stone-500">感情アイコンの性別を選んでください</p>
+          <div className="flex gap-3">
+            {(['female', 'male'] as const).map(g => (
+              <button
+                key={g}
+                type="button"
+                onClick={() => onGenderChange(g)}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold transition active:scale-95 ${
+                  gender === g
+                    ? 'bg-indigo-500 text-white shadow-sm'
+                    : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                }`}
+              >
+                <EmotionIcon type="calm" gender={g} size={32} />
+                <span>{g === 'female' ? '女性' : '男性'}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -3335,6 +3410,14 @@ export default function Page() {
   const [shareTone, setShareTone] = useState<'soft' | 'normal' | 'direct'>('normal')
   const [relStatus, setRelStatus] = useState<string | null>(null)
   const [relStatusId, setRelStatusId] = useState<string | null>(null)
+  const [gender, setGender] = useState<Gender>(() => {
+    if (typeof window === 'undefined') return 'female'
+    return (localStorage.getItem('kt_gender') as Gender | null) ?? 'female'
+  })
+  const handleGenderChange = useCallback((g: Gender) => {
+    setGender(g)
+    localStorage.setItem('kt_gender', g)
+  }, [])
 
   const handleRelChange = useCallback((label: string, id: string) => {
     setRelStatus(label)
@@ -3728,6 +3811,7 @@ const handleShare = useCallback(async (message?: string) => {
   relStatus={relStatus}
   onRelChange={handleRelChange}
   onSetLonelyTag={setLonelyTag}
+  gender={gender}
 />
           )}
 
@@ -3747,6 +3831,8 @@ const handleShare = useCallback(async (message?: string) => {
               setPairInput={setPairInput}
               onPair={handlePair}
               onSignOut={handleSignOut}
+              gender={gender}
+              onGenderChange={handleGenderChange}
             />
           )}
         </main>
