@@ -184,7 +184,8 @@ const EMOTIONS: {
   { type: 'lonely',     emoji: '🥺', label: 'さみしい',    color: 'text-rose-700',   bg: 'bg-rose-50',   activeBg: 'bg-rose-100',   border: 'border-rose-200'   },
 ]
 
-const emMeta = (t: EmotionType) => EMOTIONS.find(e => e.type === t)!
+const emMeta = (t: EmotionType | string) =>
+  EMOTIONS.find(e => e.type === t) ?? EMOTIONS.find(e => e.type === 'calm')!
 
 
 /* ═══════════════════════════════════════════════════
@@ -1748,6 +1749,22 @@ function useEmotionFlow(
     shareTone,
   ])
 
+  // tone 変更時に翻訳を再生成して flow.translated を更新する
+  const retranslate = useCallback(async (newTone: ShareTone) => {
+    if (!flow.emotion || !flow.sharePlan || !flow.selectedShareOptionId) return
+    const selectedOption = flow.sharePlan.options.find(o => o.id === flow.selectedShareOptionId)
+    if (!selectedOption) return
+    const mergedTags = flow.selectedBackgroundIds.length > 0 ? flow.selectedBackgroundIds : backgroundTags
+    const translated =
+      flow.emotion === 'lonely'
+        ? await translateLonelyForPartner(flow.lonelyTag, selectedOption, newTone)
+        : await translateForPartner(flow.emotion, null, selectedOption, mergedTags, newTone)
+    setFlow(prev => ({ ...prev, translated }))
+  }, [
+    flow.emotion, flow.lonelyTag, flow.sharePlan,
+    flow.selectedShareOptionId, flow.selectedBackgroundIds, backgroundTags,
+  ])
+
   const shareWithPartner = useCallback(async (message?: string) => {
     const eventId = savedEventIdRef.current ?? flow.savedEventId
     if (!eventId || flow.isShared) return
@@ -1772,8 +1789,6 @@ function useEmotionFlow(
 
   return {
     flow,
-    setFlow,
-    savedEventIdRef,
     selectEmotion,
     setBackgroundIds,
     setLonelyTag,
@@ -1781,6 +1796,7 @@ function useEmotionFlow(
     reset,
     selectShareOption,
     shareWithPartner,
+    retranslate,
     goBack,
     resolveLight,
     resolveDone,
@@ -3500,6 +3516,7 @@ const {
   reset,
   selectShareOption,
   shareWithPartner,
+  retranslate,
   goBack,
   resolveLight,
   resolveDone,
@@ -3520,6 +3537,11 @@ const handleShare = useCallback(async (message?: string) => {
     void fetchSharedToMe(userId)
   }
 }, [shareWithPartner, fetchMy, fetchSharedToMe, userId])
+
+const handleToneChange = useCallback((newTone: ShareTone) => {
+  setShareTone(newTone)
+  void retranslate(newTone)
+}, [retranslate])
 
   useEffect(() => {
     console.log('[Page id check]', {
@@ -3747,7 +3769,7 @@ const handleShare = useCallback(async (message?: string) => {
   onResolveDone={resolveDone}
   onStartSharing={startSharing}
   shareTone={shareTone}
-  onToneChange={setShareTone}
+  onToneChange={handleToneChange}
   onSetLonelyTag={setLonelyTag}
   gender={gender}
 />
