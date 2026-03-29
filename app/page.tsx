@@ -2006,10 +2006,11 @@ function useEmotionFlow(
     setFlow(prev => ({ ...prev, translated }))
   }, [backgroundTags])
 
-  const shareWithPartner = useCallback(async (message?: string) => {
-    const eventId = savedEventIdRef.current ?? flowRef.current.savedEventId
+  const shareWithPartner = useCallback(async (message?: string, explicitEventId?: string) => {
+    const eventId = explicitEventId ?? savedEventIdRef.current ?? flowRef.current.savedEventId
 
     console.log('[shareWithPartner:start]', {
+      explicitEventId,
       savedEventIdRefCurrent: savedEventIdRef.current,
       flowRefSavedEventId: flowRef.current.savedEventId,
       resolvedEventId: eventId,
@@ -4363,14 +4364,38 @@ const {
 )
 
 const handleShare = useCallback(async (message?: string) => {
-  console.log('[handleShare:start]', { userId, messageLen: message?.length })
-  await shareWithPartner(message)
+  console.log('[handleShare:start]', { userId, messageLen: message?.length, savedEventId: flow.savedEventId })
+
+  // If eventId is missing (saveEvent failed earlier), save the event now before sharing
+  let eventId: string | null | undefined = flow.savedEventId
+  if (!eventId && flow.emotion && flow.aiResponse && flow.translated && userId) {
+    console.log('[handleShare] eventId missing — saving event now')
+    const saved = await saveEvent(
+      userId,
+      partnerId,
+      flow.emotion,
+      null,
+      flow.aiResponse,
+      flow.translated,
+      flow.selectedShareOptionId,
+      backgroundTags,
+    )
+    if (saved) {
+      eventId = saved.id
+      console.log('[handleShare] late save succeeded, eventId:', eventId)
+    } else {
+      console.warn('[handleShare] late save failed — cannot share')
+      return
+    }
+  }
+
+  await shareWithPartner(message, eventId ?? undefined)
   if (userId) {
     void fetchMy(userId)
     void fetchSharedToMe(userId)
     console.log('[handleShare:refetch triggered]')
   }
-}, [shareWithPartner, fetchMy, fetchSharedToMe, userId])
+}, [shareWithPartner, fetchMy, fetchSharedToMe, userId, flow.savedEventId, flow.emotion, flow.aiResponse, flow.translated, flow.selectedShareOptionId, saveEvent, partnerId, backgroundTags])
 
 const handleToneChange = useCallback((newTone: ShareTone) => {
   setShareTone(newTone)
