@@ -1531,6 +1531,13 @@ function useEmotionEvents(userId: string | null) {
     }
 
     const fetched = (data ?? []) as EmotionEvent[]
+
+console.log('④ fetched raw', fetched.map(e => ({
+  id: e.id,
+  reaction: e.partner_reaction,
+  reactedAt: e.partner_reacted_at,
+})))
+
     setEvents(prev => fetched.map(fetchedEvt => {
       const local = prev.find(e => e.id === fetchedEvt.id)
       // Preserve locally-set reaction if DB hasn't replicated yet (race condition)
@@ -1579,6 +1586,12 @@ function useEmotionEvents(userId: string | null) {
       .eq('share_status', 'sent')
       .order('created_at', { ascending: false })
 
+console.log('④ fetched raw', (data ?? []).map(e => ({
+  id: e.id,
+  reaction: e.partner_reaction,
+  reactedAt: e.partner_reacted_at,
+})))
+
     if (error) {
       console.error('[fetchSharedToMe error]', {
         message: error?.message,
@@ -1591,14 +1604,47 @@ function useEmotionEvents(userId: string | null) {
     }
 
     const fetched = (data ?? []) as EmotionEvent[]
-    setPartnerEvents(prev => fetched.map(fetchedEvt => {
-      const local = prev.find(e => e.id === fetchedEvt.id)
-      // Preserve locally-set reaction if DB hasn't replicated yet (race condition)
-      if (local?.partner_reaction && !fetchedEvt.partner_reaction) {
-        return { ...fetchedEvt, partner_reaction: local.partner_reaction, partner_reacted_at: local.partner_reacted_at }
+
+console.log('④ fetched raw', fetched.map(e => ({
+  id: e.id,
+  reaction: e.partner_reaction,
+  reactedAt: e.partner_reacted_at,
+})))
+
+setPartnerEvents(prev => {
+  console.log('⑤ prev before merge', prev.map(e => ({
+    id: e.id,
+    reaction: e.partner_reaction,
+    reactedAt: e.partner_reacted_at,
+  })))
+
+  console.log('⑥ fetched before merge', fetched.map(e => ({
+    id: e.id,
+    reaction: e.partner_reaction,
+    reactedAt: e.partner_reacted_at,
+  })))
+
+  const merged = fetched.map(fetchedEvt => {
+    const local = prev.find(e => e.id === fetchedEvt.id)
+    // Preserve locally-set reaction if DB hasn't replicated yet (race condition)
+    if (local?.partner_reaction && !fetchedEvt.partner_reaction) {
+      return {
+        ...fetchedEvt,
+        partner_reaction: local.partner_reaction,
+        partner_reacted_at: local.partner_reacted_at,
       }
-      return fetchedEvt
-    }))
+    }
+    return fetchedEvt
+  })
+
+  console.log('⑦ after merge', merged.map(e => ({
+    id: e.id,
+    reaction: e.partner_reaction,
+    reactedAt: e.partner_reacted_at,
+  })))
+
+  return merged
+})
   }, [])
 
   const reactToPartnerEvent = useCallback(async (
@@ -1607,6 +1653,16 @@ function useEmotionEvents(userId: string | null) {
   ): Promise<void> => {
     const target = partnerEvents.find(e => e.id === eventId)
 
+console.log('① before react click', {
+  eventId,
+  reaction,
+  partnerEvents: partnerEvents.map(e => ({
+    id: e.id,
+    partner_reaction: e.partner_reaction,
+    partner_reacted_at: e.partner_reacted_at,
+  })),
+})
+    
     if (!target) {
       console.error('[reactToPartnerEvent] event not found', eventId)
       return
@@ -1624,13 +1680,30 @@ function useEmotionEvents(userId: string | null) {
     const reactedAt = new Date().toISOString()
 
     // Optimistic update BEFORE DB call so badge decreases immediately on click
-    setPartnerEvents(prev =>
-      prev.map(e =>
-        e.id === eventId
-          ? { ...e, partner_reaction: reaction, partner_reacted_at: reactedAt }
-          : e
-      )
-    )
+setPartnerEvents(prev => {
+  console.log('② before optimistic', prev.map(e => ({
+    id: e.id,
+    reaction: e.partner_reaction,
+    reactedAt: e.partner_reacted_at,
+  })))
+
+  const next = prev.map(e =>
+    e.id === eventId
+      ? { ...e, partner_reaction: reaction, partner_reacted_at: reactedAt }
+      : e
+  )
+  console.log('② after optimistic update', {
+    eventId,
+    reaction,
+    next: next.map(e => ({
+      id: e.id,
+      partner_reaction: e.partner_reaction,
+      partner_reacted_at: e.partner_reacted_at,
+    })),
+  })
+
+  return next
+})
 
     const { error } = await supabase
       .from('emotion_events')
@@ -1639,6 +1712,12 @@ function useEmotionEvents(userId: string | null) {
         partner_reacted_at: reactedAt,
       })
       .eq('id', eventId)
+
+console.log('③ after db update', {
+  eventId,
+  reaction,
+  reactedAt,
+})
 
     if (error) {
       console.error('[reactToPartnerEvent] FAILED', {
