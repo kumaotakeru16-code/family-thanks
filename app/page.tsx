@@ -2513,27 +2513,99 @@ function BackgroundSelector({ selectedIds, onChange, label }: { selectedIds: Bac
    EMOTION FACE  (Lucide Icons)
 ═══════════════════════════════════════════════════ */
 
-const EMOTION_FACE_CONFIG: Record<EmotionType, { LucideIcon: React.ElementType; bg: string; color: string }> = {
-  calm:        { LucideIcon: Smile,      bg: '#bae6fd', color: '#0284c7' },
-  irritated:   { LucideIcon: Flame,      bg: '#fecaca', color: '#dc2626' },
-  sad:         { LucideIcon: CloudRain,  bg: '#bfdbfe', color: '#2563eb' },
-  tired:       { LucideIcon: BatteryLow, bg: '#fde68a', color: '#d97706' },
-  overwhelmed: { LucideIcon: Zap,        bg: '#e9d5ff', color: '#7c3aed' },
-  lonely:      { LucideIcon: Heart,      bg: '#fbcfe8', color: '#db2777' },
+const EMOTION_FACE_CONFIG: Record<
+  EmotionType,
+  {
+    LucideIcon: React.ElementType
+    femaleBg: string
+    femaleColor: string
+    maleBg: string
+    maleColor: string
+  }
+> = {
+  calm: {
+    LucideIcon: Smile,
+    femaleBg: '#dbeafe',
+    femaleColor: '#0284c7',
+    maleBg: '#dbeafe',
+    maleColor: '#0369a1',
+  },
+  irritated: {
+    LucideIcon: Flame,
+    femaleBg: '#fee2e2',
+    femaleColor: '#dc2626',
+    maleBg: '#fee2e2',
+    maleColor: '#b91c1c',
+  },
+  sad: {
+    LucideIcon: CloudRain,
+    femaleBg: '#dbeafe',
+    femaleColor: '#2563eb',
+    maleBg: '#dbeafe',
+    maleColor: '#1d4ed8',
+  },
+  tired: {
+    LucideIcon: BatteryLow,
+    femaleBg: '#fef3c7',
+    femaleColor: '#d97706',
+    maleBg: '#fef3c7',
+    maleColor: '#b45309',
+  },
+  overwhelmed: {
+    LucideIcon: Zap,
+    femaleBg: '#f3e8ff',
+    femaleColor: '#7c3aed',
+    maleBg: '#ede9fe',
+    maleColor: '#6d28d9',
+  },
+  lonely: {
+    LucideIcon: Heart,
+    femaleBg: '#fce7f3',
+    femaleColor: '#db2777',
+    maleBg: '#fce7f3',
+    maleColor: '#be185d',
+  },
 }
 
-function EmotionFace({ type, size = 64 }: { type: EmotionType; size?: number }) {
-  const { LucideIcon, bg, color } = EMOTION_FACE_CONFIG[type] ?? EMOTION_FACE_CONFIG.calm
-  const iconSize = Math.round(size * 0.52)
+// 👇ここに追加
+function otherGender(gender: Gender): Gender {
+  return gender === 'male' ? 'female' : 'male'
+}
+
+
+
+function EmotionFace({
+  type,
+  gender = 'female',
+  size = 64,
+}: {
+  type: EmotionType
+  gender?: Gender
+  size?: number
+}) {
+  const cfg = EMOTION_FACE_CONFIG[type] ?? EMOTION_FACE_CONFIG.calm
+  const { LucideIcon } = cfg
+
+  const bg = gender === 'male' ? cfg.maleBg : cfg.femaleBg
+  const color = gender === 'male' ? cfg.maleColor : cfg.femaleColor
+  const iconSize = Math.round(size * 0.5)
+
   return (
     <div
       aria-label={emMeta(type).label}
       style={{
-        width: size, height: size,
+        width: size,
+        height: size,
         background: bg,
-        borderRadius: '50%',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        borderRadius: '9999px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         flexShrink: 0,
+        border: gender === 'male' ? '2px solid rgba(59,130,246,0.18)' : '2px solid rgba(236,72,153,0.16)',
+        boxShadow: gender === 'male'
+          ? 'inset 0 1px 0 rgba(255,255,255,0.65)'
+          : 'inset 0 1px 0 rgba(255,255,255,0.7)',
       }}
     >
       <LucideIcon size={iconSize} color={color} strokeWidth={2} />
@@ -2587,9 +2659,11 @@ function EmotionIcon({
 function EmotionSelector({
   selected,
   onSelect,
+  gender,
 }: {
   selected?: EmotionType | null
   onSelect: (e: EmotionType) => void
+  gender: Gender
 }) {
   return (
     <div className="grid grid-cols-3 gap-3">
@@ -2607,7 +2681,7 @@ function EmotionSelector({
             }`}
           >
             <div className={`transition-transform duration-200 ${isSelected ? 'scale-110' : 'group-hover:scale-105'}`}>
-              <EmotionFace type={em.type} size={60} />
+              <EmotionFace type={em.type} gender={gender} size={60} />
             </div>
             <span className={`text-[11px] font-bold leading-tight tracking-wide ${isSelected ? em.color : 'text-stone-400'}`}>
               {em.label}
@@ -2999,6 +3073,7 @@ function ContextSelector({
   onSubmit,
   onBack,
   isLoading,
+  gender,
 }: {
   emotion: EmotionType
   selectedIds: BackgroundOptionId[]
@@ -3008,6 +3083,7 @@ function ContextSelector({
   onSubmit: () => void
   onBack: () => void
   isLoading: boolean
+  gender: Gender
 }) {
   const isLonely = emotion === 'lonely'
   const meta = emMeta(emotion)
@@ -3022,7 +3098,7 @@ function ContextSelector({
 
       {/* Emotion identity pill */}
       <div className={`inline-flex items-center gap-2.5 rounded-2xl ${meta.activeBg} px-4 py-2.5`}>
-        <EmotionFace type={emotion} size={28} />
+       <EmotionFace type={emotion} gender={gender} size={28} />
         <span className={`text-sm font-bold ${meta.color}`}>{meta.label}</span>
       </div>
 
@@ -3501,7 +3577,11 @@ function HomeTab({
         ) : (
           <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-stone-400">今の気持ち</p>
         )}
-        <EmotionSelector selected={flow.emotion} onSelect={onSelectEmotion} />
+        <EmotionSelector
+  selected={flow.emotion}
+  onSelect={onSelectEmotion}
+  gender={gender}
+/>
       </section>
 
       {/* ══ Phase 2: 背景選択（感情選択後・calm/resolved以外） ══════ */}
@@ -3952,7 +4032,11 @@ function PartnerLatestCard({
       </p>
 
       <div className="mb-3 flex items-center gap-3">
-        <EmotionFace type={event.emotion_type} size={44} />
+        <EmotionFace
+  type={event.emotion_type}
+  gender={otherGender(gender)}
+  size={44}
+/>
         <div>
           <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
           {contextText && (
@@ -4079,7 +4163,10 @@ function HistoryEventCard({ item, gender }: {
         <p className="text-[10px] text-stone-300">{fmtTime(event.created_at)}</p>
       </div>
       <div className="flex items-center gap-3 px-5 pb-2">
-        <EmotionFace type={event.emotion_type} size={38} />
+        <EmotionFace
+  type={event.emotion_type}
+  gender={otherGender(gender)}
+/>
         <div>
           <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
           {contextText && (
