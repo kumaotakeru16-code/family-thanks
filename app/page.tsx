@@ -1605,6 +1605,7 @@ const markShared = useCallback(
     if (typeof message === 'string') {
       payload.shared_message = message
     }
+
     if (selectedShareOptionId !== undefined) {
       payload.selected_share_option_id = selectedShareOptionId
     }
@@ -1631,7 +1632,7 @@ const markShared = useCallback(
               share_status: 'sent',
               ...(typeof message === 'string' ? { shared_message: message } : {}),
               ...(selectedShareOptionId !== undefined
-                ? { selected_share_option_id: selectedShareOptionId }
+                ? { selected_share_option_id: selectedShareOptionId as ShareOptionId | null }
                 : {}),
             }
           : e
@@ -2352,7 +2353,7 @@ function PartnerSupportCard({ event, onReact }: { event: EmotionEvent; onReact: 
                 onClick={() => onReact(r)}
                 className="rounded-2xl bg-stone-100 px-2 py-3 text-xs font-semibold text-stone-600 transition hover:bg-stone-200 active:scale-95"
               >
-                {labels[r]}
+                 {PARTNER_REACTION_LABELS[r]}
               </button>
             )
           })}
@@ -3837,10 +3838,14 @@ function getEventBgTags(event: EmotionEvent): BackgroundOption[] {
 }
 
 function reactionWord(r: EmotionEvent['partner_reaction']): string | null {
-  if (r === 'ack')   return 'わかったよ'
-  if (r === 'soon')  return 'あとで行くね'
-  if (r === 'on_it') return 'やっておくね'
-  return null
+  if (!r) return null
+  return PARTNER_REACTION_LABELS[r]
+}
+
+const PARTNER_REACTION_LABELS: Record<'ack' | 'soon' | 'on_it', string> = {
+  ack: 'わかったよ',
+  soon: 'あとで見るね',
+  on_it: '対応しておくね',
 }
 
 function computeRelInsight(events: EmotionEvent[], sharedEvents: EmotionEvent[]): string {
