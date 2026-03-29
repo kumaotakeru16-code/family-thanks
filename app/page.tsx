@@ -4451,7 +4451,8 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
             />
           )}
         </main>
-{(() => {
+
+      {(() => {
   const historyBadgeCount = partnerEvents.filter(
     e => e.share_status === 'sent' && e.partner_reaction == null
   ).length
@@ -4484,3 +4485,9 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
     />
   )
 })()}
+          
+        <Toasts toasts={toasts} />
+      </div>
+    </>
+  )
+}
