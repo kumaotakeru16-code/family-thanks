@@ -1534,17 +1534,15 @@ function useEmotionEvents(userId: string | null) {
       .select()
       .single()
 
-    if (error || !data) {
-      console.error('[saveEvent] FAILED', {
-        message: error?.message,
-        details: error?.details,
-        hint: error?.hint,
-        code: error?.code,
-        error,
-        payload,
-      })
-      return null
-    }
+if (error || !data) {
+  console.error('[saveEvent] FAILED message:', error?.message)
+  console.error('[saveEvent] FAILED details:', error?.details)
+  console.error('[saveEvent] FAILED hint:', error?.hint)
+  console.error('[saveEvent] FAILED code:', error?.code)
+  console.error('[saveEvent] FAILED payload object:', payload)
+  console.error('[saveEvent] FAILED payload json:', JSON.stringify(payload, null, 2))
+  return null
+}
 
     const ev = data as EmotionEvent
     setEvents(prev => [ev, ...prev])
