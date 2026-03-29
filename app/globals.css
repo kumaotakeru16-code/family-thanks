@@ -24,6 +24,44 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* ── 背景ぼかしオーブ ───────────────────────────── */
+
+body::before,
+body::after {
+  content: '';
+  position: fixed;
+  border-radius: 9999px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::before {
+  top: -6rem;
+  left: -6rem;
+  width: 24rem;
+  height: 24rem;
+  background: radial-gradient(circle, rgba(251,207,232,0.35) 0%, transparent 70%);
+  filter: blur(48px);
+}
+
+body::after {
+  bottom: -6rem;
+  right: -6rem;
+  width: 28rem;
+  height: 28rem;
+  background: radial-gradient(circle, rgba(199,210,254,0.30) 0%, transparent 70%);
+  filter: blur(60px);
+}
+
+/* すべてのメインコンテンツは z-index:1 以上で前面に */
+#__next,
+main,
+header,
+nav {
+  position: relative;
+  z-index: 1;
+}
+
 /* ── アニメーション ────────────────────────────── */
 
 @keyframes fadeUp {

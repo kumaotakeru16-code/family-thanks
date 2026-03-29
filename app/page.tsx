@@ -207,6 +207,52 @@ const BACKGROUND_OPTION_ICONS: Record<BackgroundOptionId, React.ElementType> = {
 }
 
 /* ═══════════════════════════════════════════════════
+   ICON BADGE — Lucide アイコンをソフトな光輪でラップ
+═══════════════════════════════════════════════════ */
+
+type IconTone = 'blue' | 'pink' | 'green' | 'amber' | 'purple' | 'red' | 'neutral'
+
+const ICON_TONE_MAP: Record<IconTone, { glow: string; ring: string; icon: string }> = {
+  blue:    { glow: 'bg-sky-200/50',     ring: 'bg-sky-100',     icon: 'text-sky-500'     },
+  pink:    { glow: 'bg-rose-200/50',    ring: 'bg-rose-100',    icon: 'text-rose-400'    },
+  green:   { glow: 'bg-emerald-200/50', ring: 'bg-emerald-100', icon: 'text-emerald-500' },
+  amber:   { glow: 'bg-amber-200/50',   ring: 'bg-amber-100',   icon: 'text-amber-500'   },
+  purple:  { glow: 'bg-purple-200/50',  ring: 'bg-purple-100',  icon: 'text-purple-500'  },
+  red:     { glow: 'bg-red-200/50',     ring: 'bg-red-100',     icon: 'text-red-500'     },
+  neutral: { glow: 'bg-stone-200/50',   ring: 'bg-stone-100',   icon: 'text-stone-500'   },
+}
+
+/** 感情タイプから IconTone を返す */
+function emotionToTone(emotion: EmotionType): IconTone {
+  switch (emotion) {
+    case 'calm':        return 'blue'
+    case 'irritated':   return 'red'
+    case 'sad':         return 'blue'
+    case 'tired':       return 'amber'
+    case 'overwhelmed': return 'purple'
+    case 'lonely':      return 'pink'
+  }
+}
+
+function IconBadge({ icon: Icon, tone = 'neutral', size = 20 }: {
+  icon: React.ElementType
+  tone?: IconTone
+  size?: number
+}) {
+  const t = ICON_TONE_MAP[tone]
+  return (
+    <div className="relative flex shrink-0 items-center justify-center" style={{ width: 40, height: 40 }}>
+      {/* soft glow halo */}
+      <div className={`absolute inset-0 rounded-full blur-md ${t.glow}`} />
+      {/* frosted badge */}
+      <div className={`relative flex h-10 w-10 items-center justify-center rounded-full bg-white/75 backdrop-blur-sm shadow-sm ring-1 ring-white/60`}>
+        <Icon size={size} className={t.icon} strokeWidth={1.8} />
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════
    BACKGROUND TAG → HUMAN SENTENCE
 ═══════════════════════════════════════════════════ */
 
@@ -2487,20 +2533,31 @@ function BackgroundSelector({ selectedIds, onChange, label }: { selectedIds: Bac
   }
   return (
     <div>
-      <p className="text-[10px] font-bold uppercase tracking-widest text-stone-500">{label ?? '何が近い？'}</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">{label ?? '何が近い？'}</p>
       <div className="mt-3 grid grid-cols-2 gap-3">
         {BACKGROUND_OPTIONS.map(option => {
           const active = selectedIds.includes(option.id)
+          const IC = BACKGROUND_OPTION_ICONS[option.id]
           return (
             <button key={option.id} type="button" onClick={() => toggle(option.id)}
-              className={`rounded-2xl border p-4 text-left transition active:scale-[0.98] ${active ? 'border-indigo-300 bg-indigo-50 ring-2 ring-indigo-100' : 'border-stone-200 bg-white hover:bg-stone-50'}`}>
+              className={`rounded-3xl p-4 text-left transition-all active:scale-[0.97] ${
+                active
+                  ? 'bg-white/80 backdrop-blur shadow-md ring-2 ring-indigo-200/80'
+                  : 'bg-white/60 backdrop-blur shadow-sm ring-1 ring-black/[0.05] hover:bg-white/80 hover:shadow-md'
+              }`}>
               <div className="flex items-start gap-3">
-                {(() => { const IC = BACKGROUND_OPTION_ICONS[option.id]; return <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${active ? 'bg-white' : 'bg-stone-100'}`}><IC size={18} color={active ? '#6366f1' : '#78716c'} strokeWidth={2} /></div> })()}
-                <div className="min-w-0">
-                  <p className={`text-sm font-bold leading-tight ${active ? 'text-indigo-700' : 'text-stone-800'}`}>{option.label}</p>
-                  <p className="mt-1 text-[11px] leading-relaxed text-stone-400">{option.description}</p>
+                <IconBadge icon={IC} tone="neutral" size={16} />
+                <div className="min-w-0 pt-0.5">
+                  <p className={`text-sm font-bold leading-tight ${active ? 'text-indigo-700' : 'text-stone-700'}`}>{option.label}</p>
+                  <p className="mt-1 text-[11px] leading-snug text-stone-400">{option.description}</p>
                 </div>
               </div>
+              {active && (
+                <div className="mt-2.5 flex items-center gap-1">
+                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
+                  <span className="text-[10px] font-semibold text-indigo-500">選択中</span>
+                </div>
+              )}
             </button>
           )
         })}
@@ -2737,7 +2794,7 @@ function EmotionComposerSheet({
   const isCalm = emotion === 'calm'
   const isLonely = emotion === 'lonely'
   return (
-    <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5" style={{ animation: 'sheetUp .25s ease-out both' }}>
+    <div className="rounded-3xl bg-white/70 backdrop-blur p-5 shadow-sm ring-1 ring-black/5" style={{ animation: 'sheetUp .25s ease-out both' }}>
       <div className="mb-5 flex items-center gap-3">
         <EmotionFace type={emotion} size={48} />
         <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
@@ -2783,7 +2840,13 @@ function AiResponseCard({ response }: { response: AiResponse }) {
     return match ? match[0] : response.empathy
   })()
   return (
-    <p className="px-1 text-sm leading-relaxed text-stone-500" style={{ animation: 'fadeUp .4s ease-out both' }}>{text}</p>
+    <div
+      className="rounded-3xl bg-white/70 backdrop-blur px-5 py-4 shadow-sm ring-1 ring-black/5"
+      style={{ animation: 'fadeUp .4s ease-out both' }}
+    >
+      <p className="mb-1.5 text-[9px] font-bold uppercase tracking-widest text-stone-300">きもちの整理</p>
+      <p className="text-sm leading-relaxed text-stone-600">{text}</p>
+    </div>
   )
 }
 
@@ -2794,7 +2857,7 @@ function ActionSuggestionCard({ suggestion, recovered, onRecovered, hideRecovery
 }) {
   if (recovered) {
     return (
-      <div className="rounded-3xl bg-emerald-50 ring-1 ring-emerald-200 px-5 py-5" style={{ animation: 'fadeUp .35s ease-out both' }}>
+      <div className="rounded-3xl bg-white/70 backdrop-blur ring-1 ring-emerald-200 px-5 py-5" style={{ animation: 'fadeUp .35s ease-out both' }}>
         <p className="text-base font-bold text-emerald-700">{suggestion.label}</p>
         <p className="mt-1 text-xs text-emerald-500">それだけでも十分。</p>
       </div>
@@ -2803,7 +2866,7 @@ function ActionSuggestionCard({ suggestion, recovered, onRecovered, hideRecovery
 
   if (isCalm) {
     return (
-      <div className="overflow-hidden rounded-3xl bg-teal-50 ring-1 ring-teal-200" style={{ animation: 'fadeUp .35s ease-out both' }}>
+      <div className="overflow-hidden rounded-3xl bg-white/70 backdrop-blur ring-1 ring-teal-200/60 shadow-sm" style={{ animation: 'fadeUp .35s ease-out both' }}>
         <div className="px-6 py-5">
           <p className="text-xl font-bold leading-snug tracking-tight text-teal-800">{suggestion.label}</p>
           {suggestion.reason && (
@@ -2816,7 +2879,7 @@ function ActionSuggestionCard({ suggestion, recovered, onRecovered, hideRecovery
 
   return (
     <div
-      className="overflow-hidden rounded-3xl bg-white px-6 py-6 shadow-sm ring-1 ring-stone-100"
+      className="overflow-hidden rounded-3xl bg-white/70 backdrop-blur px-6 py-6 shadow-sm ring-1 ring-black/5"
       style={{ animation: 'fadeUp .35s ease-out both' }}
     >
       <p className="text-2xl font-bold leading-snug tracking-tight text-stone-800">
@@ -2860,7 +2923,7 @@ function RecoveryCard({ onReset, emotion }: { onReset: () => void; emotion?: Emo
   const message = getRecoveryMessage(emotion)
 
   return (
-    <section className="rounded-3xl border border-stone-200 bg-white px-5 py-5 shadow-sm">
+    <section className="rounded-3xl bg-white/70 backdrop-blur px-5 py-5 shadow-sm ring-1 ring-black/5">
       <p className="text-sm text-stone-700">
         {message}
       </p>
@@ -2871,7 +2934,7 @@ function RecoveryCard({ onReset, emotion }: { onReset: () => void; emotion?: Emo
 
       <button
         onClick={onReset}
-        className="mt-4 w-full rounded-2xl bg-stone-900 py-3 text-white"
+        className="mt-4 w-full rounded-2xl bg-stone-800/90 py-3 text-sm font-semibold text-white transition active:scale-[0.98]"
       >
         ひとまず閉じる
       </button>
@@ -3127,14 +3190,17 @@ function ContextSelector({
           <div className="flex flex-wrap gap-2">
             {BACKGROUND_OPTIONS.map(opt => {
               const active = selectedIds.includes(opt.id)
+              const IC = BACKGROUND_OPTION_ICONS[opt.id]
               return (
                 <button key={opt.id} type="button" onClick={() => toggle(opt.id)}
-                  className={`flex items-center gap-1.5 rounded-2xl px-3.5 py-2 text-sm font-semibold transition-all duration-150 active:scale-95 ${
+                  className={`flex items-center gap-2 rounded-2xl px-3 py-1.5 text-sm font-semibold transition-all duration-150 active:scale-95 ${
                     active
-                      ? `${meta.activeBg} ${meta.color} shadow-sm`
-                      : 'bg-white text-stone-500 ring-1 ring-stone-100 hover:ring-stone-200'
+                      ? `${meta.activeBg} ${meta.color} shadow-sm ring-1 ${meta.border}`
+                      : 'bg-white/75 backdrop-blur text-stone-500 ring-1 ring-black/[0.06] hover:bg-white hover:ring-black/[0.1]'
                   }`}>
-                  {(() => { const IC = BACKGROUND_OPTION_ICONS[opt.id]; return <IC size={14} strokeWidth={2} /> })()}
+                  <div className={`flex h-5 w-5 items-center justify-center rounded-full ${active ? 'bg-white/60' : 'bg-stone-100/80'}`}>
+                    <IC size={12} strokeWidth={2} className={active ? meta.color : 'text-stone-400'} />
+                  </div>
                   <span>{opt.label}</span>
                 </button>
               )
@@ -3228,24 +3294,46 @@ function ActionCarousel({ emotion, backgroundIds, selected, onSelect }: {
               key={i}
               type="button"
               onClick={() => onSelect(isSelected ? '' : c.label)}
-              style={{ scrollSnapAlign: 'start', minWidth: isPrimary ? '82%' : '70%', borderLeft: `3px solid ${isSelected || isPrimary ? accentColor : 'transparent'}`, opacity: isPrimary ? 1 : 0.75 }}
-              className={`shrink-0 rounded-2xl px-5 py-4 text-left transition-all duration-200 active:scale-[0.97] ${
+              style={{
+                scrollSnapAlign: 'start',
+                minWidth: isPrimary ? '82%' : '70%',
+                opacity: isPrimary ? 1 : 0.8,
+              }}
+              className={`shrink-0 rounded-3xl px-5 py-4 text-left transition-all duration-200 active:scale-[0.97] ${
                 isSelected
-                  ? `${meta.activeBg} shadow-md`
+                  ? `${meta.activeBg} backdrop-blur shadow-md ring-1 ${meta.border}`
                   : isPrimary
-                  ? 'bg-white/95 shadow-[0_4px_18px_rgba(0,0,0,0.09)] ring-1 ring-black/[0.04] hover:shadow-[0_6px_22px_rgba(0,0,0,0.12)]'
-                  : 'bg-white/70 shadow-sm ring-1 ring-black/[0.03] hover:bg-white/90 hover:opacity-100'
+                  ? 'bg-white/90 backdrop-blur shadow-[0_4px_20px_rgba(0,0,0,0.1)] ring-1 ring-black/[0.05]'
+                  : 'bg-white/60 backdrop-blur shadow-sm ring-1 ring-black/[0.03] hover:bg-white/80'
               }`}
             >
-              <p className={`mb-1.5 text-[9px] font-bold tracking-widest ${isSelected ? meta.color : isPrimary ? 'text-stone-400' : 'text-stone-300'}`}>
-                {priorityLabel}
+              {/* 主提案は左アクセントバー */}
+              {isPrimary && (
+                <div
+                  className="mb-3 flex items-center gap-2"
+                  style={{ borderLeft: `3px solid ${accentColor}`, paddingLeft: 8 }}
+                >
+                  <p className="text-[9px] font-extrabold tracking-widest" style={{ color: accentColor }}>
+                    {priorityLabel}
+                  </p>
+                </div>
+              )}
+              {!isPrimary && (
+                <p className={`mb-1.5 text-[9px] font-bold tracking-widest ${isSelected ? meta.color : 'text-stone-300'}`}>
+                  {priorityLabel}
+                </p>
+              )}
+              <p className={`text-sm font-bold leading-snug ${isSelected ? meta.color : isPrimary ? 'text-stone-800' : 'text-stone-500'}`}>
+                {c.label}
               </p>
-              <p className={`text-sm font-bold leading-snug ${isSelected ? meta.color : isPrimary ? 'text-stone-800' : 'text-stone-500'}`}>{c.label}</p>
-              {c.reason && <p className="mt-2 text-[11px] leading-relaxed text-stone-400">{c.reason}</p>}
+              {c.reason && (
+                <p className={`mt-2 text-[11px] leading-relaxed ${isPrimary ? 'text-stone-400' : 'text-stone-300'}`}>
+                  {c.reason}
+                </p>
+              )}
             </button>
           )
         })}
-        {/* Spacer so last card doesn't snap flush to edge */}
         <div className="w-4 shrink-0" />
       </div>
     </div>
@@ -3273,6 +3361,12 @@ function SupportCarousel({ selected, onSelect }: {
   selected: string | null
   onSelect: (id: string) => void
 }) {
+  const supportTones: Record<string, IconTone> = {
+    empathy: 'pink',
+    help:    'green',
+    space:   'blue',
+    listen:  'purple',
+  }
   return (
     <div>
       <p className="mb-2.5 text-[10px] font-bold uppercase tracking-widest text-stone-400">どうしてほしいか選ぶ</p>
@@ -3282,19 +3376,20 @@ function SupportCarousel({ selected, onSelect }: {
       >
         {SUPPORT_OPTIONS.map(opt => {
           const isSelected = selected === opt.id
+          const tone = supportTones[opt.id] ?? 'neutral'
           return (
             <button
               key={opt.id}
               type="button"
               onClick={() => onSelect(isSelected ? '' : opt.id)}
               style={{ scrollSnapAlign: 'start', minWidth: '48%' }}
-              className={`shrink-0 flex flex-col items-center gap-2 rounded-2xl px-4 py-4 transition-all duration-200 active:scale-95 ${
+              className={`shrink-0 flex flex-col items-center gap-2.5 rounded-3xl px-4 py-4 transition-all duration-200 active:scale-95 ${
                 isSelected
-                  ? 'bg-violet-50/90 ring-2 ring-violet-200/80 shadow-md'
-                  : 'bg-white/85 shadow-[0_2px_12px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.04] hover:bg-white hover:shadow-[0_4px_16px_rgba(0,0,0,0.1)]'
+                  ? 'bg-white/90 backdrop-blur shadow-lg ring-2 ring-violet-200/80'
+                  : 'bg-white/60 backdrop-blur shadow-sm ring-1 ring-black/[0.04] hover:bg-white/80 hover:shadow-md'
               }`}
             >
-              <opt.Icon size={22} color={isSelected ? '#7c3aed' : '#a8a29e'} strokeWidth={2} />
+              <IconBadge icon={opt.Icon} tone={isSelected ? 'purple' : tone} size={20} />
               <span className={`text-[11px] font-bold leading-tight text-center ${isSelected ? 'text-violet-600' : 'text-stone-500'}`}>{opt.label}</span>
             </button>
           )
@@ -3618,6 +3713,7 @@ function HomeTab({
               {BACKGROUND_OPTIONS.map(opt => {
                 const active = flow.selectedBackgroundIds.includes(opt.id)
                 const em = emMeta(flow.emotion!)
+                const IC = BACKGROUND_OPTION_ICONS[opt.id]
                 return (
                   <button key={opt.id} type="button" onClick={() => {
                     const newIds = active
@@ -3625,12 +3721,14 @@ function HomeTab({
                       : [...flow.selectedBackgroundIds, opt.id]
                     onSetBackgroundIds(newIds)
                   }}
-                    className={`flex items-center gap-1.5 rounded-2xl px-3.5 py-2 text-sm font-semibold transition-all duration-150 active:scale-95 ${
+                    className={`flex items-center gap-2 rounded-2xl px-3 py-1.5 text-sm font-semibold transition-all duration-150 active:scale-95 ${
                       active
-                        ? `${em.activeBg} ${em.color} shadow-sm`
-                        : 'bg-white/80 text-stone-500 ring-1 ring-black/[0.06] hover:bg-white hover:ring-black/[0.09]'
+                        ? `${em.activeBg} ${em.color} shadow-sm ring-1 ${em.border}`
+                        : 'bg-white/75 backdrop-blur text-stone-500 ring-1 ring-black/[0.06] hover:bg-white hover:ring-black/[0.1]'
                     }`}>
-                    {(() => { const IC = BACKGROUND_OPTION_ICONS[opt.id]; return <IC size={14} strokeWidth={2} /> })()}
+                    <div className={`flex h-5 w-5 items-center justify-center rounded-full ${active ? 'bg-white/60' : 'bg-stone-100/80'}`}>
+                      <IC size={12} strokeWidth={2} />
+                    </div>
                     <span>{opt.label}</span>
                   </button>
                 )
@@ -3653,11 +3751,14 @@ function HomeTab({
 
       {/* ローディング */}
       {flow.isLoadingAi && (
-        <div className="rounded-3xl bg-white/95 px-5 py-14 text-center shadow-[0_4px_20px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.04]" style={{ animation: 'fadeUp .2s ease-out both' }}>
-          <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-violet-50">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-100 border-t-violet-400" />
+        <div className="rounded-3xl bg-white/70 backdrop-blur px-5 py-14 text-center shadow-sm ring-1 ring-black/[0.05]" style={{ animation: 'fadeUp .2s ease-out both' }}>
+          <div className="mx-auto mb-5 relative flex h-14 w-14 items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-violet-200/40 blur-md" />
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-sm ring-1 ring-violet-100">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-100 border-t-violet-400" />
+            </div>
           </div>
-          <p className="text-sm font-semibold text-stone-400">言葉を整えています</p>
+          <p className="text-sm font-semibold text-stone-500">言葉を整えています</p>
           <p className="mt-1 text-xs text-stone-300">少しだけ待ってね</p>
         </div>
       )}
@@ -3665,8 +3766,8 @@ function HomeTab({
       {/* ══ Phase 3: AI応答（受け取った感） ════════════════════════ */}
       {flow.aiResponse && !flow.isLoadingAi && aiText && (
         <section style={{ animation: 'fadeUp .35s ease-out both' }}>
-          <div className="rounded-3xl bg-white/95 px-5 py-5 shadow-[0_4px_20px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.04]">
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-300">きもちの整理</p>
+          <div className="rounded-3xl bg-white/70 backdrop-blur px-5 py-5 shadow-sm ring-1 ring-black/5">
+            <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-stone-300">きもちの整理</p>
             <p className="text-sm leading-relaxed text-stone-600">{aiText}</p>
           </div>
         </section>
@@ -3701,22 +3802,22 @@ function HomeTab({
         <div className="space-y-2.5 pt-1" style={{ animation: 'fadeUp .5s ease-out both' }}>
           <button
             onClick={onResolveLight}
-            className="w-full rounded-2xl bg-white/85 py-4 text-sm font-semibold text-stone-600 shadow-[0_2px_12px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] transition-all duration-150 hover:bg-white active:scale-[0.98]"
+            className="w-full rounded-2xl bg-white/70 backdrop-blur py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-black/[0.05] transition-all duration-150 hover:bg-white/90 active:scale-[0.98]"
           >
             少し楽になった
           </button>
           <button
             onClick={onResolveDone}
-            className="w-full rounded-2xl bg-white/85 py-4 text-sm font-semibold text-stone-600 shadow-[0_2px_12px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] transition-all duration-150 hover:bg-white active:scale-[0.98]"
+            className="w-full rounded-2xl bg-white/70 backdrop-blur py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-black/[0.05] transition-all duration-150 hover:bg-white/90 active:scale-[0.98]"
           >
             もう大丈夫
           </button>
           {flow.translated && (
             <button
               onClick={onStartSharing}
-              className="w-full rounded-2xl bg-gradient-to-r from-violet-400 to-indigo-400 py-4 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition-all duration-150 active:scale-[0.98]"
+              className="w-full rounded-2xl bg-gradient-to-r from-violet-400 to-indigo-400 py-4 text-sm font-bold text-white shadow-md shadow-violet-200/60 transition-all duration-150 active:scale-[0.98]"
             >
-              伝え方を整える
+              伝え方を整える →
             </button>
           )}
         </div>
@@ -3728,14 +3829,14 @@ function HomeTab({
           {flow.translated && (
             <button
               onClick={onStartSharing}
-              className="w-full rounded-2xl bg-gradient-to-r from-sky-400 to-cyan-400 py-4 text-sm font-bold text-white shadow-sm shadow-sky-100 transition-all duration-150 active:scale-[0.98]"
+              className="w-full rounded-2xl bg-gradient-to-r from-sky-400 to-cyan-400 py-4 text-sm font-bold text-white shadow-md shadow-sky-200/60 transition-all duration-150 active:scale-[0.98]"
             >
-              パートナーに感謝を伝える
+              パートナーに感謝を伝える →
             </button>
           )}
           <button
             onClick={onResolveDone}
-            className="w-full rounded-2xl bg-white/85 py-4 text-sm font-semibold text-stone-600 shadow-[0_2px_12px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] transition-all duration-150 hover:bg-white active:scale-[0.98]"
+            className="w-full rounded-2xl bg-white/70 backdrop-blur py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-black/[0.05] transition-all duration-150 hover:bg-white/90 active:scale-[0.98]"
           >
             自分だけで感じておく
           </button>
@@ -3757,15 +3858,18 @@ function HomeTab({
 
       {/* resolved_light */}
       {flow.step === 'resolved_light' && (
-        <div className="rounded-3xl bg-sky-50/80 px-6 py-10 text-center shadow-[0_4px_20px_rgba(0,0,0,0.07)] ring-1 ring-sky-100/70" style={{ animation: 'fadeUp .3s ease-out both' }}>
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-sky-100">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <path d="M 5 13 L 9 17 L 19 7" stroke="#0ea5e9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+        <div className="rounded-3xl bg-white/70 backdrop-blur px-6 py-10 text-center shadow-sm ring-1 ring-sky-100/70" style={{ animation: 'fadeUp .3s ease-out both' }}>
+          <div className="mx-auto mb-3 relative flex h-14 w-14 items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-sky-200/40 blur-md" />
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-sky-50 ring-1 ring-sky-200">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                <path d="M 5 13 L 9 17 L 19 7" stroke="#0ea5e9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
           </div>
           <p className="text-base font-bold text-sky-700">少し楽になったね</p>
           <p className="mt-1 text-sm text-sky-500/80">ひとまず整えられたね。</p>
-          <button onClick={onReset} className="mt-5 rounded-full bg-white px-5 py-2 text-xs font-semibold text-stone-400 shadow-sm ring-1 ring-stone-100 transition hover:text-stone-600 active:scale-95">
+          <button onClick={onReset} className="mt-5 rounded-full bg-white/80 px-5 py-2 text-xs font-semibold text-stone-400 shadow-sm ring-1 ring-stone-100/80 transition hover:text-stone-600 active:scale-95">
             もう一度整理する
           </button>
         </div>
@@ -3773,15 +3877,18 @@ function HomeTab({
 
       {/* resolved_done */}
       {flow.step === 'resolved_done' && (
-        <div className="rounded-3xl bg-emerald-50/80 px-6 py-10 text-center shadow-[0_4px_20px_rgba(0,0,0,0.07)] ring-1 ring-emerald-100/70" style={{ animation: 'fadeUp .3s ease-out both' }}>
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <path d="M 12 5 Q 18 9 12 19 Q 6 9 12 5" fill="#10b981" opacity="0.8"/>
-            </svg>
+        <div className="rounded-3xl bg-white/70 backdrop-blur px-6 py-10 text-center shadow-sm ring-1 ring-emerald-100/70" style={{ animation: 'fadeUp .3s ease-out both' }}>
+          <div className="mx-auto mb-3 relative flex h-14 w-14 items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-emerald-200/40 blur-md" />
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 ring-1 ring-emerald-200">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                <path d="M 12 5 Q 18 9 12 19 Q 6 9 12 5" fill="#10b981" opacity="0.85"/>
+              </svg>
+            </div>
           </div>
           <p className="text-base font-bold text-emerald-700">よかった。</p>
           <p className="mt-1 text-sm text-emerald-600/70">またここでね。</p>
-          <button onClick={onReset} className="mt-5 rounded-full bg-white px-5 py-2 text-xs font-semibold text-stone-400 shadow-sm ring-1 ring-stone-100 transition hover:text-stone-600 active:scale-95">
+          <button onClick={onReset} className="mt-5 rounded-full bg-white/80 px-5 py-2 text-xs font-semibold text-stone-400 shadow-sm ring-1 ring-stone-100/80 transition hover:text-stone-600 active:scale-95">
             もう一度整理する
           </button>
         </div>
@@ -4027,24 +4134,27 @@ function PartnerLatestCard({
 
   return (
     <div
-      className={`overflow-hidden rounded-3xl border bg-white/95 px-5 pt-4 pb-4 shadow-[0_6px_28px_rgba(0,0,0,0.1)] ${
+      className={`overflow-hidden rounded-3xl px-5 pt-4 pb-4 shadow-[0_6px_28px_rgba(0,0,0,0.08)] ${
         event.partner_reaction
-          ? `${meta.bg} ${meta.border}`
-          : 'bg-white ring-1 ring-stone-200'
+          ? `${meta.bg} ring-1 ${meta.border}`
+          : 'bg-white/75 backdrop-blur ring-1 ring-black/[0.05]'
       }`}
       style={{ animation: 'fadeUp .3s ease-out both' }}
     >
+      {/* パートナーラベル */}
       <div className="mb-3 flex items-center gap-1.5">
-        <Heart size={10} className={`${meta.color} opacity-50 shrink-0`} />
-        <p className={`text-[10px] font-bold uppercase tracking-widest ${meta.color} opacity-60`}>パートナーから</p>
+        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-rose-100">
+          <Heart size={11} className="text-rose-400" strokeWidth={2.5} fill="currentColor" />
+        </div>
+        <p className={`text-[10px] font-bold uppercase tracking-widest ${meta.color}`}>パートナーから</p>
       </div>
 
       <div className="mb-3 flex items-center gap-3">
         <EmotionFace
-  type={event.emotion_type}
-  gender={otherGender(gender)}
-  size={44}
-/>
+          type={event.emotion_type}
+          gender={otherGender(gender)}
+          size={44}
+        />
         <div>
           <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
           {contextText && (
@@ -4069,7 +4179,7 @@ function PartnerLatestCard({
       )}
 
       {event.shared_message && (
-        <p className="mb-4 rounded-2xl bg-white/60 px-3 py-2.5 text-xs leading-relaxed text-stone-600">
+        <p className="mb-4 rounded-2xl bg-white/60 backdrop-blur px-3 py-2.5 text-xs leading-relaxed text-stone-600">
           「{event.shared_message}」
         </p>
       )}
@@ -4087,7 +4197,7 @@ function PartnerLatestCard({
               <button
                 key={r}
                 onClick={() => onReact(event.id, r)}
-                className="flex-1 rounded-2xl bg-white py-2.5 text-xs font-bold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all active:scale-95 hover:shadow-md"
+                className="flex-1 rounded-2xl bg-white/80 backdrop-blur py-2.5 text-xs font-bold text-stone-600 shadow-sm ring-1 ring-white/60 transition-all active:scale-95 hover:bg-white hover:shadow-md"
               >
                 {labels[r]}
               </button>
@@ -4095,7 +4205,10 @@ function PartnerLatestCard({
           })}
         </div>
       ) : (
-        <p className="text-[11px] font-medium text-stone-400">「{reaction}」と返した</p>
+        <div className="inline-flex items-center gap-1.5 rounded-full bg-white/60 px-3 py-1 ring-1 ring-white/80">
+          <Heart size={9} className={meta.color} fill="currentColor" />
+          <p className="text-[11px] font-medium text-stone-500">「{reaction}」と返した</p>
+        </div>
       )}
     </div>
   )
@@ -4116,18 +4229,20 @@ function HistoryEventCard({ item, gender }: {
   if (item.kind === 'mine') {
     const bgTags = getEventBgTags(event)
     return (
-      <div className={`overflow-hidden rounded-3xl bg-white/90 shadow-[0_2px_14px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.04]`}>
+      <div className="overflow-hidden rounded-3xl bg-white/70 backdrop-blur shadow-sm ring-1 ring-black/[0.05]">
         <div className="flex items-center gap-3 px-5 pt-4 pb-3">
           <EmotionFace type={event.emotion_type} size={38} />
           <div className="min-w-0 flex-1">
             <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
             <p className="text-[10px] text-stone-300">{fmtTime(event.created_at)}</p>
           </div>
+          {/* 自分カードであることを示す右寄せマーク */}
+          <span className="shrink-0 rounded-full bg-stone-100/80 px-2 py-0.5 text-[9px] font-bold text-stone-400">わたし</span>
         </div>
         {bgTags.length > 0 && (
           <div className="flex flex-wrap gap-1 px-5 pb-2">
             {bgTags.map(opt => opt && (
-              <span key={opt.id} className="inline-flex items-center gap-0.5 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-500">
+              <span key={opt.id} className="inline-flex items-center gap-0.5 rounded-full bg-stone-100/80 px-2 py-0.5 text-[10px] font-medium text-stone-500">
                 {opt.emoji} {opt.label}
               </span>
             ))}
@@ -4144,8 +4259,8 @@ function HistoryEventCard({ item, gender }: {
           </div>
         )}
         {event.share_status === 'sent' && event.shared_message && (
-          <div className="border-t border-stone-50 px-5 py-3">
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-stone-200">伝えたこと</p>
+          <div className="border-t border-stone-100/60 px-5 py-3">
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-stone-300">伝えたこと</p>
             <p className="text-xs leading-relaxed text-stone-600">「{event.shared_message}」</p>
             {reaction ? (
               <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 ring-1 ring-emerald-100">
@@ -4161,21 +4276,22 @@ function HistoryEventCard({ item, gender }: {
     )
   }
 
-  /* partner card */
+  /* ── partner card ─────────────────────────── */
   const myReaction = reactionWord(event.partner_reaction)
   const partnerBgTags = getEventBgTags(event)
   return (
-    <div className={`overflow-hidden rounded-3xl ${meta.bg} shadow-[0_2px_14px_rgba(0,0,0,0.07)] ring-1 ${meta.border}`}>
-      <div className="flex items-center gap-1.5 px-5 pt-3 pb-1">
-        <Heart size={10} className={`${meta.color} opacity-50 shrink-0`} />
-        <p className={`text-[10px] font-bold uppercase tracking-widest ${meta.color} opacity-60`}>パートナーから</p>
-        <p className="ml-auto text-[10px] text-stone-300">{fmtTime(event.created_at)}</p>
+    <div className={`overflow-hidden rounded-3xl ${meta.bg} shadow-sm ring-1 ${meta.border}`}>
+      {/* パートナーラベル行 */}
+      <div className="flex items-center gap-1.5 px-5 pt-3 pb-0.5">
+        <Heart size={11} className={`${meta.color} shrink-0`} strokeWidth={2.5} />
+        <p className={`text-[10px] font-bold uppercase tracking-widest ${meta.color}`}>パートナーから</p>
+        <p className="ml-auto text-[10px] text-stone-400">{fmtTime(event.created_at)}</p>
       </div>
-      <div className="flex items-center gap-3 px-5 pb-2">
+      <div className="flex items-center gap-3 px-5 py-2.5">
         <EmotionFace
-  type={event.emotion_type}
-  gender={otherGender(gender)}
-/>
+          type={event.emotion_type}
+          gender={otherGender(gender)}
+        />
         <div>
           <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
           {contextText && (
@@ -4193,11 +4309,12 @@ function HistoryEventCard({ item, gender }: {
         </div>
       )}
       {event.shared_message && (
-        <div className="border-t border-stone-100 px-5 py-3">
+        <div className="border-t border-white/40 px-5 py-3">
           <p className="text-xs leading-relaxed text-stone-600">「{event.shared_message}」</p>
           {myReaction ? (
-            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 ring-1 ring-stone-200">
-              <p className="text-[11px] font-semibold text-stone-500">「{myReaction}」と伝えた</p>
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/70 px-3 py-1 ring-1 ring-white/80">
+              <Heart size={9} className={meta.color} />
+              <p className="text-[11px] font-semibold text-stone-600">「{myReaction}」と伝えた</p>
             </div>
           ) : (
             <p className="mt-1.5 text-[10px] text-stone-400">まだ反応していません</p>
