@@ -1623,6 +1623,15 @@ function useEmotionEvents(userId: string | null) {
 
     const reactedAt = new Date().toISOString()
 
+    // Optimistic update BEFORE DB call so badge decreases immediately on click
+    setPartnerEvents(prev =>
+      prev.map(e =>
+        e.id === eventId
+          ? { ...e, partner_reaction: reaction, partner_reacted_at: reactedAt }
+          : e
+      )
+    )
+
     const { error } = await supabase
       .from('emotion_events')
       .update({
@@ -1639,16 +1648,16 @@ function useEmotionEvents(userId: string | null) {
         code: error?.code,
         full: error,
       })
+      // Rollback optimistic update
+      setPartnerEvents(prev =>
+        prev.map(e =>
+          e.id === eventId
+            ? { ...e, partner_reaction: null, partner_reacted_at: null }
+            : e
+        )
+      )
       return
     }
-
-    setPartnerEvents(prev =>
-      prev.map(e =>
-        e.id === eventId
-          ? { ...e, partner_reaction: reaction, partner_reacted_at: reactedAt }
-          : e
-      )
-    )
 
     setEvents(prev =>
       prev.map(e =>
@@ -3103,19 +3112,21 @@ function HomeTab({
 }) {
   return (
     <div className="space-y-4">
-      {/* Step 1: 感情選択 */}
-      {flow.step === 'selectingEmotion' && (
-        <div style={{ animation: 'fadeUp .25s ease-out both' }}>
-          <p className="mb-1.5 text-xl font-extrabold text-stone-700">今、どんな気持ち？</p>
-          <p className="mb-5 text-sm text-stone-400">ひとつ選んでみて</p>
-          <EmotionSelector selected={null} onSelect={onSelectEmotion} />
-        </div>
-      )}
+      {/* 感情選択（常に表示） */}
+      <div style={{ animation: 'fadeUp .25s ease-out both' }}>
+        {!flow.emotion ? (
+          <>
+            <p className="mb-1.5 text-xl font-extrabold text-stone-700">今、どんな気持ち？</p>
+            <p className="mb-5 text-sm text-stone-400">ひとつ選んでみて</p>
+          </>
+        ) : (
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-stone-400">今の気持ち</p>
+        )}
+        <EmotionSelector selected={flow.emotion} onSelect={onSelectEmotion} />
+      </div>
 
-      {/* 戻るボタン (selectingEmotion 以外で表示) */}
-      {flow.step !== 'selectingEmotion' && flow.step !== 'resolved_light' && flow.step !== 'resolved_done' && (
-        <BackButton onBack={onGoBack} />
-      )}
+      {/* 戻るボタン: sharing のみ */}
+      {flow.step === 'sharing' && <BackButton onBack={onGoBack} />}
 
       {/* ── Step 2: 背景選択のみ ─────────────────────────────── */}
       {flow.step === 'selectingContext' && flow.emotion && (
