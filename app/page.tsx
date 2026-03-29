@@ -922,6 +922,24 @@ async function translateForPartner(
   const isStrongState =
     includesAny([/限界/, /いっぱいいっぱい/, /もう無理/, /しんどすぎ/, /きつい/])
 
+  // calm: positive/gratitude-based message — early return before negative templates
+  if (emotion === 'calm') {
+    const msgs = [
+      '今日は落ち着いて過ごせてるよ。なんかありがとうって思った。',
+      'なんか今日は穏やかな気持ちかも。あなたのおかげかな。',
+      '最近少し余裕が出てきた気がする。一緒にいてくれてよかった。',
+    ]
+    let msg = msgs[0]
+    if (tone === 'soft') msg = 'ねえ、' + msgs[0]
+    else if (tone === 'direct') msg = msgs[2]
+    return {
+      message: msg,
+      sourceTags: backgroundTags,
+      selectedOptionId: selectedOption.id,
+      tone,
+    }
+  }
+
   const openerOptions = (() => {
     if (emotion === 'irritated') {
       if (isHouseworkIssue) {
@@ -1982,13 +2000,13 @@ function useEmotionFlow(
   }, [backgroundTags])
 
   const shareWithPartner = useCallback(async (message?: string) => {
-    const eventId = savedEventIdRef.current ?? flow.savedEventId
-    if (!eventId || flow.isShared) return
+    const eventId = savedEventIdRef.current ?? flowRef.current.savedEventId
+    if (!eventId || flowRef.current.isShared) return
     setFlow(prev => ({ ...prev, isSharing: true }))
     const ok = await markShared(eventId, message)
     if (!ok) { setFlow(prev => ({ ...prev, isSharing: false })); return }
     setFlow(prev => ({ ...prev, isSharing: false, isShared: true }))
-  }, [flow.savedEventId, flow.isShared, markShared])
+  }, [markShared])
 
   const reset = useCallback(() => {
     savedEventIdRef.current = null
@@ -3393,8 +3411,8 @@ function HomeTab({
         </section>
       )}
 
-      {/* ══ Phase 4b: パートナーにしてほしいこと ══════════════════ */}
-      {flow.aiResponse && !flow.isLoadingAi && (
+      {/* ══ Phase 4b: パートナーにしてほしいこと (calm以外) ══════ */}
+      {flow.aiResponse && !flow.isLoadingAi && !isCalm && (
         <section style={{ animation: 'fadeUp .45s ease-out both' }}>
           <SupportCarousel
             selected={flow.selectedSupport}
@@ -3403,8 +3421,8 @@ function HomeTab({
         </section>
       )}
 
-      {/* 3択ボタン */}
-      {flow.step === 'responding' && !flow.isLoadingAi && flow.aiResponse && (
+      {/* 3択ボタン (calm以外) */}
+      {flow.step === 'responding' && !flow.isLoadingAi && flow.aiResponse && !isCalm && (
         <div className="space-y-2.5 pt-1" style={{ animation: 'fadeUp .5s ease-out both' }}>
           <button
             onClick={onResolveLight}
@@ -3426,6 +3444,26 @@ function HomeTab({
               パートナーに伝える
             </button>
           )}
+        </div>
+      )}
+
+      {/* calm専用ボタン */}
+      {flow.step === 'responding' && !flow.isLoadingAi && flow.aiResponse && isCalm && (
+        <div className="space-y-2.5 pt-1" style={{ animation: 'fadeUp .5s ease-out both' }}>
+          {flow.translated && (
+            <button
+              onClick={onStartSharing}
+              className="w-full rounded-2xl bg-gradient-to-r from-sky-400 to-cyan-400 py-4 text-sm font-bold text-white shadow-sm shadow-sky-100 transition-all duration-150 active:scale-[0.98]"
+            >
+              パートナーに感謝を伝える
+            </button>
+          )}
+          <button
+            onClick={onResolveDone}
+            className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
+          >
+            自分だけで感じておく
+          </button>
         </div>
       )}
 
