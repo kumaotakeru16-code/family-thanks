@@ -2055,15 +2055,28 @@ const setSelectedSupport = useCallback(async (support: string | null) => {
     return
   }
 
-  const selectedOption = f.sharePlan.options.find(o => o.id === optionId)
-  if (!selectedOption) {
-    setFlow(prev => ({
-      ...prev,
-      selectedSupport: support,
-      selectedShareOptionId: optionId,
-    }))
-    return
+let selectedOption = f.sharePlan.options.find(o => o.id === optionId)
+
+if (!selectedOption) {
+  const fallbackLabels: Record<string, string> = {
+    notice_me: '気持ちを受け止めてほしい',
+    one_help: '少し手伝ってほしい',
+    leave_me_alone: '少しそっとしておいてほしい',
+    listen_10m: '少しだけ話を聞いてほしい',
+    quiet_time: '少し静かに過ごす時間がほしい',
   }
+
+  console.warn('[support option missing]', {
+    support,
+    optionId,
+    availableOptionIds: f.sharePlan.options.map(o => o.id),
+  })
+
+  selectedOption = {
+    id: optionId as ShareOptionId,
+    label: fallbackLabels[optionId] ?? '少し受け止めてほしい',
+  }
+}
 
   const mergedTags =
     f.selectedBackgroundIds.length > 0
