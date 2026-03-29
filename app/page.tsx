@@ -4449,7 +4449,29 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
           )}
         </main>
 
-        <BottomNav active={tab} onChange={setTab} badgeCounts={{ history: partnerEvents.filter(e => !e.partner_reaction).length }} />
+        {(() => {
+          const historyBadgeCount = partnerEvents.filter(e => !e.partner_reaction).length
+
+          console.log('⑧ history badge count', {
+            historyBadgeCount,
+            partnerEvents: partnerEvents.map(e => ({
+              id: e.id,
+              reaction: e.partner_reaction,
+              reactedAt: e.partner_reacted_at,
+            })),
+          })
+
+          console.log('⑧b raw reactions', partnerEvents.map(e => e.partner_reaction))
+
+          return (
+            <BottomNav
+              active={tab}
+              onChange={setTab}
+              badgeCounts={{ history: historyBadgeCount }}
+            />
+          )
+        })()}
+          
         <Toasts toasts={toasts} />
       </div>
     </>
