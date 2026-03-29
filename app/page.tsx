@@ -4452,30 +4452,29 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
           )}
         </main>
 
-      {(() => {
-  const historyBadgeCount = partnerEvents.filter(
-    e => e.share_status === 'sent' && e.partner_reaction == null
-  ).length
+{(() => {
+  const actionablePartnerEvents = partnerEvents.filter(
+    e =>
+      e.partner_id === userId &&
+      e.share_status === 'sent' &&
+      e.partner_reaction == null &&
+      !!e.shared_message
+  )
+
+  const historyBadgeCount = actionablePartnerEvents.length
 
   console.log('⑧ history badge count', {
     historyBadgeCount,
-    partnerEvents: partnerEvents.map(e => ({
+    actionablePartnerEvents: actionablePartnerEvents.map(e => ({
       id: e.id,
+      partner_id: e.partner_id,
+      user_id: e.user_id,
       share_status: e.share_status,
       reaction: e.partner_reaction,
-      reactedAt: e.partner_reacted_at,
+      shared_message: e.shared_message,
+      created_at: e.created_at,
     })),
   })
-
-  console.log(
-    '⑧b raw reactions',
-    partnerEvents.map(e => ({
-      id: e.id,
-      reaction: e.partner_reaction,
-      isNull: e.partner_reaction == null,
-      type: typeof e.partner_reaction,
-    }))
-  )
 
   return (
     <BottomNav
