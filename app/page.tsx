@@ -3221,19 +3221,26 @@ function ActionCarousel({ emotion, backgroundIds, selected, onSelect }: {
       >
         {candidates.map((c, i) => {
           const isSelected = selected === c.label
+          const isPrimary = i === 0
+          const priorityLabel = (['いまならこれだけでいい', '余裕があれば', '今日はこれでもOK'] as const)[i] ?? ''
           return (
             <button
               key={i}
               type="button"
               onClick={() => onSelect(isSelected ? '' : c.label)}
-              style={{ scrollSnapAlign: 'start', minWidth: '78%', borderLeft: `3px solid ${isSelected ? accentColor : 'transparent'}` }}
+              style={{ scrollSnapAlign: 'start', minWidth: isPrimary ? '82%' : '70%', borderLeft: `3px solid ${isSelected || isPrimary ? accentColor : 'transparent'}`, opacity: isPrimary ? 1 : 0.75 }}
               className={`shrink-0 rounded-2xl px-5 py-4 text-left transition-all duration-200 active:scale-[0.97] ${
                 isSelected
                   ? `${meta.activeBg} shadow-sm`
-                  : 'bg-white shadow-sm ring-1 ring-stone-100 hover:shadow-md'
+                  : isPrimary
+                  ? 'bg-white shadow-md ring-1 ring-stone-100 hover:shadow-lg'
+                  : 'bg-stone-50 shadow-sm ring-1 ring-stone-100/60 hover:bg-white hover:opacity-100'
               }`}
             >
-              <p className={`text-sm font-bold leading-snug ${isSelected ? meta.color : 'text-stone-800'}`}>{c.label}</p>
+              <p className={`mb-1.5 text-[9px] font-bold tracking-widest ${isSelected ? meta.color : isPrimary ? 'text-stone-400' : 'text-stone-300'}`}>
+                {priorityLabel}
+              </p>
+              <p className={`text-sm font-bold leading-snug ${isSelected ? meta.color : isPrimary ? 'text-stone-800' : 'text-stone-500'}`}>{c.label}</p>
               {c.reason && <p className="mt-2 text-[11px] leading-relaxed text-stone-400">{c.reason}</p>}
             </button>
           )
@@ -4027,9 +4034,10 @@ function PartnerLatestCard({
       }`}
       style={{ animation: 'fadeUp .3s ease-out both' }}
     >
-      <p className={`mb-3 text-[10px] font-bold uppercase tracking-widest ${meta.color} opacity-60`}>
-        パートナーから
-      </p>
+      <div className="mb-3 flex items-center gap-1.5">
+        <Heart size={10} className={`${meta.color} opacity-50 shrink-0`} />
+        <p className={`text-[10px] font-bold uppercase tracking-widest ${meta.color} opacity-60`}>パートナーから</p>
+      </div>
 
       <div className="mb-3 flex items-center gap-3">
         <EmotionFace
@@ -4158,9 +4166,10 @@ function HistoryEventCard({ item, gender }: {
   const partnerBgTags = getEventBgTags(event)
   return (
     <div className={`overflow-hidden rounded-3xl ${meta.bg} ring-1 ${meta.border}`}>
-      <div className="flex items-center gap-2 px-5 pt-3 pb-1">
+      <div className="flex items-center gap-1.5 px-5 pt-3 pb-1">
+        <Heart size={10} className={`${meta.color} opacity-50 shrink-0`} />
         <p className={`text-[10px] font-bold uppercase tracking-widest ${meta.color} opacity-60`}>パートナーから</p>
-        <p className="text-[10px] text-stone-300">{fmtTime(event.created_at)}</p>
+        <p className="ml-auto text-[10px] text-stone-300">{fmtTime(event.created_at)}</p>
       </div>
       <div className="flex items-center gap-3 px-5 pb-2">
         <EmotionFace
