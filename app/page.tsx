@@ -1707,12 +1707,20 @@ function useEmotionFlow(
   const flowRef = useRef<FlowState>(INIT_FLOW)
   useEffect(() => { flowRef.current = flow }, [flow])
   const savedEventIdRef = useRef<string | null>(null)
+  const submitRef = useRef<(() => Promise<void>) | undefined>(undefined)
 
   // Step 1 → Step 2: emotion selected
   const selectEmotion = useCallback((emotion: EmotionType) => {
     savedEventIdRef.current = null
+    if (emotion === 'calm' && userId) {
+      const calmFlow: FlowState = { ...INIT_FLOW, step: 'responding', isLoadingAi: true, emotion }
+      flowRef.current = calmFlow
+      setFlow(calmFlow)
+      void submitRef.current?.()
+      return
+    }
     setFlow({ ...INIT_FLOW, step: 'selectingContext', emotion })
-  }, [])
+  }, [userId])
 
   const setBackgroundIds = useCallback((ids: BackgroundOptionId[]) => {
     setFlow(prev => ({ ...prev, selectedBackgroundIds: ids }))
@@ -1754,14 +1762,15 @@ function useEmotionFlow(
   }, [])
 
   const submit = useCallback(async () => {
-    if (!flow.emotion || !userId) return
+    const f = flowRef.current
+    if (!f.emotion || !userId) return
 
     setFlow(prev => ({ ...prev, step: 'responding', isLoadingAi: true }))
 
-    const isLonelyFlow = flow.emotion === 'lonely'
+    const isLonelyFlow = f.emotion === 'lonely'
     const mergedTags =
-      flow.selectedBackgroundIds.length > 0
-        ? flow.selectedBackgroundIds
+      f.selectedBackgroundIds.length > 0
+        ? f.selectedBackgroundIds
         : backgroundTags
 
     let ai: AiResponse
@@ -1769,14 +1778,14 @@ function useEmotionFlow(
     let sharePlan: SharePlan
 
     if (isLonelyFlow) {
-      ai = generateLonelyAiResponse(flow.lonelyTag)
-      action = generateLonelyActionSuggestion(flow.lonelyTag)
-      sharePlan = generateLonelySharePlan(flow.lonelyTag)
+      ai = generateLonelyAiResponse(f.lonelyTag)
+      action = generateLonelyActionSuggestion(f.lonelyTag)
+      sharePlan = generateLonelySharePlan(f.lonelyTag)
     } else {
       ;[ai, action, sharePlan] = await Promise.all([
-        Promise.resolve(generateAiResponse(flow.emotion, null, mergedTags)),
-        generateActionSuggestion(flow.emotion, null, mergedTags),
-        generateSharePlan(flow.emotion, null, mergedTags),
+        Promise.resolve(generateAiResponse(f.emotion, null, mergedTags)),
+        generateActionSuggestion(f.emotion, null, mergedTags),
+        generateSharePlan(f.emotion, null, mergedTags),
       ])
     }
 
@@ -1786,10 +1795,10 @@ function useEmotionFlow(
       sharePlan.options[0]
 
     const translated = isLonelyFlow
-      ? await translateLonelyForPartner(flow.lonelyTag, selectedOption, shareTone)
-      : await translateForPartner(flow.emotion, null, selectedOption, mergedTags, shareTone)
+      ? await translateLonelyForPartner(f.lonelyTag, selectedOption, shareTone)
+      : await translateForPartner(f.emotion, null, selectedOption, mergedTags, shareTone)
 
-    const saved = await saveEvent(userId, partnerId, flow.emotion, null, ai, translated, selectedShareOptionId)
+    const saved = await saveEvent(userId, partnerId, f.emotion, null, ai, translated, selectedShareOptionId)
 
     savedEventIdRef.current = saved?.id ?? null
 
@@ -1806,16 +1815,8 @@ function useEmotionFlow(
       savedEventId: saved?.id ?? null,
       isLoadingAi: false,
     }))
-  }, [
-    flow.emotion,
-    flow.lonelyTag,
-    flow.selectedBackgroundIds,
-    userId,
-    partnerId,
-    backgroundTags,
-    saveEvent,
-    shareTone,
-  ])
+  }, [userId, partnerId, backgroundTags, saveEvent, shareTone])
+  useEffect(() => { submitRef.current = submit }, [submit])
 
   // tone 変更時に翻訳を再生成して flow.translated を更新する
   // flowRef を使うことでクロージャの陳腐化を防ぐ
@@ -1849,6 +1850,10 @@ function useEmotionFlow(
   const goBack = useCallback(() => {
     setFlow(prev => {
       if (prev.step === 'selectingContext') return { ...INIT_FLOW }
+      if (prev.step === 'responding') {
+        if (prev.emotion === 'calm') return { ...INIT_FLOW }
+        return { ...INIT_FLOW, step: 'selectingContext', emotion: prev.emotion, selectedBackgroundIds: prev.selectedBackgroundIds, lonelyTag: prev.lonelyTag }
+      }
       if (prev.step === 'sharing') return { ...prev, step: 'responding' }
       return prev
     })
@@ -2929,18 +2934,22 @@ function ResponseCard({
 
       {/* 3択ボタン */}
       <div className="space-y-2.5 pt-1">
-        <button
-          onClick={onResolveLight}
-          className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
-        >
-          少し楽になった
-        </button>
-        <button
-          onClick={onResolveDone}
-          className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
-        >
-          もう大丈夫
-        </button>
+        {flow.emotion !== 'calm' && (
+          <>
+            <button
+              onClick={onResolveLight}
+              className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
+            >
+              少し楽になった
+            </button>
+            <button
+              onClick={onResolveDone}
+              className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
+            >
+              もう大丈夫
+            </button>
+          </>
+        )}
         {flow.translated && (
           <button
             onClick={onStartSharing}
@@ -2970,10 +2979,11 @@ function SharePanel({
   hasPartner: boolean
 }) {
   const [copied, setCopied] = useState(false)
-  const message = flow.translated?.message ?? ''
+  const [draft, setDraft] = useState(flow.translated?.message ?? '')
+  useEffect(() => { setDraft(flow.translated?.message ?? '') }, [flow.translated?.message])
 
   const handleCopy = () => {
-    void navigator.clipboard.writeText(message).then(() => {
+    void navigator.clipboard.writeText(draft).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
@@ -3003,10 +3013,15 @@ function SharePanel({
         </div>
       </div>
 
-      {/* 生成メッセージ */}
+      {/* 生成メッセージ（タップで編集可） */}
       <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
         <p className="text-[10px] font-bold uppercase tracking-widest text-stone-300 mb-2">メッセージ</p>
-        <p className="text-sm leading-relaxed text-stone-700">「{message}」</p>
+        <textarea
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          rows={4}
+          className="w-full resize-none bg-transparent text-sm leading-relaxed text-stone-700 outline-none"
+        />
       </div>
 
       {/* アクション */}
@@ -3016,7 +3031,7 @@ function SharePanel({
           {copied ? '✓ コピー済み' : 'コピー'}
         </button>
         {hasPartner && !flow.isShared && (
-          <button onClick={() => onShare(message)}
+          <button onClick={() => onShare(draft)}
             disabled={flow.isSharing}
             className="flex-[1.4] rounded-2xl bg-gradient-to-r from-violet-400 to-indigo-400 py-3.5 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition-all disabled:opacity-60 active:scale-[0.98]">
             {flow.isSharing ? '送信中…' : 'やさしく送る'}
@@ -3705,11 +3720,12 @@ function ConnectTab({ todayLogs, onRecordBackground }: { todayLogs: SoloLog[]; o
    SETTINGS TAB
 ═══════════════════════════════════════════════════ */
 
-function SettingsTab({ session, profile, partner, pairInput, setPairInput, onPair, onSignOut, gender, onGenderChange }: {
+function SettingsTab({ session, profile, partner, pairInput, setPairInput, onPair, onSignOut, gender, onGenderChange, onCopyCode }: {
   session: Session; profile: Profile | null; partner: Profile | null
   pairInput: string; setPairInput: (v: string) => void
   onPair: () => Promise<void>; onSignOut: () => Promise<void>
   gender: Gender; onGenderChange: (g: Gender) => void
+  onCopyCode: () => void
 }) {
   return (
     <div className="space-y-4 pb-4">
@@ -3752,7 +3768,10 @@ function SettingsTab({ session, profile, partner, pairInput, setPairInput, onPai
             <p className="mb-2 text-xs font-medium text-stone-500">あなたのペアコード</p>
             <div className="flex items-center gap-3 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3.5">
               <p className="flex-1 text-2xl font-extrabold tracking-[0.25em] text-indigo-600">{profile?.pair_code ?? '生成中...'}</p>
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-indigo-300">相手に伝える</span>
+              <button type="button" onClick={onCopyCode}
+                className="rounded-lg bg-white px-3 py-1.5 text-[11px] font-semibold text-indigo-400 shadow-sm ring-1 ring-indigo-100 transition hover:bg-indigo-50 active:scale-95">
+                コピー
+              </button>
             </div>
           </div>
           {profile?.partner_id ? (
@@ -4013,6 +4032,12 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
     push('確認メールを送信しました', '📩', true)
   }, [email, password, push])
 
+  const handleCopyPairCode = useCallback(() => {
+    const code = profile?.pair_code
+    if (!code) return
+    void navigator.clipboard.writeText(code).then(() => push('ペアコードをコピーしました', '✓'))
+  }, [profile?.pair_code, push])
+
   const handleSignOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut()
     if (error) {
@@ -4196,6 +4221,7 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
               onSignOut={handleSignOut}
               gender={gender}
               onGenderChange={handleGenderChange}
+              onCopyCode={handleCopyPairCode}
             />
           )}
         </main>
