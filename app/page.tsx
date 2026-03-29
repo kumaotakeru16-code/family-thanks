@@ -1605,16 +1605,9 @@ const markShared = useCallback(
     if (typeof message === 'string') {
       payload.shared_message = message
     }
-
     if (selectedShareOptionId !== undefined) {
       payload.selected_share_option_id = selectedShareOptionId
     }
-
-    console.log('[markShared:before]', {
-      eventId,
-      message,
-      selectedShareOptionId,
-    })
 
     const { data: updatedRows, error } = await supabase
       .from('emotion_events')
@@ -1628,15 +1621,7 @@ const markShared = useCallback(
       count: updatedRows?.length ?? 0,
     })
 
-    if (error) {
-      console.error('[markShared] FAILED', error)
-      return false
-    }
-
-    if (!updatedRows || updatedRows.length === 0) {
-      console.warn('[markShared] 0 rows updated — not found or RLS blocked', { eventId })
-      return false
-    }
+    if (error || !updatedRows || updatedRows.length === 0) return false
 
     setEvents(prev =>
       prev.map(e =>
@@ -1646,7 +1631,7 @@ const markShared = useCallback(
               share_status: 'sent',
               ...(typeof message === 'string' ? { shared_message: message } : {}),
               ...(selectedShareOptionId !== undefined
-                ? { selected_share_option_id: selectedShareOptionId as ShareOptionId | null }
+                ? { selected_share_option_id: selectedShareOptionId }
                 : {}),
             }
           : e
@@ -1970,7 +1955,6 @@ markShared: (
   }, [])
 const startSharing = useCallback(async () => {
   const f = flowRef.current
-
   const mappedId = f.selectedSupport
     ? (SUPPORT_TO_SHARE_OPTION[f.selectedSupport] ?? f.selectedShareOptionId)
     : f.selectedShareOptionId
@@ -2019,12 +2003,16 @@ const startSharing = useCallback(async () => {
 const selectShareOption = useCallback(async (optionId: string) => {
   const f = flowRef.current
 
-  setFlow(prev => ({ ...prev, selectedShareOptionId: optionId }))
-
-  if (!f.emotion || !f.sharePlan) return
+  if (!f.emotion || !f.sharePlan) {
+    setFlow(prev => ({ ...prev, selectedShareOptionId: optionId }))
+    return
+  }
 
   const selectedOption = f.sharePlan.options.find(o => o.id === optionId)
-  if (!selectedOption) return
+  if (!selectedOption) {
+    setFlow(prev => ({ ...prev, selectedShareOptionId: optionId }))
+    return
+  }
 
   const mergedTags =
     f.selectedBackgroundIds.length > 0
@@ -2129,25 +2117,7 @@ const selectShareOption = useCallback(async (optionId: string) => {
 
 const shareWithPartner = useCallback(async (message?: string, explicitEventId?: string) => {
   const eventId = explicitEventId ?? savedEventIdRef.current ?? flowRef.current.savedEventId
-
-  console.log('[shareWithPartner:start]', {
-    explicitEventId,
-    savedEventIdRefCurrent: savedEventIdRef.current,
-    flowRefSavedEventId: flowRef.current.savedEventId,
-    resolvedEventId: eventId,
-    isShared: flowRef.current.isShared,
-    messageLen: message?.length,
-    selectedShareOptionId: flowRef.current.selectedShareOptionId,
-  })
-
-  if (!eventId) {
-    console.warn('[shareWithPartner] early return: no eventId')
-    return
-  }
-  if (flowRef.current.isShared) {
-    console.warn('[shareWithPartner] early return: already shared')
-    return
-  }
+  if (!eventId || flowRef.current.isShared) return
 
   const finalMessage = message ?? flowRef.current.translated?.message
   const finalSelectedShareOptionId = flowRef.current.selectedShareOptionId
@@ -2156,7 +2126,6 @@ const shareWithPartner = useCallback(async (message?: string, explicitEventId?: 
   flowRef.current = { ...flowRef.current, isSharing: true }
 
   const ok = await markShared(eventId, finalMessage, finalSelectedShareOptionId)
-  console.log('[shareWithPartner:markShared result]', { ok })
 
   if (!ok) {
     setFlow(prev => ({ ...prev, isSharing: false }))
