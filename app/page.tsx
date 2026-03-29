@@ -1760,6 +1760,8 @@ console.log('③ after db update', {
       return
     }
 
+
+
     setEvents(prev =>
       prev.map(e =>
         e.id === eventId
@@ -1767,7 +1769,12 @@ console.log('③ after db update', {
           : e
       )
     )
-  }, [partnerEvents, userId])
+
+    if (userId) {
+  await fetchSharedToMe(userId)
+}
+
+ }, [partnerEvents, userId, fetchSharedToMe])
 
   useEffect(() => {
     if (!userId) {
