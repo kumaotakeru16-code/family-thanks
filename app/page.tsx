@@ -1510,7 +1510,7 @@ function useEmotionEvents(userId: string | null) {
       share_status: 'unsent' as const,
       shared_message: trans.message ?? null,
       selected_share_option_id: selectedShareOptionId ?? null,
-      background_tags: backgroundTags ?? null,
+     
     }
 
     console.log('[saveEvent:payload]', payload)
