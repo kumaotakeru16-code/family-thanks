@@ -4451,33 +4451,36 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
             />
           )}
         </main>
+{(() => {
+  const historyBadgeCount = partnerEvents.filter(
+    e => e.share_status === 'sent' && e.partner_reaction == null
+  ).length
 
-        {(() => {
-          const historyBadgeCount = partnerEvents.filter(e => !e.partner_reaction).length
+  console.log('⑧ history badge count', {
+    historyBadgeCount,
+    partnerEvents: partnerEvents.map(e => ({
+      id: e.id,
+      share_status: e.share_status,
+      reaction: e.partner_reaction,
+      reactedAt: e.partner_reacted_at,
+    })),
+  })
 
-          console.log('⑧ history badge count', {
-            historyBadgeCount,
-            partnerEvents: partnerEvents.map(e => ({
-              id: e.id,
-              reaction: e.partner_reaction,
-              reactedAt: e.partner_reacted_at,
-            })),
-          })
-
-          console.log('⑧b raw reactions', partnerEvents.map(e => e.partner_reaction))
-
-          return (
-            <BottomNav
-            key={historyBadgeCount}
-              active={tab}
-              onChange={setTab}
-              badgeCounts={{ history: historyBadgeCount }}
-            />
-          )
-        })()}
-          
-        <Toasts toasts={toasts} />
-      </div>
-    </>
+  console.log(
+    '⑧b raw reactions',
+    partnerEvents.map(e => ({
+      id: e.id,
+      reaction: e.partner_reaction,
+      isNull: e.partner_reaction == null,
+      type: typeof e.partner_reaction,
+    }))
   )
-}
+
+  return (
+    <BottomNav
+      active={tab}
+      onChange={setTab}
+      badgeCounts={{ history: historyBadgeCount }}
+    />
+  )
+})()}
