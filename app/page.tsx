@@ -1510,7 +1510,7 @@ function useEmotionEvents(userId: string | null) {
       share_status: 'unsent' as const,
       shared_message: trans.message ?? null,
       selected_share_option_id: selectedShareOptionId ?? null,
-     
+      background_tags: backgroundTags ?? null,
     }
 
     console.log('[saveEvent:payload]', payload)
@@ -1592,11 +1592,31 @@ console.log('④ fetched raw', fetched.map(e => ({
     }))
   }, [])
 
-  const markShared = useCallback(async (eventId: string, message?: string) => {
-    const payload: { share_status: 'sent'; shared_message?: string } = { share_status: 'sent' }
-    if (message) payload.shared_message = message
+const markShared = useCallback(
+  async (
+    eventId: string,
+    message?: string,
+    selectedShareOptionId?: string | null,
+  ) => {
+    const payload: {
+      share_status: 'sent'
+      shared_message?: string
+      selected_share_option_id?: string | null
+    } = { share_status: 'sent' }
 
-    console.log('[markShared:before]', { eventId, message })
+    if (typeof message === 'string') {
+      payload.shared_message = message
+    }
+
+    if (selectedShareOptionId !== undefined) {
+      payload.selected_share_option_id = selectedShareOptionId
+    }
+
+    console.log('[markShared:before]', {
+      eventId,
+      message,
+      selectedShareOptionId,
+    })
 
     const { data: updatedRows, error } = await supabase
       .from('emotion_events')
@@ -1604,7 +1624,11 @@ console.log('④ fetched raw', fetched.map(e => ({
       .eq('id', eventId)
       .select()
 
-    console.log('[markShared:update result]', { updatedRows, error, count: updatedRows?.length ?? 0 })
+    console.log('[markShared:update result]', {
+      updatedRows,
+      error,
+      count: updatedRows?.length ?? 0,
+    })
 
     if (error) {
       console.error('[markShared] FAILED', error)
@@ -1619,13 +1643,22 @@ console.log('④ fetched raw', fetched.map(e => ({
     setEvents(prev =>
       prev.map(e =>
         e.id === eventId
-          ? { ...e, share_status: 'sent', ...(message ? { shared_message: message } : {}) }
+          ? {
+              ...e,
+              share_status: 'sent',
+              ...(typeof message === 'string' ? { shared_message: message } : {}),
+              ...(selectedShareOptionId !== undefined
+                ? { selected_share_option_id: selectedShareOptionId as ShareOptionId | null }
+                : {}),
+            }
           : e
       )
     )
 
     return true
-  }, [])
+  },
+  []
+)
 
   const fetchSharedToMe = useCallback(async (uid?: string) => {
     if (!uid) {
@@ -1885,7 +1918,11 @@ function useEmotionFlow(
     selectedShareOptionId: string | null,
     backgroundTags?: string[] | null,
   ) => Promise<EmotionEvent | null>,
-  markShared: (eventId: string, message?: string) => Promise<boolean>,
+markShared: (
+  eventId: string,
+  message?: string,
+  selectedShareOptionId?: string | null,
+) => Promise<boolean>,
   shareTone: ShareTone,
 ) {
   const [flow, setFlow] = useState<FlowState>(INIT_FLOW)
@@ -1933,21 +1970,84 @@ function useEmotionFlow(
   const resolveDone = useCallback(() => {
     setFlow(prev => ({ ...prev, step: 'resolved_done' }))
   }, [])
-  const startSharing = useCallback(() => {
-    const f = flowRef.current
-    const mappedId = f.selectedSupport
-      ? (SUPPORT_TO_SHARE_OPTION[f.selectedSupport] ?? f.selectedShareOptionId)
-      : f.selectedShareOptionId
+const startSharing = useCallback(async () => {
+  const f = flowRef.current
+
+  const mappedId = f.selectedSupport
+    ? (SUPPORT_TO_SHARE_OPTION[f.selectedSupport] ?? f.selectedShareOptionId)
+    : f.selectedShareOptionId
+
+  if (!mappedId || !f.sharePlan || !f.emotion) {
     setFlow(prev => ({
       ...prev,
       step: 'sharing',
       selectedShareOptionId: mappedId ?? prev.selectedShareOptionId,
     }))
-  }, [])
+    return
+  }
 
-  const selectShareOption = useCallback((optionId: string) => {
-    setFlow(prev => ({ ...prev, selectedShareOptionId: optionId }))
-  }, [])
+  const selectedOption = f.sharePlan.options.find(o => o.id === mappedId)
+  if (!selectedOption) {
+    setFlow(prev => ({
+      ...prev,
+      step: 'sharing',
+      selectedShareOptionId: mappedId ?? prev.selectedShareOptionId,
+    }))
+    return
+  }
+
+  const mergedTags =
+    f.selectedBackgroundIds.length > 0
+      ? f.selectedBackgroundIds
+      : backgroundTags
+
+  const translated =
+    f.emotion === 'lonely'
+      ? await translateLonelyForPartner(f.lonelyTag, selectedOption, shareTone)
+      : await translateForPartner(f.emotion, null, selectedOption, mergedTags, shareTone)
+
+  setFlow(prev => {
+    const next = {
+      ...prev,
+      step: 'sharing' as const,
+      selectedShareOptionId: mappedId ?? prev.selectedShareOptionId,
+      translated,
+    }
+    flowRef.current = next
+    return next
+  })
+}, [backgroundTags, shareTone])
+
+const selectShareOption = useCallback(async (optionId: string) => {
+  const f = flowRef.current
+
+  setFlow(prev => ({ ...prev, selectedShareOptionId: optionId }))
+
+  if (!f.emotion || !f.sharePlan) return
+
+  const selectedOption = f.sharePlan.options.find(o => o.id === optionId)
+  if (!selectedOption) return
+
+  const mergedTags =
+    f.selectedBackgroundIds.length > 0
+      ? f.selectedBackgroundIds
+      : backgroundTags
+
+  const translated =
+    f.emotion === 'lonely'
+      ? await translateLonelyForPartner(f.lonelyTag, selectedOption, shareTone)
+      : await translateForPartner(f.emotion, null, selectedOption, mergedTags, shareTone)
+
+  setFlow(prev => {
+    const next = {
+      ...prev,
+      selectedShareOptionId: optionId,
+      translated,
+    }
+    flowRef.current = next
+    return next
+  })
+}, [backgroundTags, shareTone])
 
   const setSelectedAction = useCallback((action: string | null) => {
     setFlow(prev => ({ ...prev, selectedAction: action }))
@@ -2029,42 +2129,46 @@ function useEmotionFlow(
     setFlow(prev => ({ ...prev, translated }))
   }, [backgroundTags])
 
-  const shareWithPartner = useCallback(async (message?: string, explicitEventId?: string) => {
-    const eventId = explicitEventId ?? savedEventIdRef.current ?? flowRef.current.savedEventId
+const shareWithPartner = useCallback(async (message?: string, explicitEventId?: string) => {
+  const eventId = explicitEventId ?? savedEventIdRef.current ?? flowRef.current.savedEventId
 
-    console.log('[shareWithPartner:start]', {
-      explicitEventId,
-      savedEventIdRefCurrent: savedEventIdRef.current,
-      flowRefSavedEventId: flowRef.current.savedEventId,
-      resolvedEventId: eventId,
-      isShared: flowRef.current.isShared,
-      messageLen: message?.length,
-    })
+  console.log('[shareWithPartner:start]', {
+    explicitEventId,
+    savedEventIdRefCurrent: savedEventIdRef.current,
+    flowRefSavedEventId: flowRef.current.savedEventId,
+    resolvedEventId: eventId,
+    isShared: flowRef.current.isShared,
+    messageLen: message?.length,
+    selectedShareOptionId: flowRef.current.selectedShareOptionId,
+  })
 
-    if (!eventId) {
-      console.warn('[shareWithPartner] early return: no eventId')
-      return
-    }
-    if (flowRef.current.isShared) {
-      console.warn('[shareWithPartner] early return: already shared')
-      return
-    }
+  if (!eventId) {
+    console.warn('[shareWithPartner] early return: no eventId')
+    return
+  }
+  if (flowRef.current.isShared) {
+    console.warn('[shareWithPartner] early return: already shared')
+    return
+  }
 
-    setFlow(prev => ({ ...prev, isSharing: true }))
-    flowRef.current = { ...flowRef.current, isSharing: true }
+  const finalMessage = message ?? flowRef.current.translated?.message
+  const finalSelectedShareOptionId = flowRef.current.selectedShareOptionId
 
-    const ok = await markShared(eventId, message)
-    console.log('[shareWithPartner:markShared result]', { ok })
+  setFlow(prev => ({ ...prev, isSharing: true }))
+  flowRef.current = { ...flowRef.current, isSharing: true }
 
-    if (!ok) {
-      setFlow(prev => ({ ...prev, isSharing: false }))
-      flowRef.current = { ...flowRef.current, isSharing: false }
-      return
-    }
+  const ok = await markShared(eventId, finalMessage, finalSelectedShareOptionId)
+  console.log('[shareWithPartner:markShared result]', { ok })
 
-    flowRef.current = { ...flowRef.current, isSharing: false, isShared: true }
-    setFlow(prev => ({ ...prev, isSharing: false, isShared: true }))
-  }, [markShared])
+  if (!ok) {
+    setFlow(prev => ({ ...prev, isSharing: false }))
+    flowRef.current = { ...flowRef.current, isSharing: false }
+    return
+  }
+
+  flowRef.current = { ...flowRef.current, isSharing: false, isShared: true }
+  setFlow(prev => ({ ...prev, isSharing: false, isShared: true }))
+}, [markShared])
 
   const reset = useCallback(() => {
     savedEventIdRef.current = null
@@ -3758,6 +3862,13 @@ function fmtTime(s: string): string {
   return new Date(s).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
 }
 
+function getEventBgTags(event: EmotionEvent): BackgroundOption[] {
+  if (!event.background_tags?.length) return []
+  return event.background_tags
+    .map(t => BACKGROUND_OPTIONS.find(o => o.id === t))
+    .filter((opt): opt is BackgroundOption => !!opt)
+}
+
 function reactionWord(r: EmotionEvent['partner_reaction']): string | null {
   if (r === 'ack')   return 'わかったよ'
   if (r === 'soon')  return 'あとで行くね'
@@ -3851,9 +3962,7 @@ function HistoryEventCard({ item, gender }: {
   const contextText = noteToContextText(event.note)
 
   if (item.kind === 'mine') {
-    const bgTags = event.background_tags?.length
-      ? event.background_tags.map(t => BACKGROUND_OPTIONS.find(o => o.id === t)).filter(Boolean)
-      : []
+    const bgTags = getEventBgTags(event)
     return (
       <div className={`overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-stone-100`}>
         <div className="flex items-center gap-3 px-5 pt-4 pb-3">
@@ -3902,6 +4011,7 @@ function HistoryEventCard({ item, gender }: {
 
   /* partner card */
   const myReaction = reactionWord(event.partner_reaction)
+  const partnerBgTags = getEventBgTags(event)
   return (
     <div className={`overflow-hidden rounded-3xl ${meta.bg} ring-1 ${meta.border}`}>
       <div className="flex items-center gap-2 px-5 pt-3 pb-1">
@@ -3917,6 +4027,15 @@ function HistoryEventCard({ item, gender }: {
           )}
         </div>
       </div>
+      {partnerBgTags.length > 0 && (
+        <div className="flex flex-wrap gap-1 px-5 pb-2">
+          {partnerBgTags.map(opt => (
+            <span key={opt.id} className="inline-flex items-center gap-0.5 rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-medium text-stone-500">
+              {opt.emoji} {opt.label}
+            </span>
+          ))}
+        </div>
+      )}
       {event.shared_message && (
         <div className="border-t border-stone-100 px-5 py-3">
           <p className="text-xs leading-relaxed text-stone-600">「{event.shared_message}」</p>
