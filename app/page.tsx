@@ -3873,18 +3873,22 @@ function PartnerLatestCard({
   const meta = emMeta(event.emotion_type)
   const reaction = reactionWord(event.partner_reaction)
   const contextText = noteToContextText(event.note)
+  const bgTags = getEventBgTags(event)
 
   return (
     <div
-      className={`rounded-3xl px-5 py-5 ring-1 shadow-md ${
-        !event.partner_reaction
+      className={`overflow-hidden rounded-[28px] border bg-white/95 px-5 pt-4 pb-4 shadow-[0_8px_30px_rgba(0,0,0,0.06)] ${
+        event.partner_reaction
           ? `${meta.bg} ${meta.border}`
-          : 'bg-white ring-stone-100'
+          : 'bg-white ring-1 ring-stone-200'
       }`}
       style={{ animation: 'fadeUp .3s ease-out both' }}
     >
-      <p className={`mb-3 text-[10px] font-bold uppercase tracking-widest ${meta.color} opacity-60`}>パートナーから</p>
-      <div className="flex items-center gap-3 mb-3">
+      <p className={`mb-3 text-[10px] font-bold uppercase tracking-widest ${meta.color} opacity-60`}>
+        パートナーから
+      </p>
+
+      <div className="mb-3 flex items-center gap-3">
         <EmotionFace type={event.emotion_type} size={44} />
         <div>
           <p className={`text-sm font-bold ${meta.color}`}>{meta.label}</p>
@@ -3894,16 +3898,42 @@ function PartnerLatestCard({
           <p className="text-[10px] text-stone-400">{relTime(event.created_at)}</p>
         </div>
       </div>
-      {event.shared_message && (
-        <p className="mb-4 rounded-2xl bg-white/60 px-3 py-2.5 text-xs leading-relaxed text-stone-600">「{event.shared_message}」</p>
+
+      {bgTags.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {bgTags.map(opt => (
+            <span
+              key={opt.id}
+              className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-medium text-stone-500 ring-1 ring-white/80"
+            >
+              <span>{opt.emoji}</span>
+              <span>{opt.label}</span>
+            </span>
+          ))}
+        </div>
       )}
+
+      {event.shared_message && (
+        <p className="mb-4 rounded-2xl bg-white/60 px-3 py-2.5 text-xs leading-relaxed text-stone-600">
+          「{event.shared_message}」
+        </p>
+      )}
+
       {!event.partner_reaction ? (
         <div className="flex gap-2">
           {(['ack', 'soon', 'on_it'] as const).map(r => {
-            const labels = { ack: 'わかったよ', soon: 'あとで行くね', on_it: 'やっておくね' } as const
+            const labels = {
+              ack: 'わかったよ',
+              soon: 'あとで行くね',
+              on_it: 'やっておくね',
+            } as const
+
             return (
-              <button key={r} onClick={() => onReact(event.id, r)}
-                className="flex-1 rounded-2xl bg-white py-2.5 text-xs font-bold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all active:scale-95 hover:shadow-md">
+              <button
+                key={r}
+                onClick={() => onReact(event.id, r)}
+                className="flex-1 rounded-2xl bg-white py-2.5 text-xs font-bold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all active:scale-95 hover:shadow-md"
+              >
                 {labels[r]}
               </button>
             )
