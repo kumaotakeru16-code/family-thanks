@@ -3600,7 +3600,7 @@ function HomeTab({
       {/* ══ Phase 4b: パートナーにしてほしいこと (calm以外) ══════ */}
       {flow.aiResponse && !flow.isLoadingAi && !isCalm && (
         <section style={{ animation: 'fadeUp .45s ease-out both' }}>
-{flow.step === 'sharing' && flow.emotion !== 'calm' && (
+{flow.step === 'sharing' && (
   <SupportCarousel
     selected={flow.selectedSupport}
     onSelect={id => onSetSelectedSupport(id || null)}
