@@ -4472,13 +4472,20 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
         </main>
 
 {(() => {
-  const actionablePartnerEvents = partnerEvents.filter(
-    e =>
+  const THREE_DAYS = 3 * 24 * 60 * 60 * 1000
+  const now = Date.now()
+
+  const actionablePartnerEvents = partnerEvents.filter(e => {
+    const createdAt = e.created_at ? new Date(e.created_at).getTime() : 0
+
+    return (
       e.partner_id === userId &&
       e.share_status === 'sent' &&
       e.partner_reaction == null &&
-      !!e.shared_message
-  )
+      !!e.shared_message &&
+      now - createdAt <= THREE_DAYS
+    )
+  })
 
   const historyBadgeCount = actionablePartnerEvents.length
 
