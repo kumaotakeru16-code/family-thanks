@@ -4465,6 +4465,7 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
 
           return (
             <BottomNav
+            key={historyBadgeCount}
               active={tab}
               onChange={setTab}
               badgeCounts={{ history: historyBadgeCount }}
