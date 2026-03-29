@@ -1499,18 +1499,34 @@ function useEmotionEvents(userId: string | null) {
     selectedShareOptionId: string | null,
     backgroundTags?: string[] | null,
   ): Promise<EmotionEvent | null> => {
+    // Normalize: never send undefined — Supabase rejects undefined values
     const payload = {
       user_id: uid,
-      partner_id: pid,
+      partner_id: pid ?? null,
       emotion_type: emotion,
-      note,
+      note: note ?? null,
       ai_response: JSON.stringify(ai),
-      ai_response_short: ai.empathy,
+      ai_response_short: ai.short ?? ai.empathy ?? null,
       share_status: 'unsent' as const,
-      shared_message: trans.message,
-      selected_share_option_id: selectedShareOptionId,
+      shared_message: trans.message ?? null,
+      selected_share_option_id: selectedShareOptionId ?? null,
       background_tags: backgroundTags ?? null,
     }
+
+    console.log('[saveEvent:payload]', payload)
+    console.log('[saveEvent:payload keys]', Object.keys(payload))
+    console.log('[saveEvent:types]', {
+      user_id: typeof payload.user_id,
+      partner_id: typeof payload.partner_id,
+      emotion_type: typeof payload.emotion_type,
+      note: typeof payload.note,
+      ai_response: typeof payload.ai_response,
+      ai_response_short: typeof payload.ai_response_short,
+      selected_share_option_id: typeof payload.selected_share_option_id,
+      shared_message: typeof payload.shared_message,
+      share_status: typeof payload.share_status,
+      background_tags: Array.isArray(payload.background_tags) ? 'array' : typeof payload.background_tags,
+    })
 
     const { data, error } = await supabase
       .from('emotion_events')
@@ -1519,7 +1535,14 @@ function useEmotionEvents(userId: string | null) {
       .single()
 
     if (error || !data) {
-      console.error('[saveEvent] FAILED', { error, payload })
+      console.error('[saveEvent] FAILED', {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+        error,
+        payload,
+      })
       return null
     }
 
