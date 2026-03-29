@@ -1748,11 +1748,22 @@ function useEmotionFlow(
   }, [userId])
 
   const setBackgroundIds = useCallback((ids: BackgroundOptionId[]) => {
-    setFlow(prev => ({ ...prev, selectedBackgroundIds: ids }))
+    setFlow(prev => {
+      if (prev.aiResponse !== null) {
+        // Re-selection after AI responded: clear AI state, re-enable submit
+        return { ...prev, selectedBackgroundIds: ids, step: 'selectingContext', aiResponse: null, actionSuggestion: null, sharePlan: null, translated: null, isShared: false, isSharing: false, selectedAction: null, selectedSupport: null }
+      }
+      return { ...prev, selectedBackgroundIds: ids }
+    })
   }, [])
 
   const setLonelyTag = useCallback((tag: LonelyTag | null) => {
-    setFlow(prev => ({ ...prev, lonelyTag: tag }))
+    setFlow(prev => {
+      if (prev.aiResponse !== null) {
+        return { ...prev, lonelyTag: tag, step: 'selectingContext', aiResponse: null, actionSuggestion: null, sharePlan: null, translated: null, isShared: false, isSharing: false, selectedAction: null, selectedSupport: null }
+      }
+      return { ...prev, lonelyTag: tag }
+    })
   }, [])
 
   // After showing result: user picks outcome
@@ -3110,10 +3121,32 @@ function HomeTab({
   onSetSelectedAction: (a: string | null) => void
   onSetSelectedSupport: (s: string | null) => void
 }) {
+  const isResolved = flow.step === 'resolved_light' || flow.step === 'resolved_done'
+  const isCalm = flow.emotion === 'calm'
+  const isLonely = flow.emotion === 'lonely'
+  const showContext = !!flow.emotion && !isCalm && !isResolved
+
+  const aiText = (() => {
+    if (!flow.aiResponse) return null
+    if (flow.aiResponse.short) return flow.aiResponse.short
+    const m = flow.aiResponse.empathy.match(/^[^。！？]+[。！？]/)
+    return m ? m[0] : flow.aiResponse.empathy
+  })()
+
+  const submitGradient =
+    flow.emotion === 'calm'        ? 'linear-gradient(135deg,#38bdf8,#0ea5e9)' :
+    flow.emotion === 'irritated'   ? 'linear-gradient(135deg,#fb7185,#ef4444)' :
+    flow.emotion === 'sad'         ? 'linear-gradient(135deg,#60a5fa,#3b82f6)' :
+    flow.emotion === 'tired'       ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' :
+    flow.emotion === 'overwhelmed' ? 'linear-gradient(135deg,#c084fc,#9333ea)' :
+    flow.emotion === 'lonely'      ? 'linear-gradient(135deg,#f472b6,#ec4899)' :
+                                     'linear-gradient(135deg,#a78bfa,#818cf8)'
+
   return (
-    <div className="space-y-4">
-      {/* 感情選択（常に表示） */}
-      <div style={{ animation: 'fadeUp .25s ease-out both' }}>
+    <div className="space-y-6 pb-4">
+
+      {/* ══ Phase 1: 感情選択（常時表示） ══════════════════════════ */}
+      <section style={{ animation: 'fadeUp .25s ease-out both' }}>
         {!flow.emotion ? (
           <>
             <p className="mb-1.5 text-xl font-extrabold text-stone-700">今、どんな気持ち？</p>
@@ -3123,27 +3156,70 @@ function HomeTab({
           <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-stone-400">今の気持ち</p>
         )}
         <EmotionSelector selected={flow.emotion} onSelect={onSelectEmotion} />
-      </div>
+      </section>
 
-      {/* 戻るボタン: sharing のみ */}
-      {flow.step === 'sharing' && <BackButton onBack={onGoBack} />}
-
-      {/* ── Step 2: 背景選択のみ ─────────────────────────────── */}
-      {flow.step === 'selectingContext' && flow.emotion && (
-        <ContextSelector
-          emotion={flow.emotion}
-          selectedIds={flow.selectedBackgroundIds}
-          lonelyTag={flow.lonelyTag}
-          onChange={onSetBackgroundIds}
-          onLonelyTagChange={onSetLonelyTag}
-          onSubmit={onSubmit}
-          onBack={onGoBack}
-          isLoading={flow.isLoadingAi}
-        />
+      {/* ══ Phase 2: 背景選択（感情選択後・calm/resolved以外） ══════ */}
+      {showContext && (
+        <section key={`ctx-${flow.emotion}`} style={{ animation: 'fadeUp .3s ease-out both' }}>
+          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-stone-400">
+            {isLonely ? 'どんなさみしさ？（任意）' : '背景にあるもの（複数OK）'}
+          </p>
+          {isLonely ? (
+            <div className="flex flex-wrap gap-2">
+              {LONELY_OPTIONS.map(opt => {
+                const active = flow.lonelyTag === opt.id
+                return (
+                  <button key={opt.id} type="button" onClick={() => onSetLonelyTag(active ? null : opt.id)}
+                    className={`rounded-2xl px-4 py-2 text-sm font-semibold transition-all duration-150 active:scale-95 ${
+                      active
+                        ? 'bg-pink-400 text-white shadow-sm shadow-pink-200'
+                        : 'bg-white text-pink-500 ring-1 ring-pink-200 hover:bg-pink-50'
+                    }`}>
+                    {opt.label}
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {BACKGROUND_OPTIONS.map(opt => {
+                const active = flow.selectedBackgroundIds.includes(opt.id)
+                const em = emMeta(flow.emotion!)
+                return (
+                  <button key={opt.id} type="button" onClick={() => {
+                    const newIds = active
+                      ? flow.selectedBackgroundIds.filter(x => x !== opt.id)
+                      : [...flow.selectedBackgroundIds, opt.id]
+                    onSetBackgroundIds(newIds)
+                  }}
+                    className={`flex items-center gap-1.5 rounded-2xl px-3.5 py-2 text-sm font-semibold transition-all duration-150 active:scale-95 ${
+                      active
+                        ? `${em.activeBg} ${em.color} shadow-sm`
+                        : 'bg-white text-stone-500 ring-1 ring-stone-100 hover:ring-stone-200'
+                    }`}>
+                    {(() => { const IC = BACKGROUND_OPTION_ICONS[opt.id]; return <IC size={14} strokeWidth={2} /> })()}
+                    <span>{opt.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </section>
       )}
 
-      {/* ── Step 3: ローディング ──────────────────────────────── */}
-      {flow.step === 'responding' && flow.isLoadingAi && (
+      {/* 整理するボタン（AI未取得・非resolved時のみ） */}
+      {flow.emotion && !flow.aiResponse && !flow.isLoadingAi && !isResolved && (
+        <button
+          onClick={onSubmit}
+          style={{ animation: 'fadeUp .35s ease-out both', background: submitGradient }}
+          className="w-full rounded-2xl py-4 text-sm font-bold text-white shadow-sm transition-all active:scale-[0.98]"
+        >
+          整理する →
+        </button>
+      )}
+
+      {/* ローディング */}
+      {flow.isLoadingAi && (
         <div className="rounded-3xl bg-white px-5 py-14 text-center shadow-sm ring-1 ring-stone-100" style={{ animation: 'fadeUp .2s ease-out both' }}>
           <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-violet-50">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-100 border-t-violet-400" />
@@ -3153,16 +3229,73 @@ function HomeTab({
         </div>
       )}
 
-      {/* ── Step 3: 解釈 + 行動選択 + パートナーにしてほしいこと + 3択 ── */}
-      {/* SupportCarousel はここのみ。Step2(selectingContext) には表示しない */}
+      {/* ══ Phase 3: AI応答（受け取った感） ════════════════════════ */}
+      {flow.aiResponse && !flow.isLoadingAi && aiText && (
+        <section style={{ animation: 'fadeUp .35s ease-out both' }}>
+          <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-300">きもちの整理</p>
+            <p className="text-sm leading-relaxed text-stone-600">{aiText}</p>
+          </div>
+        </section>
+      )}
+
+      {/* ══ Phase 4: 行動提案 ══════════════════════════════════════ */}
+      {flow.aiResponse && !flow.isLoadingAi && flow.emotion && (
+        <section style={{ animation: 'fadeUp .4s ease-out both' }}>
+          <ActionCarousel
+            emotion={flow.emotion}
+            backgroundIds={flow.selectedBackgroundIds}
+            selected={flow.selectedAction}
+            onSelect={label => onSetSelectedAction(label || null)}
+          />
+        </section>
+      )}
+
+      {/* ══ Phase 4b: パートナーにしてほしいこと ══════════════════ */}
+      {flow.aiResponse && !flow.isLoadingAi && (
+        <section style={{ animation: 'fadeUp .45s ease-out both' }}>
+          <SupportCarousel
+            selected={flow.selectedSupport}
+            onSelect={id => onSetSelectedSupport(id || null)}
+          />
+        </section>
+      )}
+
+      {/* 3択ボタン */}
       {flow.step === 'responding' && !flow.isLoadingAi && flow.aiResponse && (
-        <ResponseCard
+        <div className="space-y-2.5 pt-1" style={{ animation: 'fadeUp .5s ease-out both' }}>
+          <button
+            onClick={onResolveLight}
+            className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
+          >
+            少し楽になった
+          </button>
+          <button
+            onClick={onResolveDone}
+            className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
+          >
+            もう大丈夫
+          </button>
+          {flow.translated && (
+            <button
+              onClick={onStartSharing}
+              className="w-full rounded-2xl bg-gradient-to-r from-violet-400 to-indigo-400 py-4 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition-all duration-150 active:scale-[0.98]"
+            >
+              パートナーに伝える
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ══ Phase 5: 共有パネル ════════════════════════════════════ */}
+      {flow.step === 'sharing' && (
+        <SharePanel
           flow={flow}
-          onResolveLight={onResolveLight}
-          onResolveDone={onResolveDone}
-          onStartSharing={onStartSharing}
-          onSetSelectedAction={onSetSelectedAction}
-          onSetSelectedSupport={onSetSelectedSupport}
+          onShare={onShare}
+          onBack={onGoBack}
+          shareTone={shareTone}
+          onToneChange={onToneChange}
+          hasPartner={hasPartner}
         />
       )}
 
@@ -3196,18 +3329,6 @@ function HomeTab({
             もう一度整理する
           </button>
         </div>
-      )}
-
-      {/* sharing */}
-      {flow.step === 'sharing' && (
-        <SharePanel
-          flow={flow}
-          onShare={onShare}
-          onBack={onGoBack}
-          shareTone={shareTone}
-          onToneChange={onToneChange}
-          hasPartner={hasPartner}
-        />
       )}
     </div>
   )
