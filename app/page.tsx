@@ -3890,12 +3890,13 @@ const partnerLatest = useMemo(() => {
 
       {/* パートナー最新カード */}
       {partnerLatest && (
-        <PartnerLatestCard
-          event={partnerLatest}
-          onReact={onReactToPartnerEvent}
-          gender={gender}
-        />
-      )}
+  <PartnerLatestCard
+    key={partnerLatest.id}
+    event={partnerLatest}
+    onReact={onReactToPartnerEvent}
+    gender={gender}
+  />
+)}
 
       {/* 履歴セクション */}
       {dayGroups.map(([dateKey, dayItems]) => (
