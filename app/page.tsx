@@ -2003,7 +2003,7 @@ const startSharing = useCallback(async () => {
 
 const selectShareOption = useCallback(async (optionId: string) => {
   const f = flowRef.current
-
+console.log('[selectShareOption:new]', { optionId })
   if (!f.emotion || !f.sharePlan) {
     setFlow(prev => ({ ...prev, selectedShareOptionId: optionId }))
     return
@@ -2024,7 +2024,7 @@ const selectShareOption = useCallback(async (optionId: string) => {
     f.emotion === 'lonely'
       ? await translateLonelyForPartner(f.lonelyTag, selectedOption, shareTone)
       : await translateForPartner(f.emotion, null, selectedOption, mergedTags, shareTone)
-
+console.log('[selectShareOption:translated]', translated.message)
   setFlow(prev => {
     const next = {
       ...prev,
