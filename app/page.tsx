@@ -1562,6 +1562,9 @@ console.log('④ fetched raw', fetched.map(e => ({
       return false
     }
 
+
+
+
     setEvents(prev =>
       prev.map(e =>
         e.id === eventId
@@ -1579,20 +1582,14 @@ console.log('④ fetched raw', fetched.map(e => ({
       return
     }
 
-    const { data, error } = await supabase
-      .from('emotion_events')
-      .select('*')
-      .eq('partner_id', uid)
-      .eq('share_status', 'sent')
-      .order('created_at', { ascending: false })
+ const { data, error } = await supabase
+  .from('emotion_events')
+  .select('*')
+  .eq('partner_id', uid)
+  .eq('share_status', 'sent')
+  .order('created_at', { ascending: false })
 
-console.log('④ fetched raw', (data ?? []).map(e => ({
-  id: e.id,
-  reaction: e.partner_reaction,
-  reactedAt: e.partner_reacted_at,
-})))
-
-    if (error) {
+      if (error) {
       console.error('[fetchSharedToMe error]', {
         message: error?.message,
         details: error?.details,
@@ -1602,6 +1599,28 @@ console.log('④ fetched raw', (data ?? []).map(e => ({
       })
       return
     }
+
+console.log('[fetchSharedToMe] fetched count', (data ?? []).length)
+console.log(
+  '[fetchSharedToMe] fetched detail',
+  (data ?? []).map(e => ({
+    id: e.id,
+    user_id: e.user_id,
+    partner_id: e.partner_id,
+    share_status: e.share_status,
+    reaction: e.partner_reaction,
+    reactedAt: e.partner_reacted_at,
+    shared_message: e.shared_message,
+    created_at: e.created_at,
+  }))
+)
+console.log('④ fetched raw', (data ?? []).map(e => ({
+  id: e.id,
+  reaction: e.partner_reaction,
+  reactedAt: e.partner_reacted_at,
+})))
+
+
 
     const fetched = (data ?? []) as EmotionEvent[]
 
