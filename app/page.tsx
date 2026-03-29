@@ -2040,9 +2040,52 @@ console.log('[selectShareOption:translated]', translated.message)
     setFlow(prev => ({ ...prev, selectedAction: action }))
   }, [])
 
-  const setSelectedSupport = useCallback((support: string | null) => {
+const setSelectedSupport = useCallback(async (support: string | null) => {
+  const f = flowRef.current
+
+  if (!support) {
+    setFlow(prev => ({ ...prev, selectedSupport: null }))
+    return
+  }
+
+  const optionId = SUPPORT_TO_SHARE_OPTION[support]
+
+  if (!optionId || !f.emotion || !f.sharePlan) {
     setFlow(prev => ({ ...prev, selectedSupport: support }))
-  }, [])
+    return
+  }
+
+  const selectedOption = f.sharePlan.options.find(o => o.id === optionId)
+  if (!selectedOption) {
+    setFlow(prev => ({
+      ...prev,
+      selectedSupport: support,
+      selectedShareOptionId: optionId,
+    }))
+    return
+  }
+
+  const mergedTags =
+    f.selectedBackgroundIds.length > 0
+      ? f.selectedBackgroundIds
+      : backgroundTags
+
+  const translated =
+    f.emotion === 'lonely'
+      ? await translateLonelyForPartner(f.lonelyTag, selectedOption, shareTone)
+      : await translateForPartner(f.emotion, null, selectedOption, mergedTags, shareTone)
+
+  setFlow(prev => {
+    const next = {
+      ...prev,
+      selectedSupport: support,
+      selectedShareOptionId: optionId,
+      translated,
+    }
+    flowRef.current = next
+    return next
+  })
+}, [backgroundTags, shareTone])
 
   const submit = useCallback(async () => {
     const f = flowRef.current
