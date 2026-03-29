@@ -3663,10 +3663,6 @@ function PartnerLatestCard({
 }) {
   const meta = emMeta(event.emotion_type)
   const reaction = reactionWord(event.partner_reaction)
-  const isRecent = (Date.now() - new Date(event.created_at).getTime()) < 24 * 3600 * 1000
-
-  if (!isRecent) return null
-
   const contextText = noteToContextText(event.note)
 
   return (
@@ -3849,12 +3845,15 @@ const partnerLatest = useMemo(() => {
   return actionableSharedEvents[0] ?? null
 }, [actionableSharedEvents])
 
-  // Day groups
+  // Day groups — partnerLatest は上部カードで表示済みなので除外して二重表示を防ぐ
   const dayGroups = useMemo(() => {
     type TLItem = { kind: 'mine' | 'partner'; event: EmotionEvent }
+    const partnerLatestId = partnerLatest?.id ?? null
     const all: TLItem[] = [
       ...events.map(e => ({ kind: 'mine' as const, event: e })),
-      ...sharedEvents.map(e => ({ kind: 'partner' as const, event: e })),
+      ...sharedEvents
+        .filter(e => e.id !== partnerLatestId)
+        .map(e => ({ kind: 'partner' as const, event: e })),
     ].sort((a, b) => new Date(b.event.created_at).getTime() - new Date(a.event.created_at).getTime())
 
     const groups = new Map<string, TLItem[]>()
@@ -4192,13 +4191,12 @@ const {
     return tags
   }, [todayBackgroundTags, profileBackgroundTags, relStatusId])
 
-// partnerEvents を唯一の source of truth とし、反応後に DB から再取得して badge を同期
+// reactToPartnerEvent 内で fetchSharedToMe まで完結しているのでここでは呼ばない
 const handleReactToPartnerEvent = useCallback(
   async (eventId: string, reaction: 'ack' | 'soon' | 'on_it') => {
     await handlePartnerReaction(eventId, reaction)
-    if (userId) void fetchSharedToMe(userId)
   },
-  [handlePartnerReaction, fetchSharedToMe, userId]
+  [handlePartnerReaction]
 )
 
 
