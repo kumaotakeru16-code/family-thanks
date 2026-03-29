@@ -3811,36 +3811,43 @@ function HistoryTab({
 }) {
   const [period, setPeriod] = useState<'1week' | 'all'>('1week')
 
-  // Partner latest (unreacted first, then most recent)
-const partnerLatest = useMemo(() => {
-  const candidates = [...sharedEvents]
-    .filter(
-      e =>
+const THREE_DAYS = 3 * 24 * 60 * 60 * 1000
+
+const actionableSharedEvents = useMemo(() => {
+  const now = Date.now()
+
+  return [...sharedEvents]
+    .filter(e => {
+      const createdAt = e.created_at ? new Date(e.created_at).getTime() : 0
+
+      return (
         e.partner_id === userId &&
         e.share_status === 'sent' &&
-        !!e.shared_message
-    )
+        e.partner_reaction == null &&
+        !!e.shared_message &&
+        now - createdAt <= THREE_DAYS
+      )
+    })
     .sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )
-
-    console.log('[partnerLatest] candidates', candidates.map(e => ({
-    id: e.id,
-    reaction: e.partner_reaction,
-    shared_message: e.shared_message,
-    created_at: e.created_at,
-  })))  
-
-  const unreacted = candidates.find(e => e.partner_reaction == null)
-
-  console.log('[partnerLatest] chosen', unreacted ? {
-    id: unreacted.id,
-    reaction: unreacted.partner_reaction,
-    created_at: unreacted.created_at,
-  } : null)
-
-  return unreacted ?? candidates[0] ?? null
 }, [sharedEvents, userId])
+
+
+  // Partner latest (unreacted first, then most recent)
+const partnerLatest = useMemo(() => {
+  console.log(
+    '[partnerLatest] actionableSharedEvents',
+    actionableSharedEvents.map(e => ({
+      id: e.id,
+      reaction: e.partner_reaction,
+      shared_message: e.shared_message,
+      created_at: e.created_at,
+    }))
+  )
+
+  return actionableSharedEvents[0] ?? null
+}, [actionableSharedEvents])
 
   // Day groups
   const dayGroups = useMemo(() => {
