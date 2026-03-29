@@ -2453,7 +2453,7 @@ function BottomNav({ active, onChange, badgeCounts }: {
     { id: 'settings', label: '設定'   },
   ]
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-stone-200/50 bg-white/95 backdrop-blur-xl shadow-[0_-1px_12px_rgba(0,0,0,0.06)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/60 bg-white/80 backdrop-blur-xl shadow-[0_-2px_20px_rgba(0,0,0,0.09)]">
       <div className="mx-auto flex max-w-md pb-safe">
         {tabs.map(({ id, label }) => {
           const on = active === id
@@ -2676,8 +2676,8 @@ function EmotionSelector({
             onClick={() => onSelect(em.type)}
             className={`group flex flex-col items-center gap-2 rounded-3xl px-2 py-4 transition-all duration-200 active:scale-95 ${
               isSelected
-                ? `${em.activeBg} shadow-sm ring-2 ${em.border.replace('border-', 'ring-')}`
-                : 'bg-white shadow-sm ring-1 ring-stone-100 hover:shadow-md'
+                ? `${em.activeBg} shadow-md ring-2 ${em.border.replace('border-', 'ring-')}`
+                : 'bg-white/85 shadow-[0_2px_12px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.04] hover:bg-white hover:shadow-[0_4px_18px_rgba(0,0,0,0.1)]'
             }`}
           >
             <div className={`transition-transform duration-200 ${isSelected ? 'scale-110' : 'group-hover:scale-105'}`}>
@@ -3231,10 +3231,10 @@ function ActionCarousel({ emotion, backgroundIds, selected, onSelect }: {
               style={{ scrollSnapAlign: 'start', minWidth: isPrimary ? '82%' : '70%', borderLeft: `3px solid ${isSelected || isPrimary ? accentColor : 'transparent'}`, opacity: isPrimary ? 1 : 0.75 }}
               className={`shrink-0 rounded-2xl px-5 py-4 text-left transition-all duration-200 active:scale-[0.97] ${
                 isSelected
-                  ? `${meta.activeBg} shadow-sm`
+                  ? `${meta.activeBg} shadow-md`
                   : isPrimary
-                  ? 'bg-white shadow-md ring-1 ring-stone-100 hover:shadow-lg'
-                  : 'bg-stone-50 shadow-sm ring-1 ring-stone-100/60 hover:bg-white hover:opacity-100'
+                  ? 'bg-white/95 shadow-[0_4px_18px_rgba(0,0,0,0.09)] ring-1 ring-black/[0.04] hover:shadow-[0_6px_22px_rgba(0,0,0,0.12)]'
+                  : 'bg-white/70 shadow-sm ring-1 ring-black/[0.03] hover:bg-white/90 hover:opacity-100'
               }`}
             >
               <p className={`mb-1.5 text-[9px] font-bold tracking-widest ${isSelected ? meta.color : isPrimary ? 'text-stone-400' : 'text-stone-300'}`}>
@@ -3290,8 +3290,8 @@ function SupportCarousel({ selected, onSelect }: {
               style={{ scrollSnapAlign: 'start', minWidth: '48%' }}
               className={`shrink-0 flex flex-col items-center gap-2 rounded-2xl px-4 py-4 transition-all duration-200 active:scale-95 ${
                 isSelected
-                  ? 'bg-violet-50 ring-2 ring-violet-200 shadow-sm'
-                  : 'bg-white shadow-sm ring-1 ring-stone-100 hover:shadow-md'
+                  ? 'bg-violet-50/90 ring-2 ring-violet-200/80 shadow-md'
+                  : 'bg-white/85 shadow-[0_2px_12px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.04] hover:bg-white hover:shadow-[0_4px_16px_rgba(0,0,0,0.1)]'
               }`}
             >
               <opt.Icon size={22} color={isSelected ? '#7c3aed' : '#a8a29e'} strokeWidth={2} />
@@ -3312,7 +3312,7 @@ function BackButton({ onBack }: { onBack: () => void }) {
     <button
       type="button"
       onClick={onBack}
-      className="flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-stone-400 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:text-stone-600 active:scale-95"
+      className="flex items-center gap-1 rounded-full bg-white/80 px-3 py-1.5 text-xs font-semibold text-stone-400 shadow-sm ring-1 ring-black/[0.04] transition-all duration-150 hover:bg-white hover:text-stone-600 active:scale-95"
     >
       <ChevronLeft size={14} strokeWidth={2} />
       戻る
@@ -3440,7 +3440,7 @@ function SharePanel({
   return (
     <div className="space-y-4" style={{ animation: 'fadeUp .25s ease-out both' }}>
       {/* トーン選択 */}
-      <div className="rounded-2xl bg-white p-1 shadow-sm ring-1 ring-stone-100">
+      <div className="rounded-2xl bg-white/85 p-1 shadow-sm ring-1 ring-black/[0.04]">
         <div className="flex gap-1">
           {TONES.map(t => (
             <button key={t.id} type="button" onClick={() => onToneChange(t.id)}
@@ -3456,7 +3456,7 @@ function SharePanel({
       </div>
 
       {/* 生成メッセージ（タップで編集可） */}
-      <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+      <div className="rounded-3xl bg-white/95 px-5 py-5 shadow-[0_4px_20px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.04]">
         <p className="text-[10px] font-bold uppercase tracking-widest text-stone-300 mb-2">メッセージ</p>
         <textarea
           value={draft}
@@ -3572,7 +3572,7 @@ function HomeTab({
                                      'linear-gradient(135deg,#a78bfa,#818cf8)'
 
   return (
-    <div className="space-y-6 pb-4">
+    <div className="space-y-7 pb-4">
 
       {/* ══ Phase 1: 感情選択（常時表示） ══════════════════════════ */}
       <section style={{ animation: 'fadeUp .25s ease-out both' }}>
@@ -3606,7 +3606,7 @@ function HomeTab({
                     className={`rounded-2xl px-4 py-2 text-sm font-semibold transition-all duration-150 active:scale-95 ${
                       active
                         ? 'bg-pink-400 text-white shadow-sm shadow-pink-200'
-                        : 'bg-white text-pink-500 ring-1 ring-pink-200 hover:bg-pink-50'
+                        : 'bg-white/80 text-pink-500 ring-1 ring-pink-200/70 hover:bg-white hover:ring-pink-300/60'
                     }`}>
                     {opt.label}
                   </button>
@@ -3628,7 +3628,7 @@ function HomeTab({
                     className={`flex items-center gap-1.5 rounded-2xl px-3.5 py-2 text-sm font-semibold transition-all duration-150 active:scale-95 ${
                       active
                         ? `${em.activeBg} ${em.color} shadow-sm`
-                        : 'bg-white text-stone-500 ring-1 ring-stone-100 hover:ring-stone-200'
+                        : 'bg-white/80 text-stone-500 ring-1 ring-black/[0.06] hover:bg-white hover:ring-black/[0.09]'
                     }`}>
                     {(() => { const IC = BACKGROUND_OPTION_ICONS[opt.id]; return <IC size={14} strokeWidth={2} /> })()}
                     <span>{opt.label}</span>
@@ -3653,7 +3653,7 @@ function HomeTab({
 
       {/* ローディング */}
       {flow.isLoadingAi && (
-        <div className="rounded-3xl bg-white px-5 py-14 text-center shadow-sm ring-1 ring-stone-100" style={{ animation: 'fadeUp .2s ease-out both' }}>
+        <div className="rounded-3xl bg-white/95 px-5 py-14 text-center shadow-[0_4px_20px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.04]" style={{ animation: 'fadeUp .2s ease-out both' }}>
           <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-violet-50">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-violet-100 border-t-violet-400" />
           </div>
@@ -3665,7 +3665,7 @@ function HomeTab({
       {/* ══ Phase 3: AI応答（受け取った感） ════════════════════════ */}
       {flow.aiResponse && !flow.isLoadingAi && aiText && (
         <section style={{ animation: 'fadeUp .35s ease-out both' }}>
-          <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+          <div className="rounded-3xl bg-white/95 px-5 py-5 shadow-[0_4px_20px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.04]">
             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-stone-300">きもちの整理</p>
             <p className="text-sm leading-relaxed text-stone-600">{aiText}</p>
           </div>
@@ -3701,13 +3701,13 @@ function HomeTab({
         <div className="space-y-2.5 pt-1" style={{ animation: 'fadeUp .5s ease-out both' }}>
           <button
             onClick={onResolveLight}
-            className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
+            className="w-full rounded-2xl bg-white/85 py-4 text-sm font-semibold text-stone-600 shadow-[0_2px_12px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] transition-all duration-150 hover:bg-white active:scale-[0.98]"
           >
             少し楽になった
           </button>
           <button
             onClick={onResolveDone}
-            className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
+            className="w-full rounded-2xl bg-white/85 py-4 text-sm font-semibold text-stone-600 shadow-[0_2px_12px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] transition-all duration-150 hover:bg-white active:scale-[0.98]"
           >
             もう大丈夫
           </button>
@@ -3735,7 +3735,7 @@ function HomeTab({
           )}
           <button
             onClick={onResolveDone}
-            className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
+            className="w-full rounded-2xl bg-white/85 py-4 text-sm font-semibold text-stone-600 shadow-[0_2px_12px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.04] transition-all duration-150 hover:bg-white active:scale-[0.98]"
           >
             自分だけで感じておく
           </button>
@@ -3757,7 +3757,7 @@ function HomeTab({
 
       {/* resolved_light */}
       {flow.step === 'resolved_light' && (
-        <div className="rounded-3xl bg-sky-50 px-6 py-10 text-center ring-1 ring-sky-100" style={{ animation: 'fadeUp .3s ease-out both' }}>
+        <div className="rounded-3xl bg-sky-50/80 px-6 py-10 text-center shadow-[0_4px_20px_rgba(0,0,0,0.07)] ring-1 ring-sky-100/70" style={{ animation: 'fadeUp .3s ease-out both' }}>
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-sky-100">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
               <path d="M 5 13 L 9 17 L 19 7" stroke="#0ea5e9" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -3773,7 +3773,7 @@ function HomeTab({
 
       {/* resolved_done */}
       {flow.step === 'resolved_done' && (
-        <div className="rounded-3xl bg-emerald-50 px-6 py-10 text-center ring-1 ring-emerald-100" style={{ animation: 'fadeUp .3s ease-out both' }}>
+        <div className="rounded-3xl bg-emerald-50/80 px-6 py-10 text-center shadow-[0_4px_20px_rgba(0,0,0,0.07)] ring-1 ring-emerald-100/70" style={{ animation: 'fadeUp .3s ease-out both' }}>
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
               <path d="M 12 5 Q 18 9 12 19 Q 6 9 12 5" fill="#10b981" opacity="0.8"/>
@@ -4027,7 +4027,7 @@ function PartnerLatestCard({
 
   return (
     <div
-      className={`overflow-hidden rounded-[28px] border bg-white/95 px-5 pt-4 pb-4 shadow-[0_8px_30px_rgba(0,0,0,0.06)] ${
+      className={`overflow-hidden rounded-3xl border bg-white/95 px-5 pt-4 pb-4 shadow-[0_6px_28px_rgba(0,0,0,0.1)] ${
         event.partner_reaction
           ? `${meta.bg} ${meta.border}`
           : 'bg-white ring-1 ring-stone-200'
@@ -4116,7 +4116,7 @@ function HistoryEventCard({ item, gender }: {
   if (item.kind === 'mine') {
     const bgTags = getEventBgTags(event)
     return (
-      <div className={`overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-stone-100`}>
+      <div className={`overflow-hidden rounded-3xl bg-white/90 shadow-[0_2px_14px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.04]`}>
         <div className="flex items-center gap-3 px-5 pt-4 pb-3">
           <EmotionFace type={event.emotion_type} size={38} />
           <div className="min-w-0 flex-1">
@@ -4165,7 +4165,7 @@ function HistoryEventCard({ item, gender }: {
   const myReaction = reactionWord(event.partner_reaction)
   const partnerBgTags = getEventBgTags(event)
   return (
-    <div className={`overflow-hidden rounded-3xl ${meta.bg} ring-1 ${meta.border}`}>
+    <div className={`overflow-hidden rounded-3xl ${meta.bg} shadow-[0_2px_14px_rgba(0,0,0,0.07)] ring-1 ${meta.border}`}>
       <div className="flex items-center gap-1.5 px-5 pt-3 pb-1">
         <Heart size={10} className={`${meta.color} opacity-50 shrink-0`} />
         <p className={`text-[10px] font-bold uppercase tracking-widest ${meta.color} opacity-60`}>パートナーから</p>
@@ -4286,7 +4286,7 @@ const partnerLatest = useMemo(() => {
 
   if (dayGroups.length === 0) {
     return (
-      <div className="rounded-3xl bg-white px-6 py-14 text-center shadow-sm ring-1 ring-stone-100">
+      <div className="rounded-3xl bg-white/95 px-6 py-14 text-center shadow-[0_4px_20px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.04]">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-50">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
             <path d="M 3 17 Q 7 11 10 13 Q 13 15 16 9 Q 19 3 21 7" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round"/>
@@ -4301,9 +4301,9 @@ const partnerLatest = useMemo(() => {
   const insight = computeRelInsight(events, sharedEvents)
 
   return (
-    <div className="space-y-5 pb-2">
+    <div className="space-y-6 pb-2">
       {/* 期間トグル + 波グラフ */}
-      <div className="rounded-3xl bg-white px-5 pt-4 pb-5 shadow-md ring-1 ring-stone-100/80">
+      <div className="rounded-3xl bg-white/95 px-5 pt-4 pb-5 shadow-[0_4px_24px_rgba(0,0,0,0.09)] ring-1 ring-black/[0.04]">
         <div className="mb-4 flex items-center justify-between">
           <p className="text-[10px] font-bold uppercase tracking-widest text-stone-300">関係の流れ</p>
           <div className="flex gap-0.5 rounded-xl bg-stone-50 p-0.5 ring-1 ring-stone-100">
@@ -4328,7 +4328,7 @@ const partnerLatest = useMemo(() => {
 
       {/* 一言分析 */}
       {(events.length + sharedEvents.length) >= 3 && (
-        <div className="rounded-2xl bg-violet-50 px-4 py-3 ring-1 ring-violet-100">
+        <div className="rounded-2xl bg-violet-50/80 px-4 py-3 shadow-sm ring-1 ring-violet-100/70">
           <p className="text-xs font-medium text-violet-600">{insight}</p>
         </div>
       )}
@@ -4384,8 +4384,8 @@ function ConnectTab({ todayLogs, onRecordBackground }: { todayLogs: SoloLog[]; o
 
   return (
     <div className="space-y-5">
-      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-        <div className="border-b border-stone-50 px-5 py-3.5"><h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">今日しんどかった背景</h2></div>
+      <div className="overflow-hidden rounded-3xl bg-white/90 shadow-[0_2px_14px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.04]">
+        <div className="border-b border-stone-100/60 px-5 py-3.5"><h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">今日しんどかった背景</h2></div>
         <div className="grid grid-cols-2 gap-2 p-4">
           {BACKGROUND_TAGS.map(item => (
             <button key={item.tag} onClick={() => void onRecordBackground(item.label, item.tag)}
@@ -4396,8 +4396,8 @@ function ConnectTab({ todayLogs, onRecordBackground }: { todayLogs: SoloLog[]; o
           ))}
         </div>
       </div>
-      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-        <div className="border-b border-stone-50 px-5 py-3.5"><h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">今日の重なり</h2></div>
+      <div className="overflow-hidden rounded-3xl bg-white/90 shadow-[0_2px_14px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.04]">
+        <div className="border-b border-stone-100/60 px-5 py-3.5"><h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">今日の重なり</h2></div>
         <div className="px-4 py-4">
           {grouped.length === 0 ? (
             <p className="text-sm text-stone-400">まだ背景メモはありません。</p>
@@ -4435,17 +4435,17 @@ function SettingsTab({ session, profile, partner, pairInput, setPairInput, onPai
     setTimeout(() => setCodeCopied(false), 2500)
   }
   return (
-    <div className="space-y-4 pb-4">
-      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-        <div className="border-b border-stone-100 px-5 py-3.5"><h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-500">アカウント</h2></div>
+    <div className="space-y-5 pb-4">
+      <div className="overflow-hidden rounded-3xl bg-white/90 shadow-[0_2px_14px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.04]">
+        <div className="border-b border-stone-100/60 px-5 py-3.5"><h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">アカウント</h2></div>
         <div className="flex items-center gap-3 px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-500">{(session.user.email ?? '?')[0].toUpperCase()}</div>
           <div className="min-w-0"><p className="truncate text-sm font-medium text-stone-800">{session.user.email}</p><p className="text-[10px] text-stone-400">ログイン中</p></div>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-        <div className="border-b border-stone-100 px-5 py-3.5"><h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-500">アイコン設定</h2></div>
+      <div className="overflow-hidden rounded-3xl bg-white/90 shadow-[0_2px_14px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.04]">
+        <div className="border-b border-stone-100/60 px-5 py-3.5"><h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">アイコン設定</h2></div>
         <div className="px-5 py-4">
           <p className="mb-3 text-xs text-stone-500">あなたの性別を選んでください（表示ラベルに使います）</p>
           <div className="flex gap-3">
@@ -4456,8 +4456,8 @@ function SettingsTab({ session, profile, partner, pairInput, setPairInput, onPai
                 onClick={() => onGenderChange(g)}
                 className={`flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold transition active:scale-95 ${
                   gender === g
-                    ? 'bg-indigo-500 text-white shadow-sm'
-                    : 'border border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                    ? 'bg-indigo-400 text-white shadow-sm'
+                    : 'bg-stone-50/80 text-stone-600 ring-1 ring-black/[0.06] hover:bg-white'
                 }`}
               >
                 <User size={18} strokeWidth={2} />
@@ -4468,8 +4468,8 @@ function SettingsTab({ session, profile, partner, pairInput, setPairInput, onPai
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-        <div className="border-b border-stone-100 px-5 py-3.5"><h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-500">パートナー連携</h2></div>
+      <div className="overflow-hidden rounded-3xl bg-white/90 shadow-[0_2px_14px_rgba(0,0,0,0.07)] ring-1 ring-black/[0.04]">
+        <div className="border-b border-stone-100/60 px-5 py-3.5"><h2 className="text-[10px] font-bold uppercase tracking-widest text-stone-400">パートナー連携</h2></div>
         <div className="space-y-4 px-5 py-4">
           <div>
             <p className="mb-2 text-xs font-medium text-stone-500">あなたのペアコード</p>
@@ -4506,12 +4506,12 @@ function SettingsTab({ session, profile, partner, pairInput, setPairInput, onPai
         </div>
       </div>
 
-      <div className="rounded-2xl border border-stone-200 bg-stone-50 px-5 py-4">
-        <p className="mb-2 text-xs font-bold text-stone-500">このアプリについて</p>
+      <div className="rounded-3xl bg-white/70 px-5 py-4 shadow-sm ring-1 ring-black/[0.04]">
+        <p className="mb-2 text-xs font-bold text-stone-400">このアプリについて</p>
         <p className="text-xs leading-relaxed text-stone-500">しんどい時やすれ違った時に気持ちを整理して、今できる一歩と、相手に伝わりやすい言葉に変えるためのアプリです。</p>
       </div>
 
-      <button type="button" onClick={() => void onSignOut()} className="w-full rounded-2xl border border-stone-200 bg-white py-3.5 text-sm font-medium text-stone-500 shadow-sm transition hover:bg-stone-50 active:scale-95">ログアウト</button>
+      <button type="button" onClick={() => void onSignOut()} className="w-full rounded-3xl bg-white/80 py-3.5 text-sm font-medium text-stone-500 shadow-sm ring-1 ring-black/[0.04] transition hover:bg-white active:scale-95">ログアウト</button>
     </div>
   )
 }
@@ -4841,7 +4841,7 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
     return (
       <>
      
-        <main className="min-h-screen bg-[#faf8f5] px-4 py-14">
+        <main className="min-h-screen px-4 py-14">
           <div className="mx-auto max-w-sm">
             {/* Logo area */}
             <div className="mb-10 text-center">
@@ -4854,7 +4854,7 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
               <p className="mt-1.5 text-sm text-stone-400">ふたりの感情を、やさしくつなぐ</p>
             </div>
 
-            <div className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-stone-100">
+            <div className="rounded-3xl bg-white/90 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.1)] ring-1 ring-black/[0.04]">
               <div className="space-y-3">
                 <input
                   value={email}
@@ -4897,8 +4897,8 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
   return (
     <>
   
-      <div className="min-h-screen bg-[#faf8f5]">
-        <header className="sticky top-0 z-30 bg-[#faf8f5]/95 px-5 py-4 backdrop-blur-md">
+      <div className="min-h-screen">
+        <header className="sticky top-0 z-30 border-b border-white/60 bg-white/70 px-5 py-4 shadow-[0_1px_0_rgba(0,0,0,0.04)] backdrop-blur-xl">
           <div className="mx-auto flex max-w-md items-center justify-between">
             <h1 className="text-base font-extrabold text-stone-700">
               {TITLE[tab]}

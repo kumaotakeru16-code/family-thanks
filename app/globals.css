@@ -15,7 +15,7 @@
 /* Disable dark mode override for warm UI */
 
 body {
-  background: linear-gradient(160deg, #faf8f5 0%, #f4ede6 50%, #f7f3ef 100%);
+  background: linear-gradient(160deg, #fdf6ef 0%, #f8e9e0 35%, #f3e4ee 70%, #ede8f5 100%);
   background-attachment: fixed;
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
