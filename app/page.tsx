@@ -47,6 +47,7 @@ type EmotionEvent = {
   selected_share_option_id: ShareOptionId | null
   partner_reaction: 'ack' | 'soon' | 'on_it' | null
   partner_reacted_at: string | null
+  background_tags: string[] | null
   created_at: string
 }
 
@@ -1478,6 +1479,7 @@ function useEmotionEvents(userId: string | null) {
     ai: AiResponse,
     trans: TranslatedShare,
     selectedShareOptionId: string | null,
+    backgroundTags?: string[] | null,
   ): Promise<EmotionEvent | null> => {
     const payload = {
       user_id: uid,
@@ -1489,6 +1491,7 @@ function useEmotionEvents(userId: string | null) {
       share_status: 'unsent' as const,
       shared_message: trans.message,
       selected_share_option_id: selectedShareOptionId,
+      background_tags: backgroundTags ?? null,
     }
 
     const { data, error } = await supabase
@@ -1832,6 +1835,7 @@ function useEmotionFlow(
     ai: AiResponse,
     translated: TranslatedShare,
     selectedShareOptionId: string | null,
+    backgroundTags?: string[] | null,
   ) => Promise<EmotionEvent | null>,
   markShared: (eventId: string, message?: string) => Promise<boolean>,
   shareTone: ShareTone,
@@ -1942,7 +1946,7 @@ function useEmotionFlow(
       ? await translateLonelyForPartner(f.lonelyTag, selectedOption, shareTone)
       : await translateForPartner(f.emotion, null, selectedOption, mergedTags, shareTone)
 
-    const saved = await saveEvent(userId, partnerId, f.emotion, null, ai, translated, selectedShareOptionId)
+    const saved = await saveEvent(userId, partnerId, f.emotion, null, ai, translated, selectedShareOptionId, mergedTags)
 
     savedEventIdRef.current = saved?.id ?? null
 
@@ -2245,7 +2249,7 @@ function BottomNav({ active, onChange, badgeCounts }: {
     { id: 'settings', label: '設定'   },
   ]
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-stone-100/60 bg-white/96 backdrop-blur-lg">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-stone-200/50 bg-white/95 backdrop-blur-xl shadow-[0_-1px_12px_rgba(0,0,0,0.06)]">
       <div className="mx-auto flex max-w-md pb-safe">
         {tabs.map(({ id, label }) => {
           const on = active === id
@@ -3110,6 +3114,7 @@ function SharePanel({
   shareTone,
   onToneChange,
   hasPartner,
+  pairCode,
 }: {
   flow: FlowState
   onShare: (message?: string) => void
@@ -3117,8 +3122,10 @@ function SharePanel({
   shareTone: ShareTone
   onToneChange: (t: ShareTone) => void
   hasPartner: boolean
+  pairCode: string | null
 }) {
   const [copied, setCopied] = useState(false)
+  const [pairCopied, setPairCopied] = useState(false)
   const [draft, setDraft] = useState(flow.translated?.message ?? '')
   useEffect(() => { setDraft(flow.translated?.message ?? '') }, [flow.translated?.message])
 
@@ -3126,6 +3133,14 @@ function SharePanel({
     void navigator.clipboard.writeText(draft).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const handleCopyPairCode = () => {
+    if (!pairCode) return
+    void navigator.clipboard.writeText(pairCode).then(() => {
+      setPairCopied(true)
+      setTimeout(() => setPairCopied(false), 2500)
     })
   }
 
@@ -3184,7 +3199,24 @@ function SharePanel({
         )}
       </div>
       {!hasPartner && (
-        <p className="text-center text-[11px] text-stone-300">連携すると、このまま相手に届きます</p>
+        <div className="rounded-2xl bg-indigo-50 px-4 py-4 ring-1 ring-indigo-100" style={{ animation: 'fadeUp .3s ease-out both' }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 mb-2">まず相手とつながろう</p>
+          <div className="flex items-center gap-3">
+            <p className="flex-1 text-xl font-extrabold tracking-[0.2em] text-indigo-600">{pairCode ?? '…'}</p>
+            <button
+              type="button"
+              onClick={handleCopyPairCode}
+              className={`shrink-0 rounded-xl px-4 py-2.5 text-xs font-bold transition-all active:scale-95 ${
+                pairCopied
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-indigo-500 text-white hover:bg-indigo-600'
+              }`}
+            >
+              {pairCopied ? '✓ コピー済み' : 'コードをコピー'}
+            </button>
+          </div>
+          <p className="mt-1.5 text-[10px] text-indigo-400">このコードを相手に送って連携すると、直接届けられます</p>
+        </div>
       )}
     </div>
   )
@@ -3207,6 +3239,7 @@ function HomeTab({
   gender,
   onSetLonelyTag,
   hasPartner,
+  pairCode,
   onSetSelectedAction,
   onSetSelectedSupport,
 }: {
@@ -3226,6 +3259,7 @@ function HomeTab({
   gender: Gender
   onSetLonelyTag: (tag: LonelyTag | null) => void
   hasPartner: boolean
+  pairCode: string | null
   onSetSelectedAction: (a: string | null) => void
   onSetSelectedSupport: (s: string | null) => void
 }) {
@@ -3404,6 +3438,7 @@ function HomeTab({
           shareTone={shareTone}
           onToneChange={onToneChange}
           hasPartner={hasPartner}
+          pairCode={pairCode}
         />
       )}
 
@@ -3667,7 +3702,7 @@ function PartnerLatestCard({
 
   return (
     <div
-      className={`rounded-3xl px-5 py-5 ring-1 ${
+      className={`rounded-3xl px-5 py-5 ring-1 shadow-md ${
         !event.partner_reaction
           ? `${meta.bg} ${meta.border}`
           : 'bg-white ring-stone-100'
@@ -3720,6 +3755,9 @@ function HistoryEventCard({ item, gender }: {
   const contextText = noteToContextText(event.note)
 
   if (item.kind === 'mine') {
+    const bgTags = event.background_tags?.length
+      ? event.background_tags.map(t => BACKGROUND_OPTIONS.find(o => o.id === t)).filter(Boolean)
+      : []
     return (
       <div className={`overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-stone-100`}>
         <div className="flex items-center gap-3 px-5 pt-4 pb-3">
@@ -3729,6 +3767,15 @@ function HistoryEventCard({ item, gender }: {
             <p className="text-[10px] text-stone-300">{fmtTime(event.created_at)}</p>
           </div>
         </div>
+        {bgTags.length > 0 && (
+          <div className="flex flex-wrap gap-1 px-5 pb-2">
+            {bgTags.map(opt => opt && (
+              <span key={opt.id} className="inline-flex items-center gap-0.5 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-500">
+                {opt.emoji} {opt.label}
+              </span>
+            ))}
+          </div>
+        )}
         {contextText && (
           <div className="px-5 pb-1">
             <p className="text-[11px] leading-relaxed text-stone-400">{contextText}</p>
@@ -3883,9 +3930,9 @@ const partnerLatest = useMemo(() => {
   const insight = computeRelInsight(events, sharedEvents)
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-2">
       {/* 期間トグル + 波グラフ */}
-      <div className="rounded-3xl bg-white px-5 pt-4 pb-5 shadow-sm ring-1 ring-stone-100">
+      <div className="rounded-3xl bg-white px-5 pt-4 pb-5 shadow-md ring-1 ring-stone-100/80">
         <div className="mb-4 flex items-center justify-between">
           <p className="text-[10px] font-bold uppercase tracking-widest text-stone-300">関係の流れ</p>
           <div className="flex gap-0.5 rounded-xl bg-stone-50 p-0.5 ring-1 ring-stone-100">
@@ -4010,6 +4057,12 @@ function SettingsTab({ session, profile, partner, pairInput, setPairInput, onPai
   gender: Gender; onGenderChange: (g: Gender) => void
   onCopyCode: () => void
 }) {
+  const [codeCopied, setCodeCopied] = useState(false)
+  const handleCopyCode = () => {
+    onCopyCode()
+    setCodeCopied(true)
+    setTimeout(() => setCodeCopied(false), 2500)
+  }
   return (
     <div className="space-y-4 pb-4">
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
@@ -4049,11 +4102,18 @@ function SettingsTab({ session, profile, partner, pairInput, setPairInput, onPai
         <div className="space-y-4 px-5 py-4">
           <div>
             <p className="mb-2 text-xs font-medium text-stone-500">あなたのペアコード</p>
-            <div className="flex items-center gap-3 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3.5">
-              <p className="flex-1 text-2xl font-extrabold tracking-[0.25em] text-indigo-600">{profile?.pair_code ?? '生成中...'}</p>
-              <button type="button" onClick={onCopyCode}
-                className="rounded-lg bg-white px-3 py-1.5 text-[11px] font-semibold text-indigo-400 shadow-sm ring-1 ring-indigo-100 transition hover:bg-indigo-50 active:scale-95">
-                コピー
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3.5">
+              <p className="text-2xl font-extrabold tracking-[0.25em] text-indigo-600 mb-3">{profile?.pair_code ?? '生成中...'}</p>
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className={`w-full rounded-xl py-3 text-sm font-bold transition-all active:scale-95 ${
+                  codeCopied
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-indigo-500 text-white hover:bg-indigo-600'
+                }`}
+              >
+                {codeCopied ? '✓ コピーしました' : 'コードをコピーして相手に送る'}
               </button>
             </div>
           </div>
@@ -4457,7 +4517,7 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
           </div>
         </header>
 
-        <main className="mx-auto max-w-md px-4 pb-28 pt-4">
+        <main className="mx-auto max-w-md px-4 pb-32 pt-4">
           
           {tab === 'home' && (
             
@@ -4470,6 +4530,7 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
   onReset={reset}
   onSelectShareOption={selectShareOption}
   hasPartner={!!profile?.partner_id}
+  pairCode={profile?.pair_code ?? null}
   onGoBack={goBack}
   onResolveLight={resolveLight}
   onResolveDone={resolveDone}
