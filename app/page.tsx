@@ -1573,18 +1573,25 @@ console.log('④ fetched raw', fetched.map(e => ({
     const payload: { share_status: 'sent'; shared_message?: string } = { share_status: 'sent' }
     if (message) payload.shared_message = message
 
-    const { error } = await supabase
+    console.log('[markShared:before]', { eventId, message })
+
+    const { data: updatedRows, error } = await supabase
       .from('emotion_events')
       .update(payload)
       .eq('id', eventId)
+      .select()
+
+    console.log('[markShared:update result]', { updatedRows, error, count: updatedRows?.length ?? 0 })
 
     if (error) {
       console.error('[markShared] FAILED', error)
       return false
     }
 
-
-
+    if (!updatedRows || updatedRows.length === 0) {
+      console.warn('[markShared] 0 rows updated — not found or RLS blocked', { eventId })
+      return false
+    }
 
     setEvents(prev =>
       prev.map(e =>
@@ -2001,10 +2008,37 @@ function useEmotionFlow(
 
   const shareWithPartner = useCallback(async (message?: string) => {
     const eventId = savedEventIdRef.current ?? flowRef.current.savedEventId
-    if (!eventId || flowRef.current.isShared) return
+
+    console.log('[shareWithPartner:start]', {
+      savedEventIdRefCurrent: savedEventIdRef.current,
+      flowRefSavedEventId: flowRef.current.savedEventId,
+      resolvedEventId: eventId,
+      isShared: flowRef.current.isShared,
+      messageLen: message?.length,
+    })
+
+    if (!eventId) {
+      console.warn('[shareWithPartner] early return: no eventId')
+      return
+    }
+    if (flowRef.current.isShared) {
+      console.warn('[shareWithPartner] early return: already shared')
+      return
+    }
+
     setFlow(prev => ({ ...prev, isSharing: true }))
+    flowRef.current = { ...flowRef.current, isSharing: true }
+
     const ok = await markShared(eventId, message)
-    if (!ok) { setFlow(prev => ({ ...prev, isSharing: false })); return }
+    console.log('[shareWithPartner:markShared result]', { ok })
+
+    if (!ok) {
+      setFlow(prev => ({ ...prev, isSharing: false }))
+      flowRef.current = { ...flowRef.current, isSharing: false }
+      return
+    }
+
+    flowRef.current = { ...flowRef.current, isSharing: false, isShared: true }
     setFlow(prev => ({ ...prev, isSharing: false, isShared: true }))
   }, [markShared])
 
@@ -4329,10 +4363,12 @@ const {
 )
 
 const handleShare = useCallback(async (message?: string) => {
+  console.log('[handleShare:start]', { userId, messageLen: message?.length })
   await shareWithPartner(message)
   if (userId) {
     void fetchMy(userId)
     void fetchSharedToMe(userId)
+    console.log('[handleShare:refetch triggered]')
   }
 }, [shareWithPartner, fetchMy, fetchSharedToMe, userId])
 
