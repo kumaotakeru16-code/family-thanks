@@ -3817,7 +3817,21 @@ const partnerLatest = useMemo(() => {
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )
 
+    console.log('[partnerLatest] candidates', candidates.map(e => ({
+    id: e.id,
+    reaction: e.partner_reaction,
+    shared_message: e.shared_message,
+    created_at: e.created_at,
+  })))  
+
   const unreacted = candidates.find(e => e.partner_reaction == null)
+
+  console.log('[partnerLatest] chosen', unreacted ? {
+    id: unreacted.id,
+    reaction: unreacted.partner_reaction,
+    created_at: unreacted.created_at,
+  } : null)
+
   return unreacted ?? candidates[0] ?? null
 }, [sharedEvents, userId])
 
