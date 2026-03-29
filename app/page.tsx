@@ -1705,13 +1705,16 @@ setPartnerEvents(prev => {
   return next
 })
 
-    const { error } = await supabase
-      .from('emotion_events')
-      .update({
-        partner_reaction: reaction,
-        partner_reacted_at: reactedAt,
-      })
-      .eq('id', eventId)
+const { data, error } = await supabase
+  .from('emotion_events')
+  .update({
+    partner_reaction: reaction,
+    partner_reacted_at: reactedAt,
+  })
+  .eq('id', eventId)
+  .select()
+
+console.log('③ DB result', { data, error })
 
 console.log('③ after db update', {
   eventId,
