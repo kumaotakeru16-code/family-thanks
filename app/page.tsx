@@ -3794,22 +3794,31 @@ function HistoryTab({
   sharedEvents,
   onReactToPartnerEvent,
   gender,
+  userid,
 }: {
   events: EmotionEvent[]
   sharedEvents: EmotionEvent[]
   onReactToPartnerEvent: (id: string, r: 'ack' | 'soon' | 'on_it') => void
   gender: Gender
+  userid: string | null
 }) {
   const [period, setPeriod] = useState<'1week' | 'all'>('1week')
 
   // Partner latest (unreacted first, then most recent)
-  const partnerLatest = useMemo(() => {
-    const sorted = [...sharedEvents].sort(
+const partnerLatest = useMemo(() => {
+  const candidates = [...sharedEvents]
+    .filter(
+      e =>
+        e.share_status === 'sent' &&
+        !!e.shared_message
+    )
+    .sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )
-    const unreacted = sorted.find(e => !e.partner_reaction)
-    return unreacted ?? sorted[0] ?? null
-  }, [sharedEvents])
+
+  const unreacted = candidates.find(e => e.partner_reaction == null)
+  return unreacted ?? candidates[0] ?? null
+}, [sharedEvents])
 
   // Day groups
   const dayGroups = useMemo(() => {
