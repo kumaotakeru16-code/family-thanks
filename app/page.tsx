@@ -3809,6 +3809,7 @@ const partnerLatest = useMemo(() => {
   const candidates = [...sharedEvents]
     .filter(
       e =>
+        e.partner_id === userId &&
         e.share_status === 'sent' &&
         !!e.shared_message
     )
@@ -3818,7 +3819,7 @@ const partnerLatest = useMemo(() => {
 
   const unreacted = candidates.find(e => e.partner_reaction == null)
   return unreacted ?? candidates[0] ?? null
-}, [sharedEvents])
+}, [sharedEvents, userId])
 
   // Day groups
   const dayGroups = useMemo(() => {
@@ -4461,6 +4462,7 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
               sharedEvents={partnerEvents}
               onReactToPartnerEvent={handleReactToPartnerEvent}
               gender={gender}
+              userid={userId}
             />
           )}
 
