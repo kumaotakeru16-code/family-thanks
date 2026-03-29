@@ -3192,7 +3192,7 @@ function SupportCarousel({ selected, onSelect }: {
 }) {
   return (
     <div>
-      <p className="mb-2.5 text-[10px] font-bold uppercase tracking-widest text-stone-400">パートナーにしてほしいこと</p>
+      <p className="mb-2.5 text-[10px] font-bold uppercase tracking-widest text-stone-400">どうしてほしいか選ぶ</p>
       <div
         className="flex gap-3 overflow-x-auto pb-2"
         style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
@@ -3303,7 +3303,7 @@ function ResponseCard({
             onClick={onStartSharing}
             className="w-full rounded-2xl bg-gradient-to-r from-violet-400 to-indigo-400 py-4 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition-all duration-150 active:scale-[0.98]"
           >
-            パートナーに伝える
+            伝え方を整える
           </button>
         )}
       </div>
@@ -3629,7 +3629,7 @@ function HomeTab({
               onClick={onStartSharing}
               className="w-full rounded-2xl bg-gradient-to-r from-violet-400 to-indigo-400 py-4 text-sm font-bold text-white shadow-sm shadow-indigo-100 transition-all duration-150 active:scale-[0.98]"
             >
-              パートナーに伝える
+              伝え方を整える
             </button>
           )}
         </div>
