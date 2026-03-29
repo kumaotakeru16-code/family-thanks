@@ -3794,13 +3794,13 @@ function HistoryTab({
   sharedEvents,
   onReactToPartnerEvent,
   gender,
-  userid,
+  userId,
 }: {
   events: EmotionEvent[]
   sharedEvents: EmotionEvent[]
   onReactToPartnerEvent: (id: string, r: 'ack' | 'soon' | 'on_it') => void
   gender: Gender
-  userid: string | null
+  userId: string | null
 }) {
   const [period, setPeriod] = useState<'1week' | 'all'>('1week')
 
@@ -4462,7 +4462,7 @@ const handleToneChange = useCallback((newTone: ShareTone) => {
               sharedEvents={partnerEvents}
               onReactToPartnerEvent={handleReactToPartnerEvent}
               gender={gender}
-              userid={userId}
+              userId={userId}
             />
           )}
 
