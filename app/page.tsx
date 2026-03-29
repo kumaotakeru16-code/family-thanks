@@ -1530,7 +1530,15 @@ function useEmotionEvents(userId: string | null) {
       return
     }
 
-    setEvents((data ?? []) as EmotionEvent[])
+    const fetched = (data ?? []) as EmotionEvent[]
+    setEvents(prev => fetched.map(fetchedEvt => {
+      const local = prev.find(e => e.id === fetchedEvt.id)
+      // Preserve locally-set reaction if DB hasn't replicated yet (race condition)
+      if (local?.partner_reaction && !fetchedEvt.partner_reaction) {
+        return { ...fetchedEvt, partner_reaction: local.partner_reaction, partner_reacted_at: local.partner_reacted_at }
+      }
+      return fetchedEvt
+    }))
   }, [])
 
   const markShared = useCallback(async (eventId: string, message?: string) => {
@@ -1582,7 +1590,15 @@ function useEmotionEvents(userId: string | null) {
       return
     }
 
-    setPartnerEvents((data ?? []) as EmotionEvent[])
+    const fetched = (data ?? []) as EmotionEvent[]
+    setPartnerEvents(prev => fetched.map(fetchedEvt => {
+      const local = prev.find(e => e.id === fetchedEvt.id)
+      // Preserve locally-set reaction if DB hasn't replicated yet (race condition)
+      if (local?.partner_reaction && !fetchedEvt.partner_reaction) {
+        return { ...fetchedEvt, partner_reaction: local.partner_reaction, partner_reacted_at: local.partner_reacted_at }
+      }
+      return fetchedEvt
+    }))
   }, [])
 
   const reactToPartnerEvent = useCallback(async (
@@ -2934,22 +2950,18 @@ function ResponseCard({
 
       {/* 3択ボタン */}
       <div className="space-y-2.5 pt-1">
-        {flow.emotion !== 'calm' && (
-          <>
-            <button
-              onClick={onResolveLight}
-              className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
-            >
-              少し楽になった
-            </button>
-            <button
-              onClick={onResolveDone}
-              className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
-            >
-              もう大丈夫
-            </button>
-          </>
-        )}
+        <button
+          onClick={onResolveLight}
+          className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
+        >
+          少し楽になった
+        </button>
+        <button
+          onClick={onResolveDone}
+          className="w-full rounded-2xl bg-white py-4 text-sm font-semibold text-stone-600 shadow-sm ring-1 ring-stone-100 transition-all duration-150 hover:bg-stone-50 active:scale-[0.98]"
+        >
+          もう大丈夫
+        </button>
         {flow.translated && (
           <button
             onClick={onStartSharing}
