@@ -54,10 +54,10 @@ body::after {
 }
 
 /* すべてのメインコンテンツは z-index:1 以上で前面に */
+/* nav は除外 — BottomNav の position:fixed を上書きしないため */
 #__next,
 main,
-header,
-nav {
+header {
   position: relative;
   z-index: 1;
 }
