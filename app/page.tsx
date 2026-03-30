@@ -3604,6 +3604,52 @@ function SharePanel({
   )
 }
 
+function SelectedEmotionBar({
+  emotion, gender, backgroundIds, lonelyTag, onBack, showBackButton,
+}: {
+  emotion: EmotionType; gender: Gender
+  backgroundIds: BackgroundOptionId[]; lonelyTag: LonelyTag | null
+  onBack: () => void; showBackButton: boolean
+}) {
+  const meta = emMeta(emotion)
+  const isLonely = emotion === 'lonely'
+  const contextChips = isLonely && lonelyTag
+    ? [{ label: LONELY_OPTIONS.find(o => o.id === lonelyTag)?.label ?? '' }]
+    : backgroundIds.map(id => {
+        const opt = BACKGROUND_OPTIONS.find(o => o.id === id)
+        return opt ? { label: `${opt.emoji} ${opt.label}` } : null
+      }).filter((x): x is { label: string } => x !== null)
+  return (
+    <div style={{ animation: 'fadeDown .18s ease-out both' }}>
+      <div className={`flex items-center gap-3 rounded-2xl ${meta.bg} px-4 py-2.5 ring-1 ${meta.border}`}>
+        <EmotionFace type={emotion} gender={gender} size={28} />
+        <span className={`flex-1 text-sm font-bold ${meta.color}`}>{meta.label}</span>
+        {showBackButton && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="shrink-0 flex items-center gap-0.5 text-[10px] font-semibold text-stone-400 hover:text-stone-600 transition-colors"
+          >
+            <ChevronLeft size={12} strokeWidth={2} />選びなおす
+          </button>
+        )}
+      </div>
+      {contextChips.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5 px-1">
+          {contextChips.map((chip, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center rounded-full bg-white/60 px-2.5 py-1 text-[10px] text-stone-500 ring-1 ring-stone-200/60"
+            >
+              {chip.label}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function HomeTab({
   flow,
   onSelectEmotion,
@@ -3648,7 +3694,7 @@ function HomeTab({
   const isResolved = flow.step === 'resolved_light' || flow.step === 'resolved_done'
   const isCalm = flow.emotion === 'calm'
   const isLonely = flow.emotion === 'lonely'
-  const showContext = !!flow.emotion && !isCalm && !isResolved
+  const showContext = !!flow.emotion && !isCalm && !isResolved && !flow.isLoadingAi && !flow.aiResponse
 
   const aiText = (() => {
     if (!flow.aiResponse) return null
@@ -3669,21 +3715,24 @@ function HomeTab({
   return (
     <div className="space-y-7 pb-4">
 
-      {/* ══ Phase 1: 感情選択（常時表示） ══════════════════════════ */}
+      {/* ══ Phase 1: 感情選択（選択前: グリッド / 選択後: コンパクトバー） ══ */}
       <section style={{ animation: 'fadeUp .25s ease-out both' }}>
         {!flow.emotion ? (
           <>
             <p className="mb-1.5 text-xl font-extrabold text-stone-700">今、どんな気持ち？</p>
             <p className="mb-5 text-sm text-stone-400">ひとつ選んでみて</p>
+            <EmotionSelector selected={null} onSelect={onSelectEmotion} gender={gender} />
           </>
         ) : (
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-stone-400">今の気持ち</p>
+          <SelectedEmotionBar
+            emotion={flow.emotion}
+            gender={gender}
+            backgroundIds={flow.selectedBackgroundIds}
+            lonelyTag={flow.lonelyTag}
+            onBack={onGoBack}
+            showBackButton={!flow.aiResponse && !flow.isLoadingAi && !isResolved}
+          />
         )}
-        <EmotionSelector
-  selected={flow.emotion}
-  onSelect={onSelectEmotion}
-  gender={gender}
-/>
       </section>
 
       {/* ══ Phase 2: 背景選択（感情選択後・calm/resolved以外） ══════ */}
