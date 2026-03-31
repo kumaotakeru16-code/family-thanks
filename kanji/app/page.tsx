@@ -1278,35 +1278,7 @@ return (
   </div>
 )}
 
-{step === 'dateConfirmed' && recommendedDate && (
-  <div className="space-y-4">
-    <div className="rounded-3xl bg-white px-6 py-6 shadow-sm ring-1 ring-black/5">
-      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-500">
-        DATE CONFIRMED
-      </p>
-      <h2 className="mt-2 text-2xl font-black text-stone-900">
-        {recommendedDate.date.label} に決定しました
-      </h2>
-      <p className="mt-2 text-sm leading-6 text-stone-600">
-        回答結果をもとに、参加しやすい日としてこの候補日を確定しました。
-      </p>
 
-      <div className="mt-4 rounded-2xl bg-emerald-50 px-4 py-4 ring-1 ring-emerald-100">
-        <p className="text-sm font-bold text-stone-900">{recommendedDate.date.label}</p>
-        <p className="mt-1 text-sm text-stone-600">
-          参加できる人 {recommendedDate.availableCount} / {totalCount} 人
-        </p>
-      </div>
-
-      <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-        <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
-          最終確認へ進む
-        </PrimaryBtn>
-        <GhostBtn onClick={() => setStep('dateSuggestion')}>戻る</GhostBtn>
-      </div>
-    </div>
-  </div>
-)}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑦ 日程確定
@@ -1322,8 +1294,9 @@ return (
             </div>
             <ButtonRow>
               <GhostBtn onClick={() => setStep('dateSuggestion')}>戻る</GhostBtn>
-              <PrimaryBtn onClick={() => setStep('organizerConditions')}>次へ（店決めへ）</PrimaryBtn>
-            </ButtonRow>
+<PrimaryBtn size="large" onClick={() => setStep('organizerConditions')}>
+  次へ（店決めへ）
+</PrimaryBtn>            </ButtonRow>
           </Card>
         )}
 
