@@ -158,7 +158,8 @@ function scoreAvailability(v?: Availability): number {
 function availabilityLabel(v?: Availability) {
   if (v === 'yes') return '○'
   if (v === 'maybe') return '△'
-  return '×'
+  if (v === 'no') return '×'
+  return '-'
 }
 
 function availabilityStyle(v?: Availability) {
@@ -350,8 +351,7 @@ export default function Page() {
   
   
 
-  
-const unanswered: string[] = []
+ 
 
 
 
@@ -394,10 +394,27 @@ const activeParticipants = useMemo(() => {
   }))
 }, [dbResponses, participants, activeDates])
 
+const answeredParticipants = activeParticipants.filter((p) =>
+  activeDates.some((date) => {
+    const value = p.availability?.[date.id]
+    return value === 'yes' || value === 'maybe' || value === 'no'
+  })
+)
+
+const unanswered = activeParticipants
+  .filter((p) =>
+    !activeDates.some((date) => {
+      const value = p.availability?.[date.id]
+      return value === 'yes' || value === 'maybe' || value === 'no'
+    })
+  )
+  .map((p) => p.name)
+
+const answerCount = answeredParticipants.length
+const totalCount = activeParticipants.length
+const unansweredCount = totalCount - answerCount
 
 
-const answerCount = activeParticipants.length
-  const totalCount = activeParticipants.length
 
 const recommendedDate = useMemo(() => {
   if (activeDates.length === 0) return null
@@ -583,10 +600,8 @@ async function fetchRecommendedStores() {
 
     const data = await res.json()
 
-if (data.fallback) {
-  setStoreFetchError('Geminiの上限に達したため、仮候補を表示しています。')
-}
 
+    
     console.log('store recommend result:', data)
 
     if (!res.ok) {
