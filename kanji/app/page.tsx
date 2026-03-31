@@ -228,7 +228,18 @@ function buildDateReason(params: {
 }) {
   const { mainGuestAvailability, availableCount, totalCount, eventType } = params
 
-  // 主賓OKパターン（最強）
+  if (totalCount === 0 || availableCount === 0) {
+    return 'まだ十分な回答が集まっていないため、日程理由は表示していません。'
+  }
+
+  if (availableCount === 1) {
+    if (mainGuestAvailability === 'yes') {
+      return '現時点では主賓が参加可能で、この候補が最も通しやすい日程です。'
+    }
+    return '現時点では1名が参加可能で、この候補が最も通しやすい日程です。'
+  }
+
+  // 主賓OKパターン
   if (mainGuestAvailability === 'yes') {
     if (eventType === '歓迎会' || eventType === '送別会') {
       return `主賓が無理なく参加でき、参加人数も ${availableCount}/${totalCount} 人と確保できるため、この日程が最も自然です。`
@@ -464,6 +475,9 @@ const alternativeStores =
   const selectedPastStore = MOCK_PAST_STORES.find(s => s.id === selectedPastStoreId)
 
   const shareText = generateShareText(eventType, selectedStore, organizerConditions)
+
+
+  
 const dateReason =
   recommendedDate && totalCount > 0 && recommendedDate.availableCount > 0
     ? buildDateReason({
@@ -473,6 +487,13 @@ const dateReason =
         eventType,
       })
     : 'まだ十分な回答が集まっていないため、日程理由は表示していません。'
+
+   const dateSummaryText =
+  totalCount === 0 || recommendedDate.availableCount === 0
+    ? 'まだ十分な回答が集まっていません'
+    : recommendedDate.availableCount === 1
+    ? '現時点では1名が参加可能です'
+    : `参加できる人 ${recommendedDate.availableCount}人 — 現時点で最も集まりやすい候補です` 
 
 const storeReason = buildStoreReason({
   eventType,
@@ -1216,10 +1237,10 @@ return (
                 }
                 highlight={recommendedDate.mainGuestAvailability === 'yes'}
               />
-              <ReasonItem
-                icon="人"
-                text={`参加できる人 ${recommendedDate.availableCount}人 — 全体でバランスが最もよい`}
-              />
+    <ReasonItem
+  icon="人"
+  text={dateSummaryText}
+/>
             </div>
 
             <div className="px-6 py-5 md:px-7">
