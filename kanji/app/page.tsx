@@ -383,7 +383,7 @@ function normalizeDateAnswers(
 }, [dbDates, dates])
 
 const activeParticipants = useMemo(() => {
-  if (dbResponses.length === 0) return participants
+  if (dbResponses.length === 0) return []
 
   return dbResponses.map((r: any, index: number) => ({
     id: r.id ?? `resp-${index}`,
@@ -392,7 +392,9 @@ const activeParticipants = useMemo(() => {
     genres: r.genres ?? [],
     area: r.areas ?? [],
   }))
-}, [dbResponses, participants, activeDates])
+}, [dbResponses, activeDates])
+
+
 
 const answeredParticipants = activeParticipants.filter((p) =>
   activeDates.some((date) => {
@@ -413,7 +415,6 @@ const unanswered = activeParticipants
 const answerCount = answeredParticipants.length
 const totalCount = activeParticipants.length
 const unansweredCount = totalCount - answerCount
-
 
 
 const recommendedDate = useMemo(() => {
