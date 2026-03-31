@@ -85,16 +85,27 @@ export const saveDecision = async ({
 }: {
   eventId: string
   selectedDate: string
-  selectedStoreId: string
+  selectedStoreId?: string | null
   organizerConditions: string[]
 }) => {
-  const { error } = await supabase.from('decisions').upsert({
+  const payload: {
+    event_id: string
+    selected_date_label: string
+    selected_store_id?: string | null
+    organizer_conditions: string[]
+    updated_at: string
+  } = {
     event_id: eventId,
     selected_date_label: selectedDate,
-    selected_store_id: selectedStoreId,
     organizer_conditions: organizerConditions,
     updated_at: new Date().toISOString(),
-  })
+  }
+
+  if (selectedStoreId !== undefined) {
+    payload.selected_store_id = selectedStoreId
+  }
+
+  const { error } = await supabase.from('decisions').upsert(payload)
 
   if (error) throw error
 }
