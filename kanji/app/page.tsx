@@ -476,7 +476,7 @@ const alternativeStores =
 
   const shareText = generateShareText(eventType, selectedStore, organizerConditions)
 
-
+const availableCount = recommendedDate?.availableCount ?? 0
   
 const dateReason =
   recommendedDate && totalCount > 0 && recommendedDate.availableCount > 0
@@ -488,12 +488,14 @@ const dateReason =
       })
     : 'まだ十分な回答が集まっていないため、日程理由は表示していません。'
 
-   const dateSummaryText =
-  totalCount === 0 || recommendedDate.availableCount === 0
+
+
+const dateSummaryText =
+  totalCount === 0 || availableCount === 0
     ? 'まだ十分な回答が集まっていません'
-    : recommendedDate.availableCount === 1
+    : availableCount === 1
     ? '現時点では1名が参加可能です'
-    : `参加できる人 ${recommendedDate.availableCount}人 — 現時点で最も集まりやすい候補です` 
+    : `参加できる人 ${availableCount}人 — 現時点で最も集まりやすい候補です`
 
 const storeReason = buildStoreReason({
   eventType,
