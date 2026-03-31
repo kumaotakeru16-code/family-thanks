@@ -464,14 +464,15 @@ const alternativeStores =
   const selectedPastStore = MOCK_PAST_STORES.find(s => s.id === selectedPastStoreId)
 
   const shareText = generateShareText(eventType, selectedStore, organizerConditions)
-  const dateReason = recommendedDate
-  ? buildDateReason({
-      mainGuestAvailability: recommendedDate.mainGuestAvailability,
-      availableCount: recommendedDate.availableCount,
-      totalCount,
-      eventType,
-    })
-  : ''
+const dateReason =
+  recommendedDate && totalCount > 0 && recommendedDate.availableCount > 0
+    ? buildDateReason({
+        mainGuestAvailability: recommendedDate.mainGuestAvailability,
+        availableCount: recommendedDate.availableCount,
+        totalCount,
+        eventType,
+      })
+    : 'まだ十分な回答が集まっていないため、日程理由は表示していません。'
 
 const storeReason = buildStoreReason({
   eventType,
@@ -553,8 +554,13 @@ async function decideRecommendedDate() {
     return
   }
 
-  if (!selectedStore?.id) {
-    alert('店が未選択です')
+  if (totalCount === 0) {
+    alert('まだ回答がありません。参加者の回答を待ってから日程を決めてください。')
+    return
+  }
+
+  if (recommendedDate.availableCount === 0) {
+    alert('参加できる人がいないため、この状態では日程を確定できません。')
     return
   }
 
@@ -562,7 +568,6 @@ async function decideRecommendedDate() {
     const data = await saveDecision({
       eventId: currentEventId,
       selectedDate: recommendedDate.date.id,
-      selectedStoreId: selectedStore.id,
       organizerConditions,
     })
 
@@ -721,7 +726,7 @@ return (
             </button>
 
             {/* 進行中の会 */}
-            <section>
+           {/*<section>
               <SectionLabel>進行中の会</SectionLabel>
               <button type="button"
                 onClick={() => setStep('dashboard')}
@@ -747,10 +752,10 @@ return (
                   </div>
                 </div>
               </button>
-            </section>
+            </section>*/}
 
             {/* 過去のお店 — "また使えそうなお店"として見せる */}
-            <section>
+            {/*<section>
               <div className="flex items-baseline justify-between">
                 <SectionLabel>また使えそうなお店</SectionLabel>
                 <button type="button" onClick={() => setStep('pastStores')} className="text-[11px] font-semibold text-stone-400 hover:text-stone-600">
@@ -779,7 +784,7 @@ return (
                   </button>
                 ))}
               </div>
-            </section>
+            </section>*/}
 
           </div>
         )}
