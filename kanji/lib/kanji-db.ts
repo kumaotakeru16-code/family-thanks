@@ -79,24 +79,24 @@ export const loadEventData = async (eventId: string) => {
 // ⑦ 決定保存
 export const saveDecision = async ({
   eventId,
-  selectedDate,
+  selectedDateId,
   selectedStoreId,
   organizerConditions,
 }: {
   eventId: string
-  selectedDate: string
+  selectedDateId: string
   selectedStoreId?: string | null
   organizerConditions: string[]
 }) => {
   const payload: {
     event_id: string
-    selected_date_label: string
+    selected_date_id: string
     selected_store_id?: string | null
     organizer_conditions: string[]
     updated_at: string
   } = {
     event_id: eventId,
-    selected_date_label: selectedDate,
+    selected_date_id: selectedDateId,
     organizer_conditions: organizerConditions,
     updated_at: new Date().toISOString(),
   }
@@ -105,10 +105,17 @@ export const saveDecision = async ({
     payload.selected_store_id = selectedStoreId
   }
 
-  const { error } = await supabase.from('decisions').upsert(payload)
+  const { data, error } = await supabase
+    .from('decisions')
+    .upsert(payload)
+    .select()
+    .single()
 
   if (error) throw error
+
+  return data
 }
+
 export const loadDecision = async (eventId: string) => {
   const { data: decision, error: decisionError } = await supabase
     .from('decisions')

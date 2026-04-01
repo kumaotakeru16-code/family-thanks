@@ -588,11 +588,11 @@ async function decideRecommendedDate() {
   }
 
   try {
-    const data = await saveDecision({
-      eventId: currentEventId,
-      selectedDate: recommendedDate.date.id,
-      organizerConditions,
-    })
+const data = await saveDecision({
+  eventId: currentEventId,
+  selectedDateId: recommendedDate.date.id,
+  organizerConditions,
+})
 
     setFinalDecision(data)
     setStep('dateConfirmed')
@@ -704,9 +704,10 @@ const shareUrl =
 
 const finalSelectedDate =
   finalDecision && finalDates.length > 0
-    ? finalDates.find((d: any) => d.id === finalDecision.selected_date) ?? null
+    ? finalDates.find((d: any) => d.id === finalDecision.selected_date_id) ?? null
     : null
 
+    
 return (
   <main className="min-h-screen" style={{ background: '#F5F3EF' }}>
     <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-14 pt-7 sm:px-6 lg:px-8">
@@ -1446,7 +1447,7 @@ return (
 
                   await saveDecision({
                     eventId: currentEventId,
-                    selectedDate: recommendedDate.date.id,
+                    selectedDateId: recommendedDate.date.id,
                     selectedStoreId: primaryStore.id,
                     organizerConditions,
                   })
