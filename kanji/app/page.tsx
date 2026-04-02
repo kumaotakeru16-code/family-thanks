@@ -604,14 +604,14 @@ const storeReason = selectedStore
   : '条件のバランスがよいため優先'
 
   // Merge store tags + active organizer conditions into display tags (max 4)
-  const effectiveTags = useMemo(() => {
-    const result = [...(selectedStore.tags ?? [])]
-    organizerConditions.forEach(c => {
-      const tag = c.replace('希望', '').replace('がよい', '')
-      if (!result.includes(tag)) result.push(tag)
-    })
-    return result.slice(0, 4)
-  }, [selectedStore, organizerConditions])
+const effectiveTags = useMemo(() => {
+  const result = [...(selectedStore?.tags ?? [])]
+  organizerConditions.forEach(c => {
+    const tag = c.replace('希望', '').replace('がよい', '')
+    if (!result.includes(tag)) result.push(tag)
+  })
+  return result.slice(0, 4)
+}, [selectedStore, organizerConditions])
 
   const primaryStore = selectedStore
 const secondaryStores = alternativeStores.slice(0, 2)
