@@ -12,7 +12,6 @@ type Step =
   | 'create'
   | 'dates'
   | 'shareLink'
-  | 'participant'
   | 'dashboard'
   | 'dateSuggestion'
   | 'dateConfirmed'
@@ -355,7 +354,6 @@ const FLOW_STEPS: Step[] = [
   'create',
   'dates',
   'shareLink',
-  'participant',
   'dashboard',
   'dateSuggestion',
   'dateConfirmed',
@@ -1062,9 +1060,7 @@ ${shareUrl}`
                 回答はすぐ終わります。
               </p>
             </div>
-            <button type="button" onClick={() => setStep('participant')} className="mt-4 text-xs font-bold text-stone-400 underline underline-offset-4 hover:text-stone-600">
-              参加者画面を確認する →
-            </button>
+            
             <ButtonRow>
               <GhostBtn onClick={() => setStep('dates')}>戻る</GhostBtn>
              <PrimaryBtn
@@ -1083,88 +1079,7 @@ ${shareUrl}`
           </Card>
         )}
 
-        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            ④ 参加者入力（デモ）
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        {step === 'participant' && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <span className="text-sm">👁</span>
-              <div>
-                <p className="text-[11px] font-black text-amber-700">参加者ビュー（デモ）</p>
-                <p className="text-[10px] text-amber-600">実際に参加者が見る画面です</p>
-              </div>
-            </div>
-            <Card>
-              <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">参加フォーム</p>
-              <h2 className="mt-1.5 text-2xl font-black text-stone-900 tracking-tight">{eventName}</h2>
-              <p className="mt-1.5 mb-6 text-sm text-stone-400">日程と希望をさっと入力してください。</p>
 
-              <FieldLabel>日程</FieldLabel>
-              <div className="mt-3 space-y-2.5">
-                {dates.map(date => (
-                  <div key={date.id} className="flex items-center justify-between rounded-2xl border border-stone-100 bg-white px-4 py-3">
-                    <span className="text-sm font-medium text-stone-700">{date.label}</span>
-                    <div className="flex gap-1.5">
-                      {(['yes', 'maybe', 'no'] as Availability[]).map(val => (
-                        <button type="button"
-                          key={val}
-                          onClick={() => setParticipantAvailability(prev => ({ ...prev, [date.id]: val }))}
-                          className={cx(
-                            'h-11 w-11 rounded-full text-base font-black transition active:scale-90',
-                            participantAvailability[date.id] === val
-                              ? val === 'yes' ? 'bg-emerald-500 text-white shadow-sm'
-                                : val === 'maybe' ? 'bg-amber-400 text-white shadow-sm'
-                                : 'bg-stone-400 text-white'
-                              : 'bg-stone-100 text-stone-400 hover:bg-stone-200'
-                          )}
-                        >
-                          {val === 'yes' ? '○' : val === 'maybe' ? '△' : '×'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-6">
-                <FieldLabel>ジャンル（任意・複数OK）</FieldLabel>
-                <div className="mt-2.5 flex flex-wrap gap-2">
-                  {GENRE_OPTIONS.map(g => (
-                    <Chip key={g} active={participantGenres.includes(g)} onClick={() => toggleItem(g, participantGenres, setParticipantGenres)}>{g}</Chip>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-5">
-                <FieldLabel>エリア（任意）</FieldLabel>
-                <div className="mt-2.5 flex flex-wrap gap-2">
-                  {AREA_OPTIONS.map(a => (
-                    <Chip key={a} active={participantArea.includes(a)} onClick={() => toggleItem(a, participantArea, setParticipantArea)}>{a}</Chip>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-8">
-                          <PrimaryBtn
-              onClick={async () => {
-                await submitResponse({
-                  eventId: createdEventId,
-                  name: participantName,
-                  availability: participantAvailability,
-                  genres: participantGenres,
-                  areas: participantArea,
-                })
-
-                setStep('shareLink')
-              }}
-            >
-              回答を送信する
-            </PrimaryBtn>
-              </div>
-            </Card>
-          </div>
-        )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑤ ダッシュボード
@@ -1174,7 +1089,7 @@ ${shareUrl}`
     <div className="px-1">
       <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 4</p>
       <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">回答状況</h2>
-      <p className="mt-1 text-sm text-stone-400">未回答を待たずに、今の状態で決められます。</p>
+      <p className="mt-1 text-sm text-stone-400">今の回答だけで先に決めてOKです。</p>
     </div>
 
     <div className="grid grid-cols-2 gap-3">
@@ -1471,8 +1386,12 @@ ${shareUrl}`
                 rel="noreferrer"
                 className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-4 text-base font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
               >
-                この店を見て予約する →
+                この店で予約に進む →
               </a>
+ <p className="mt-2 text-center text-xs font-semibold text-white/40">
+    まずはこの候補を見ればOKです
+  </p>
+
             </div>
           </div>
 
@@ -1503,7 +1422,9 @@ ${shareUrl}`
                       )}
                     </div>
                     {store.reason && (
-                      <p className="mt-2 text-sm leading-6 text-stone-600">{store.reason}</p>
+                      <p className="mt-2 text-sm leading-6 text-stone-600">
+  {buildSubStoreReason(store)}
+</p>
                     )}
                     <div className="mt-3">
                       <a
