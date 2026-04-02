@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { createEvent, submitResponse, loadEventData } from '@/lib/kanji-db'
+import { createEvent, loadEventData } from '@/lib/kanji-db'
 import { saveDecision } from '@/lib/kanji-db'
 import { loadDecision } from '@/lib/kanji-db'
 
@@ -377,11 +377,7 @@ export default function Page() {
   const [selectedPastStoreId, setSelectedPastStoreId] = useState<string | null>(null)
   const [storeDetailOrigin, setStoreDetailOrigin] = useState<Step>('pastStores')
 
-  const [participantAvailability, setParticipantAvailability] = useState<Record<string, Availability>>({})
-  const [participantGenres, setParticipantGenres] = useState<string[]>([])
-  const [participantArea, setParticipantArea] = useState<string[]>([])
   const [createdEventId, setCreatedEventId] = useState<string>('')
-  const [participantName, setParticipantName] = useState('')
   const [dbDates, setDbDates] = useState<any[]>([])
   const [dbResponses, setDbResponses] = useState<any[]>([])
   const [finalDecision, setFinalDecision] = useState<any | null>(null)
@@ -1073,7 +1069,7 @@ ${shareUrl}`
     setStep('dashboard')
   }}
 >
-  回答状況を見る
+  回答を確認して決める
 </PrimaryBtn>
             </ButtonRow>
           </Card>
@@ -1091,6 +1087,15 @@ ${shareUrl}`
       <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">回答状況</h2>
       <p className="mt-1 text-sm text-stone-400">今の回答だけで先に決めてOKです。</p>
     </div>
+
+    <button
+      type="button"
+      onClick={() => setStep('dateSuggestion')}
+      className="w-full rounded-3xl bg-stone-900 px-6 py-5 text-center transition hover:bg-stone-800 active:scale-[0.98]"
+    >
+      <p className="text-base font-black text-white">日程の提案を見る</p>
+      <p className="mt-0.5 text-sm font-normal text-white/50">今の回答で最善の日程を表示します</p>
+    </button>
 
     <div className="grid grid-cols-2 gap-3">
       <StatBox label="回答済み" value={`${answerCount} / ${totalCount}人`} />
@@ -1197,15 +1202,6 @@ ${shareUrl}`
         </button>
       </div>
     </div>
-
-    <button
-      type="button"
-      onClick={() => setStep('dateSuggestion')}
-      className="w-full rounded-3xl bg-stone-900 px-6 py-5 text-center transition hover:bg-stone-800 active:scale-[0.98]"
-    >
-      <p className="text-base font-black text-white">この状態で日程を決める</p>
-      <p className="mt-0.5 text-sm font-normal text-white/50">回答が揃いきっていなくてもOK</p>
-    </button>
 
     <GhostBtn onClick={() => setStep('shareLink')}>← 戻る</GhostBtn>
   </div>
@@ -1442,22 +1438,14 @@ ${shareUrl}`
             </details>
           )}
 
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setStep('organizerConditions')}
-              className="flex-1 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-bold text-stone-700"
-            >
-              条件を見直す
-            </button>
-            <button
-              type="button"
-              onClick={() => setStep('finalConfirm')}
-              className="flex-1 rounded-2xl bg-stone-900 px-4 py-3 text-sm font-black text-white"
-            >
-              この候補で進む
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setStep('finalConfirm')}
+            className="w-full rounded-3xl bg-stone-900 px-6 py-5 text-base font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
+          >
+            この候補で進む →
+          </button>
+          <GhostBtn onClick={() => setStep('organizerConditions')}>← 条件を見直す</GhostBtn>
         </div>
       )
     })()}
@@ -1576,22 +1564,7 @@ ${finalStore?.link ?? ''}`
             </a>
           )}
 
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setStep('storeSuggestion')}
-              className="flex-1 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-bold text-stone-700"
-            >
-              店候補を見直す
-            </button>
-            <button
-              type="button"
-              onClick={() => setStep('dashboard')}
-              className="flex-1 rounded-2xl bg-stone-900 px-4 py-3 text-sm font-black text-white"
-            >
-              幹事画面に戻る
-            </button>
-          </div>
+          <GhostBtn onClick={() => setStep('storeSuggestion')}>← 店候補を見直す</GhostBtn>
         </div>
       )
     })()}
