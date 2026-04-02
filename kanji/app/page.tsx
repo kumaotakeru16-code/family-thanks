@@ -1331,18 +1331,7 @@ ${shareUrl}`
       }
       side={
         <>
-          <PaneCard title="未回答者" sub="まだ返答がない人です。">
-            <div className="flex flex-wrap gap-1.5">
-              {unanswered.map((n) => (
-                <span
-                  key={n}
-                  className="rounded-full bg-stone-50 px-3 py-1.5 text-xs font-semibold text-stone-500 ring-1 ring-stone-200"
-                >
-                  {n}
-                </span>
-              ))}
-            </div>
-          </PaneCard>
+        
 
           <PaneCard title="この画面でやること" sub="回答が揃いきっていなくても先に進めます。">
             <div className="space-y-3">
