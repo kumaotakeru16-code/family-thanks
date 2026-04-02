@@ -707,7 +707,7 @@ const finalSelectedDate =
     ? finalDates.find((d: any) => d.id === finalDecision.selected_date_id) ?? null
     : null
 
-    
+
 return (
   <main className="min-h-screen" style={{ background: '#F5F3EF' }}>
     <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-14 pt-7 sm:px-6 lg:px-8">
@@ -1363,232 +1363,168 @@ return (
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑨ 店提案（決断UI）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-{step === 'storeSuggestion' && (
-  <div className="space-y-4">
-    <div className="px-1">
-      <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">
-        Step 8
-      </p>
-      <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900 md:text-3xl">
-        この店でかなり決めやすいです
-      </h2>
-      <p className="mt-1 text-sm text-stone-400">
-        第一候補を強く出しつつ、比較用に2件だけ残しています。
-      </p>
-    </div>
+{step === 'storeSuggestion' && recommendedDate && recommendedStores.length > 0 && (
+  <Card>
+    <StepLabel n={4} />
+    <CardTitle>今回の最適解</CardTitle>
+    <CardSub>
+      比較して悩むより、まずはこの候補から見ればOKです。
+    </CardSub>
 
-    <DecisionLayout
-      main={
-        <>
+    {(() => {
+      const primaryStore = recommendedStores[0]
+      const secondaryStores = recommendedStores.slice(1)
+      const participantCount = responses.length
+
+      return (
+        <div className="space-y-4">
           {/* 第一候補 */}
-          <div className="overflow-hidden rounded-3xl bg-stone-900 shadow-lg">
-            <div className="px-6 py-6 md:px-7 md:py-7">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-300/90">
-                    RECOMMENDED 1
-                  </p>
-                  <p className="mt-2 text-2xl font-black leading-snug tracking-tight text-white md:text-3xl">
-                    {primaryStore.name}
-                  </p>
-                  <p className="mt-1.5 text-sm text-white/60">
-                    {primaryStore.area} · {primaryStore.access}
-                  </p>
-                </div>
-
-                <span className="shrink-0 rounded-full bg-emerald-400/15 px-3 py-1.5 text-[11px] font-black text-emerald-200 ring-1 ring-emerald-300/20">
-                  第一候補
-                </span>
+          <div className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500">
+                  Best Choice
+                </p>
+                <h3 className="mt-1 text-lg font-black text-stone-900">
+                  {primaryStore.name}
+                </h3>
               </div>
 
-              {effectiveTags.length > 0 && (
-                <div className="mt-4 flex flex-wrap gap-1.5">
-                  {effectiveTags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-bold text-white/75"
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+              {primaryStore.genre && (
+                <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-600">
+                  {primaryStore.genre}
+                </span>
               )}
             </div>
 
-            <div className="bg-white/[0.06] px-6 py-4 md:px-7">
-              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/30">
-                この店を先に出す理由
+            {primaryStore.image && (
+              <div className="mb-4 overflow-hidden rounded-2xl">
+                <img
+                  src={primaryStore.image}
+                  alt={primaryStore.name}
+                  className="h-52 w-full object-cover"
+                />
+              </div>
+            )}
+
+            <div className="space-y-2 rounded-2xl bg-stone-50 p-3">
+              <p className="text-sm font-bold text-stone-800">
+                {primaryStore.reason || '参加者の希望と条件に合う候補です'}
               </p>
-              <p className="text-sm leading-7 text-white/90">
-                {storeReason}
-              </p>
+
+              <div className="flex flex-wrap gap-2 text-xs text-stone-500">
+                <span className="rounded-full bg-white px-3 py-1 font-semibold">
+                  日程：{recommendedDate.date.label}
+                </span>
+                <span className="rounded-full bg-white px-3 py-1 font-semibold">
+                  回答者：{participantCount}人
+                </span>
+                {primaryStore.area && (
+                  <span className="rounded-full bg-white px-3 py-1 font-semibold">
+                    エリア：{primaryStore.area}
+                  </span>
+                )}
+              </div>
             </div>
 
-            <div className="grid gap-2.5 px-6 py-5 md:px-7">
+            {primaryStore.description && (
+              <p className="mt-4 text-sm leading-6 text-stone-600">
+                {primaryStore.description}
+              </p>
+            )}
+
+            <div className="mt-4">
               <a
                 href={primaryStore.link}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-4 text-base font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-4 text-base font-black text-white transition hover:opacity-90 active:scale-[0.98]"
               >
-                この店で予約する
+                この店を見て予約する →
               </a>
-
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!recommendedDate) return
-
-                  const currentEventId = createdEventId || finalEvent?.id
-                  if (!currentEventId) {
-                    alert('event_id が見つかりません')
-                    return
-                  }
-
-                  await saveDecision({
-                    eventId: currentEventId,
-                    selectedDateId: recommendedDate.date.id,
-                    selectedStoreId: primaryStore.id,
-                    organizerConditions,
-                  })
-
-                  const result = await loadDecision(currentEventId)
-                  setFinalDecision(result?.decision ?? result ?? null)
-                  setFinalEvent(result?.event ?? null)
-                  setFinalDates(result?.dates ?? [])
-                  setStep('finalConfirm')
-                }}
-                className="w-full rounded-2xl bg-emerald-500 py-4 text-base font-black tracking-wide text-white shadow-md transition hover:bg-emerald-600 hover:shadow-lg active:scale-[0.98]"
-              >
-                この店で確定する
-              </button>
             </div>
           </div>
 
-          {/* サブ候補2件 */}
-          <PaneCard
-            title="他の候補"
-            sub="第一候補が難しいときだけ見る、比較用の2件です。"
-          >
-            <div className="space-y-3">
-              {secondaryStores.map((store, index) => {
-                const isSelected = selectedStoreId === store.id
+          {/* 補足理由 */}
+          <div className="rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-100">
+            <p className="text-sm font-bold text-amber-900">この候補を出した理由</p>
+            <p className="mt-1 text-sm leading-6 text-amber-800">
+              {primaryStore.reason ||
+                '主賓の希望、参加者の傾向、幹事条件をもとに優先度高めで選んでいます。'}
+            </p>
+          </div>
 
-                return (
-                  <button
-                    type="button"
+          {/* 他候補 */}
+          {secondaryStores.length > 0 && (
+            <details className="rounded-2xl bg-stone-50 p-4">
+              <summary className="cursor-pointer text-sm font-bold text-stone-700">
+                他の候補を見る
+              </summary>
+
+              <div className="mt-4 space-y-3">
+                {secondaryStores.map((store: any) => (
+                  <div
                     key={store.id}
-                    onClick={() => setSelectedStoreId(store.id)}
-                    className={cx(
-                      'block w-full rounded-2xl px-4 py-4 text-left transition active:scale-[0.99]',
-                      isSelected
-                        ? 'bg-stone-100 ring-2 ring-stone-300'
-                        : 'bg-stone-50 hover:bg-stone-100 ring-1 ring-stone-100 opacity-85'
-                    )}
+                    className="rounded-2xl border border-stone-200 bg-white p-3"
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black text-stone-400 ring-1 ring-stone-200">
-                            候補 {index + 2}
-                          </span>
-                          {isSelected && (
-                            <span className="text-[10px] font-black text-stone-500">
-                              現在選択中
-                            </span>
-                          )}
-                        </div>
-
-                        <p className="mt-2 text-sm font-bold text-stone-800">
-                          {store.name}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-stone-400">
-                          {store.area} · {store.access}
-                        </p>
-                        <p className="mt-2 text-xs leading-6 text-stone-500">
-                          {buildSubStoreReason(store)}
-                        </p>
+                      <div>
+                        <p className="text-sm font-bold text-stone-900">{store.name}</p>
+                        {store.genre && (
+                          <p className="mt-1 text-xs text-stone-500">{store.genre}</p>
+                        )}
                       </div>
-                    </div>
-
-                    {store.tags.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {store.tags.slice(0, 3).map((t) => (
-                          <span
-                            key={t}
-                            className="rounded-full bg-white px-2 py-0.5 text-[10px] text-stone-400 ring-1 ring-stone-200"
-                          >
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </PaneCard>
-        </>
-      }
-      side={
-        <>
-          <PaneCard title="今回の前提条件" sub="店選びの根拠を固定表示します。">
-            <div className="space-y-3">
-              <MiniInfoCard
-                label="会の種類"
-                value={<p className="text-sm leading-6 text-stone-700">{eventType}</p>}
-              />
-              <MiniInfoCard
-                label="参加人数"
-                value={<p className="text-sm leading-6 text-stone-700">{activeParticipants.length}人</p>}
-              />
-              <MiniInfoCard
-                label="幹事条件"
-                value={
-                  organizerConditions.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {organizerConditions.map((c) => (
-                        <span
-                          key={c}
-                          className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-stone-600 ring-1 ring-stone-200"
-                        >
-                          {c}
+                      {store.area && (
+                        <span className="rounded-full bg-stone-100 px-3 py-1 text-[11px] font-semibold text-stone-600">
+                          {store.area}
                         </span>
-                      ))}
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-sm text-stone-400">未設定</p>
-                  )
-                }
-              />
-            </div>
-          </PaneCard>
 
-          <PaneCard title="この画面でやること" sub="迷わせず、予約か確定に繋げます。">
-            <div className="space-y-3">
-              <MiniInfoCard
-                label="最優先"
-                value={
-                  <p className="text-sm leading-6 text-stone-700">
-                    まず第一候補を見る。ダメなら下の2件だけ比較する。
-                  </p>
-                }
-              />
-              <MiniInfoCard
-                label="判断軸"
-                value={
-                  <p className="text-sm leading-6 text-stone-700">
-                    ジャンル希望 / エリア / 幹事条件 / 会の性質
-                  </p>
-                }
-              />
-              <GhostBtn onClick={() => setStep('organizerConditions')}>← 戻る</GhostBtn>
-            </div>
-          </PaneCard>
-        </>
-      }
-    />
-  </div>
+                    {store.reason && (
+                      <p className="mt-2 text-sm leading-6 text-stone-600">
+                        {store.reason}
+                      </p>
+                    )}
+
+                    <div className="mt-3">
+                      <a
+                        href={store.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center justify-center rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-bold text-stone-700 transition hover:bg-stone-50"
+                      >
+                        この候補を見る
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {/* 戻る / 次へ */}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setStep('organizerConditions')}
+              className="flex-1 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-bold text-stone-700"
+            >
+              条件を見直す
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStep('finalConfirm')}
+              className="flex-1 rounded-2xl bg-stone-900 px-4 py-3 text-sm font-black text-white"
+            >
+              この候補で進む
+            </button>
+          </div>
+        </div>
+      )
+    })()}
+  </Card>
 )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
