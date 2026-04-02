@@ -395,7 +395,12 @@ export default function Page() {
   const [eventDetail, setEventDetail] = useState<any>(null)
   const [copied, setCopied] = useState(false)
   const stepHistoryRef = useRef<Step[]>(['home'])
-const isHandlingBackRef = useRef(false)
+  const isHandlingBackRef = useRef(false)
+  const openLineShare = (text: string) => {
+  const url = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`
+  window.open(url, '_blank')
+}
+
 
 function getPreviousStep(currentStep: Step): Step | null {
   const currentIndex = FLOW_STEPS.indexOf(currentStep)
@@ -822,6 +827,8 @@ return (
 
       {showProgress && <FlowProgress step={step} />}
 
+      
+
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ① ホーム
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
@@ -933,7 +940,7 @@ return (
                 value={eventName}
                 onChange={e => setEventName(e.target.value)}
                 placeholder="例：歓迎会 / ごはん会"
-                className="mt-2 w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 text-sm outline-none transition placeholder:text-stone-300 focus:border-stone-300 focus:bg-white"
+                className="mt-2 w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-300 focus:bg-white"
               />
             </div>
 
@@ -961,7 +968,7 @@ return (
                 onChange={e => setDateInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && addDate()}
                 placeholder="例：4/18（金）19:00"
-                className="flex-1 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm outline-none placeholder:text-stone-300 focus:border-stone-300 focus:bg-white"
+                className="flex-1 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-300 focus:bg-white"
               />
               <button type="button" onClick={addDate} className="rounded-2xl bg-stone-100 px-4 py-3 text-sm font-bold text-stone-600 transition hover:bg-stone-200">
                 追加
@@ -1005,26 +1012,44 @@ return (
           <Card>
             <StepLabel n={3} />
             <CardTitle>参加者に送る</CardTitle>
-            <CardSub>このリンクを共有します。1回の入力で完結します。</CardSub>
+            <CardSub>リンクを送るだけでOKです。</CardSub>
             <div className="rounded-2xl bg-stone-50 px-4 py-4">
               <p className="text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase mb-1.5">共有 URL</p>
             <p className="font-mono text-sm text-stone-600 break-all">
+
+              
               {shareUrl}
             </p>
             </div>
 
-                        <PrimaryBtn
-              onClick={async () => {
-                if (!shareUrl) return
-                await navigator.clipboard.writeText(shareUrl)
-              }}
-            >
-              リンクをコピー
-            </PrimaryBtn>
+<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+  <PrimaryBtn
+    onClick={async () => {
+      if (!shareUrl) return
+      await navigator.clipboard.writeText(shareUrl)
+    }}
+  >
+    リンクをコピー
+  </PrimaryBtn>
+
+  <GhostBtn
+    onClick={() => {
+      if (!shareUrl) return
+      const text = `日程調整お願いします！
+以下のリンクから回答してください🙏
+${shareUrl}`
+
+      const url = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`
+      window.open(url, '_blank')
+    }}
+  >
+    LINEで送る
+  </GhostBtn>
+</div>
 
             <div className="mt-3 rounded-2xl bg-amber-50 px-4 py-3.5 ring-1 ring-amber-100">
               <p className="text-sm leading-6 text-amber-800">
-                日程の○△×とお店の希望を1画面で入力してもらいます。10秒で完結する設計です。
+                回答はすぐ終わります。
               </p>
             </div>
             <button type="button" onClick={() => setStep('participant')} className="mt-4 text-xs font-bold text-stone-400 underline underline-offset-4 hover:text-stone-600">
