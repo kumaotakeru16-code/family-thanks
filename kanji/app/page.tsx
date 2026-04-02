@@ -36,11 +36,14 @@ type Participant = {
 type StoreCandidate = {
   id: string
   name: string
-  area: string
-  access: string
-  reason: string
   link: string
-  tags: string[]
+  genre?: string
+  image?: string
+  area?: string
+  access?: string
+  reason?: string
+  description?: string
+  tags?: string[]
 }
 type PastStore = {
   id: string
@@ -287,7 +290,7 @@ function buildStoreReason(params: {
   if (topArea) {
     if (topArea === '中間でOK') {
       reasons.push('全員が集まりやすいバランスの取れた立地')
-    } else if (store.area.includes(topArea)) {
+    } else if ((store.area ?? '').includes(topArea)) {
       reasons.push(`${topArea}に集まりやすい`)
     } else {
       reasons.push(`${topArea}方面からもアクセスしやすい`)
@@ -295,16 +298,16 @@ function buildStoreReason(params: {
   }
 
   // 幹事条件
-  if (hasPrivateRoom && store.tags.includes('個室あり')) {
+  if (hasPrivateRoom && (store.tags ?? []).includes('個室あり')) {
     reasons.push('個室条件を満たせる')
   }
 
-  if (wantsQuiet && store.tags.includes('静かめ')) {
+  if (wantsQuiet && (store.tags ?? []).includes('静かめ')) {
     reasons.push('落ち着いて話しやすい')
   }
 
   // 会の性質
-  if (isBusinessLike && store.tags.includes('会食向き')) {
+  if (isBusinessLike && (store.tags ?? []).includes('会食向き')) {
     reasons.push('会の目的にも合っている')
   }
 
@@ -359,6 +362,8 @@ export default function Page() {
   const [recommendedStores, setRecommendedStores] = useState<StoreCandidate[]>([])
   const [isLoadingStores, setIsLoadingStores] = useState(false)
   const [storeFetchError, setStoreFetchError] = useState<string | null>(null)
+  const [eventDetail, setEventDetail] = useState<any>(null)
+  const [copied, setCopied] = useState(false)
   
   
 
@@ -392,6 +397,14 @@ function normalizeDateAnswers(
     label: d.label,
   }))
 }, [dbDates, dates])
+
+const selectedStore: StoreCandidate | null =
+  recommendedStores?.[0] ?? null
+
+const activeTags = [
+  ...(selectedStore?.tags ?? []),
+  ...(organizerConditions ?? []),
+]
 
 const activeParticipants = useMemo(() => {
   if (dbResponses.length === 0) return []
@@ -464,8 +477,7 @@ const altDates = useMemo(
 
 const storePool = recommendedStores.length > 0 ? recommendedStores : MOCK_STORES
 
-const selectedStore =
-  storePool.find(s => s.id === selectedStoreId) ?? storePool[0]
+
 
 
   
@@ -506,7 +518,7 @@ const storeReason = buildStoreReason({
 
   // Merge store tags + active organizer conditions into display tags (max 4)
   const effectiveTags = useMemo(() => {
-    const result = [...selectedStore.tags]
+    const result = [...(selectedStore.tags ?? [])]
     organizerConditions.forEach(c => {
       const tag = c.replace('希望', '').replace('がよい', '')
       if (!result.includes(tag)) result.push(tag)
@@ -519,15 +531,15 @@ const secondaryStores = alternativeStores.slice(0, 2)
 
 function buildSubStoreReason(store: StoreCandidate) {
 const areaHit = activeParticipants.some((p) =>
-  (p.area ?? []).some((a: string) => a !== '中間でOK' && store.area.includes(a))
+  (p.area ?? []).some((a: string) => a !== '中間でOK' && (store.area ?? '').includes(a))
 )
 
 const genreHit = activeParticipants.some((p) =>
   (p.genres ?? []).some((g: string) =>
-    store.name.includes(g) || store.reason.includes(g)
+    store.name.includes(g) || (store.reason ?? '').includes(g)
   )
 )
-  const privateRoomHit = organizerConditions.includes('個室あり') && store.tags.includes('個室あり')
+  const privateRoomHit = organizerConditions.includes('個室あり') && (store.tags ?? []).includes('個室あり')
 
   if (privateRoomHit) return '幹事条件を満たしやすい代替候補'
   if (areaHit && genreHit) return 'エリアとジャンルの両方で外しにくい候補'
@@ -1374,8 +1386,7 @@ return (
     {(() => {
       const primaryStore = recommendedStores[0]
       const secondaryStores = recommendedStores.slice(1)
-      const participantCount = responses.length
-
+      const participantCount = dbResponses.length
       return (
         <div className="space-y-4">
           {/* 第一候補 */}
@@ -1531,105 +1542,134 @@ return (
             ⑨-b 最終確認（決定内容 + 共有文プレビュー）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
 {step === 'finalConfirm' && (
-  
-  <div className="space-y-4">
-    <div className="px-1">
-      <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">
-        Step 9
-      </p>
-      <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900 md:text-3xl">
-        この内容で大丈夫そうです
-      </h2>
-      <p className="mt-1 text-sm text-stone-400">
-        保存した決定内容を確認できます。
-      </p>
-    </div>
+  <Card>
+    <StepLabel n={5} />
+    <CardTitle>これで進めればOKです</CardTitle>
+    <CardSub>
+      日程と候補がまとまりました。あとは共有して進めるだけです。
+    </CardSub>
 
-    <div className="rounded-3xl bg-stone-900 px-6 py-7 text-white shadow-lg">
-      <p className="text-[10px] uppercase tracking-[0.25em] text-white/40">
-        決定内容
-      </p>
+    {(() => {
+      const finalSelectedDate =
+        finalDecision && finalDates.length > 0
+          ? finalDates.find((d: any) => d.id === finalDecision.selected_date_id) ?? null
+          : null
 
-      <p className="mt-3 text-2xl font-black leading-snug">
-        {selectedStore.name}
-      </p>
+      const finalStore = selectedStore || recommendedStores?.[0] || null
+      const participantCount = dbResponses.length
 
-<p className="mt-2 text-sm text-white/70">
-  {finalSelectedDate?.label ?? '未設定'}
-</p>
-    </div>
+      const finalShareText =
+        shareText ||
+        `日程は ${finalSelectedDate?.label ?? '未設定'} で進めたいです！
+候補はこちら：${finalStore?.name ?? 'お店未設定'}
+${finalStore?.link ?? ''}`
 
-    <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100 md:px-6 md:py-6">
-      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">
-        保存済みデータ
-      </p>
+      return (
+        <div className="space-y-4">
+          {/* 決定内容サマリー */}
+          <div className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-500">
+              Final Summary
+            </p>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">
-            会の種類
-          </p>
-          <p className="mt-2 text-sm font-bold text-stone-800">
-            {finalEvent?.event_type ?? '未設定'}
-          </p>
-        </div>
+            <div className="mt-3 space-y-3">
+              <div>
+                <p className="text-xs font-bold text-stone-400">日程</p>
+                <p className="mt-1 text-base font-black text-stone-900">
+                  {finalSelectedDate?.label ?? '未設定'}
+                </p>
+              </div>
 
-        <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">
-            選んだ日程
-          </p>
-<p className="mt-2 text-sm font-bold text-stone-800">
-  {finalSelectedDate?.label ?? '未設定'}
-</p>
-        </div>
+              <div>
+                <p className="text-xs font-bold text-stone-400">お店候補</p>
+                <p className="mt-1 text-base font-black text-stone-900">
+                  {finalStore?.name ?? '未設定'}
+                </p>
+              </div>
 
-        <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100 md:col-span-2">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">
-            幹事条件
-          </p>
-
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {(finalDecision?.organizer_conditions ?? []).length > 0 ? (
-              finalDecision.organizer_conditions.map((c: string) => (
-                <span
-                  key={c}
-                  className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-stone-600 ring-1 ring-stone-200"
-                >
-                  {c}
+              <div className="flex flex-wrap gap-2 text-xs text-stone-500">
+                <span className="rounded-full bg-stone-100 px-3 py-1 font-semibold">
+                  回答者：{participantCount}人
                 </span>
-              ))
-            ) : (
-              <p className="text-sm text-stone-400">未設定</p>
-            )}
+                {eventDetail?.event_type && (
+                  <span className="rounded-full bg-stone-100 px-3 py-1 font-semibold">
+                    会の種類：{eventDetail.event_type}
+                  </span>
+                )}
+                {finalStore?.area && (
+                  <span className="rounded-full bg-stone-100 px-3 py-1 font-semibold">
+                    エリア：{finalStore.area}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* 理由 */}
+          <div className="rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-100">
+            <p className="text-sm font-bold text-amber-900">この候補にした理由</p>
+            <p className="mt-1 text-sm leading-6 text-amber-800">
+              {finalStore?.reason ||
+                '参加者の回答傾向と幹事条件をもとに、進めやすい候補を優先しています。'}
+            </p>
+          </div>
+
+          {/* 共有文 */}
+          <div className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
+            <p className="text-sm font-bold text-stone-900">共有文</p>
+            <div className="mt-3 rounded-2xl bg-stone-50 p-4">
+              <p className="whitespace-pre-line text-sm leading-6 text-stone-700">
+                {finalShareText}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={async () => {
+                await navigator.clipboard.writeText(finalShareText)
+                setCopied(true)
+                setTimeout(() => setCopied(false), 1600)
+              }}
+              className="mt-3 inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+            >
+              {copied ? 'コピーしました' : '共有文をコピーする'}
+            </button>
+          </div>
+
+          {/* 外部導線 */}
+          {finalStore?.link && (
+            <a
+              href={finalStore.link}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 py-4 text-base font-black text-stone-900 transition hover:bg-stone-50 active:scale-[0.98]"
+            >
+              お店ページを開く →
+            </a>
+          )}
+
+          {/* 戻る */}
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setStep('storeSuggestion')}
+              className="flex-1 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-bold text-stone-700"
+            >
+              店候補を見直す
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStep('dashboard')}
+              className="flex-1 rounded-2xl bg-stone-900 px-4 py-3 text-sm font-black text-white"
+            >
+              幹事画面に戻る
+            </button>
           </div>
         </div>
-      </div>
-    </div>
-
-    <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">
-        共有文プレビュー
-      </p>
-
-      <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
-        <p className="whitespace-pre-line text-sm leading-7 text-stone-700">
-          {shareText}
-        </p>
-      </div>
-    </div>
-
-    <PrimaryBtn size="large" onClick={() => setStep('shared')}>
-      この内容で共有する
-    </PrimaryBtn>
-
-    <p className="text-center text-xs text-stone-400">
-      あとから変更もできます
-    </p>
-
-    <GhostBtn onClick={() => setStep('storeSuggestion')}>
-      ← 戻る
-    </GhostBtn>
-  </div>
+      )
+    })()}
+  </Card>
 )}
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑩ 共有
