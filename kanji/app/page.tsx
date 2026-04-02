@@ -363,12 +363,46 @@ const FLOW_STEPS: Step[] = [
   'shared',
 ]
 
+// --- Date helpers ---
+function weekdayLabel(d: Date): string {
+  const m = d.getMonth() + 1
+  const day = d.getDate()
+  const dow = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()]
+  return `${m}/${day}（${dow}）`
+}
+
+function dateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function generateWeekdays(from: Date, to: Date): DateOption[] {
+  const result: DateOption[] = []
+  const d = new Date(from)
+  d.setHours(0, 0, 0, 0)
+  const end = new Date(to)
+  end.setHours(23, 59, 59, 999)
+  while (d <= end) {
+    const dow = d.getDay()
+    if (dow !== 0 && dow !== 6) {
+      result.push({ id: `wd-${dateKey(new Date(d))}`, label: weekdayLabel(new Date(d)) })
+    }
+    d.setDate(d.getDate() + 1)
+  }
+  return result
+}
+
 // --- Main Component ---
 export default function Page() {
   const [step, setStep] = useState<Step>('home')
   const [eventType, setEventType] = useState<EventType>('歓迎会')
   const [eventName, setEventName] = useState('歓迎会')
   const [dateInput, setDateInput] = useState('')
+  const [generatedDates, setGeneratedDates] = useState<DateOption[]>([])
+  const [selectedDateIds, setSelectedDateIds] = useState<string[]>([])
+  const [showCalendar, setShowCalendar] = useState(false)
+  const [calStart, setCalStart] = useState<string | null>(null)
+  const [calEnd, setCalEnd] = useState<string | null>(null)
+  const [calViewMonth, setCalViewMonth] = useState<Date>(new Date())
   const [dates, setDates] = useState<DateOption[]>(INITIAL_DATES)
   const [participants] = useState<Participant[]>(MOCK_PARTICIPANTS)
   const [mainGuestId, setMainGuestId] = useState('p1')
@@ -464,6 +498,17 @@ useEffect(() => {
   window.addEventListener('popstate', onPopState)
   return () => window.removeEventListener('popstate', onPopState)
 }, [step])
+
+useEffect(() => {
+  if (step === 'dates' && generatedDates.length === 0) {
+    const today = new Date()
+    const twoWeeksLater = new Date(today)
+    twoWeeksLater.setDate(today.getDate() + 14)
+    const weekdays = generateWeekdays(today, twoWeeksLater)
+    setGeneratedDates(weekdays)
+    setSelectedDateIds(weekdays.map(d => d.id))
+  }
+}, [step, generatedDates.length])
 
   const activeDates = useMemo(() => {
   if (dbDates.length === 0) return dates
@@ -981,52 +1026,142 @@ return (
         
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            ③ 候補日入力
+            ③ 候補日選択
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'dates' && (
-          <Card>
-            <StepLabel n={2} />
-            <CardTitle>候補日を入れる</CardTitle>
-            <CardSub>参加者に○△×で選んでもらう日程です。</CardSub>
-            <FieldLabel>候補日を追加</FieldLabel>
-            <div className="mt-2 flex gap-2">
-              <input
-                value={dateInput}
-                onChange={e => setDateInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addDate()}
-                placeholder="例：4/18（金）19:00"
-                className="flex-1 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none placeholder:text-stone-400 focus:border-stone-300 focus:bg-white"
-              />
-              <button type="button" onClick={addDate} className="rounded-2xl bg-stone-100 px-4 py-3 text-sm font-bold text-stone-600 transition hover:bg-stone-200">
-                追加
-              </button>
+          <div className="space-y-4">
+            <div className="px-1">
+              <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 2</p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">候補日を選ぶ</h2>
+              <p className="mt-1 text-sm text-stone-400">良さそうな日をタップして選んでください。</p>
             </div>
-            <div className="mt-3 space-y-2">
-              {dates.map(d => (
-                <div key={d.id} className="flex items-center justify-between rounded-2xl bg-stone-50 px-4 py-3">
-                  <span className="text-sm font-medium text-stone-700">{d.label}</span>
-                  <button type="button" onClick={() => removeDate(d.id)} className="text-xs text-stone-300 transition hover:text-stone-500">削除</button>
-                </div>
-              ))}
-            </div>
-            <ButtonRow>
-              <GhostBtn onClick={() => setStep('create')}>戻る</GhostBtn>
-              <PrimaryBtn
-  onClick={async () => {
-    const eventId = await createEvent(
-      eventName,
-      eventType,
-      dates.map((d) => d.label)
-    )
 
-    setCreatedEventId(eventId)
-    setStep('shareLink')
-  }}
->
-  共有リンクを発行する
-</PrimaryBtn>
-            </ButtonRow>
-          </Card>
+            {/* Date chips */}
+            {!showCalendar && (
+              <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+                {generatedDates.length === 0 ? (
+                  <p className="text-sm text-stone-400">候補日を生成中…</p>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      {generatedDates.map(d => {
+                        const isSelected = selectedDateIds.includes(d.id)
+                        return (
+                          <button
+                            type="button"
+                            key={d.id}
+                            onClick={() =>
+                              setSelectedDateIds(prev =>
+                                prev.includes(d.id)
+                                  ? prev.filter(id => id !== d.id)
+                                  : [...prev, d.id]
+                              )
+                            }
+                            className={cx(
+                              'rounded-2xl px-4 py-2.5 text-sm font-bold transition active:scale-95',
+                              isSelected
+                                ? 'bg-stone-900 text-white'
+                                : 'bg-stone-50 text-stone-500 ring-1 ring-stone-200 hover:bg-stone-100'
+                            )}
+                          >
+                            {d.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {generatedDates.length > 0 && (
+                      <p className="mt-4 text-[11px] text-stone-400">
+                        {selectedDateIds.length}件 選択中
+                        <button
+                          type="button"
+                          onClick={() =>
+                            selectedDateIds.length === generatedDates.length
+                              ? setSelectedDateIds([])
+                              : setSelectedDateIds(generatedDates.map(d => d.id))
+                          }
+                          className="ml-3 font-bold text-stone-500 underline underline-offset-2"
+                        >
+                          {selectedDateIds.length === generatedDates.length ? 'すべて外す' : 'すべて選ぶ'}
+                        </button>
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Calendar range picker */}
+            {showCalendar && (
+              <CalendarPicker
+                viewMonth={calViewMonth}
+                onChangeMonth={setCalViewMonth}
+                calStart={calStart}
+                calEnd={calEnd}
+                onDayClick={(key) => {
+                  if (!calStart || (calStart && calEnd)) {
+                    setCalStart(key)
+                    setCalEnd(null)
+                  } else {
+                    if (key < calStart) {
+                      setCalEnd(calStart)
+                      setCalStart(key)
+                    } else {
+                      setCalEnd(key)
+                    }
+                  }
+                }}
+                onExtract={() => {
+                  if (!calStart || !calEnd) return
+                  const weekdays = generateWeekdays(new Date(calStart), new Date(calEnd))
+                  setGeneratedDates(weekdays)
+                  setSelectedDateIds(weekdays.map(d => d.id))
+                  setShowCalendar(false)
+                  setCalStart(null)
+                  setCalEnd(null)
+                }}
+                onCancel={() => {
+                  setShowCalendar(false)
+                  setCalStart(null)
+                  setCalEnd(null)
+                }}
+              />
+            )}
+
+            {!showCalendar && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCalendar(true)
+                  setCalViewMonth(new Date())
+                }}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-bold text-stone-600 transition hover:bg-stone-50 active:scale-[0.98]"
+              >
+                別の日程を選ぶ（カレンダーで指定）
+              </button>
+            )}
+
+            <PrimaryBtn
+              size="large"
+              disabled={selectedDateIds.length === 0}
+              onClick={async () => {
+                const selectedDates = generatedDates.filter(d => selectedDateIds.includes(d.id))
+                setDates(selectedDates)
+                const eventId = await createEvent(
+                  eventName,
+                  eventType,
+                  selectedDates.map(d => d.label)
+                )
+                setCreatedEventId(eventId)
+                setStep('shareLink')
+              }}
+            >
+              {selectedDateIds.length === 0
+                ? '候補日を選んでください'
+                : `この${selectedDateIds.length}件で作成`}
+            </PrimaryBtn>
+
+            <GhostBtn onClick={() => setStep('create')}>← 戻る</GhostBtn>
+          </div>
         )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1121,7 +1256,7 @@ ${shareUrl}`
     </button>
 
 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-  <StatBox label="回答済み" value={`${answerCount} / ${totalCount}人`} />
+  <StatBox label="回答済み" value={`${answerCount}人`} />
   <StatBox label="参加予定" value={`${yesCount}人`} />
   <StatBox label="調整中" value={`${maybeCount}人`} soft />
 </div>
@@ -2054,5 +2189,134 @@ function Chip({ children, active, onClick }: { children: React.ReactNode; active
     >
       {children}
     </button>
+  )
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// CalendarPicker
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function CalendarPicker({
+  viewMonth,
+  onChangeMonth,
+  calStart,
+  calEnd,
+  onDayClick,
+  onExtract,
+  onCancel,
+}: {
+  viewMonth: Date
+  onChangeMonth: (d: Date) => void
+  calStart: string | null
+  calEnd: string | null
+  onDayClick: (key: string) => void
+  onExtract: () => void
+  onCancel: () => void
+}) {
+  const year = viewMonth.getFullYear()
+  const month = viewMonth.getMonth()
+  const firstDay = new Date(year, month, 1)
+  const lastDay = new Date(year, month + 1, 0)
+  const leadingEmpties = firstDay.getDay()
+  const totalDays = lastDay.getDate()
+
+  const cells: (Date | null)[] = [
+    ...Array<null>(leadingEmpties).fill(null),
+    ...Array.from({ length: totalDays }, (_, i) => new Date(year, month, i + 1)),
+  ]
+  while (cells.length % 7 !== 0) cells.push(null)
+
+  function dk(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  function isInRange(d: Date) {
+    if (!calStart || !calEnd) return false
+    const k = dk(d)
+    return k > calStart && k < calEnd
+  }
+
+  const canExtract = !!calStart && !!calEnd
+
+  return (
+    <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+      {/* Month nav */}
+      <div className="mb-4 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => onChangeMonth(new Date(year, month - 1, 1))}
+          className="rounded-xl p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
+        >
+          ←
+        </button>
+        <p className="text-sm font-black text-stone-900">
+          {year}年{month + 1}月
+        </p>
+        <button
+          type="button"
+          onClick={() => onChangeMonth(new Date(year, month + 1, 1))}
+          className="rounded-xl p-2 text-stone-400 transition hover:bg-stone-100 hover:text-stone-700"
+        >
+          →
+        </button>
+      </div>
+
+      {/* Day-of-week header */}
+      <div className="mb-1 grid grid-cols-7">
+        {['日', '月', '火', '水', '木', '金', '土'].map(d => (
+          <div key={d} className="py-1 text-center text-[11px] font-bold text-stone-300">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Day grid */}
+      <div className="grid grid-cols-7 gap-y-1">
+        {cells.map((day, i) => {
+          if (!day) return <div key={`e-${i}`} />
+          const isWeekend = day.getDay() === 0 || day.getDay() === 6
+          const k = dk(day)
+          const isStart = k === calStart
+          const isEnd = k === calEnd
+          const inRange = isInRange(day)
+          return (
+            <button
+              type="button"
+              key={k}
+              onClick={() => onDayClick(k)}
+              className={cx(
+                'h-9 w-full rounded-xl text-sm font-semibold transition',
+                isStart || isEnd
+                  ? 'bg-stone-900 text-white'
+                  : inRange
+                  ? 'bg-stone-100 text-stone-700'
+                  : isWeekend
+                  ? 'text-stone-300'
+                  : 'text-stone-600 hover:bg-stone-50'
+              )}
+            >
+              {day.getDate()}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* State hint */}
+      <p className="mt-4 text-xs text-stone-400">
+        {!calStart
+          ? '開始日をタップしてください'
+          : !calEnd
+          ? '終了日をタップしてください'
+          : `${calStart} 〜 ${calEnd}`}
+      </p>
+
+      {/* Actions */}
+      <div className="mt-4 space-y-2">
+        <PrimaryBtn disabled={!canExtract} onClick={onExtract}>
+          この範囲の平日を抽出する
+        </PrimaryBtn>
+        <GhostBtn onClick={onCancel}>キャンセル</GhostBtn>
+      </div>
+    </div>
   )
 }
