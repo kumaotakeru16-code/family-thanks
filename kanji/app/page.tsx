@@ -547,6 +547,20 @@ const recommendedDate = useMemo(() => {
   return scored[0] ?? null
 }, [activeDates, activeParticipants, mainGuestId])
 
+
+
+const confirmedYesParticipants = recommendedDate
+  ? activeParticipants.filter((p) => p.availability?.[recommendedDate.date.id] === 'yes')
+  : []
+
+const maybeParticipants = recommendedDate
+  ? activeParticipants.filter((p) => p.availability?.[recommendedDate.date.id] === 'maybe')
+  : []
+
+const yesCount = confirmedYesParticipants.length
+const maybeCount = maybeParticipants.length
+const maybeNames = maybeParticipants.map((p) => p.name)
+
 const altDates = useMemo(
   () => activeDates.filter(d => d.id !== recommendedDate?.date.id).slice(0, 2),
   [activeDates, recommendedDate]
@@ -801,6 +815,15 @@ const reminderText = `日程調整の回答をお願いします！
 1分で終わります🙏
 
 ${shareUrl}`
+
+const maybeConfirmText =
+  recommendedDate
+    ? `この日で進めようと思っています！
+参加できそうか、最終的にどうか教えてください🙏
+
+日程：${recommendedDate.date.label}
+${shareUrl}`
+    : ''
 
 const finalSelectedDate =
   finalDecision && finalDates.length > 0
@@ -1097,12 +1120,32 @@ ${shareUrl}`
       <p className="mt-0.5 text-sm font-normal text-white/50">今の回答で最善の日程を表示します</p>
     </button>
 
-    <div className="grid grid-cols-2 gap-3">
-      <StatBox label="回答済み" value={`${answerCount} / ${totalCount}人`} />
-      {recommendedDate && (
-        <StatBox label="最有力日程" value={recommendedDate.date.label} />
+<div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+  <StatBox label="回答済み" value={`${answerCount} / ${totalCount}人`} />
+  <StatBox label="参加予定" value={`${yesCount}人`} />
+  <StatBox label="調整中" value={`${maybeCount}人`} soft />
+</div>
+
+{recommendedDate && (
+  <div className="mt-3 rounded-2xl bg-emerald-50 px-4 py-4 ring-1 ring-emerald-100">
+    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">
+      BEST DATE
+    </p>
+    <p className="mt-2 text-lg font-black text-stone-900">
+      {recommendedDate.date.label}
+    </p>
+    <div className="mt-2 flex flex-wrap gap-2">
+      <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-700">
+        参加予定 {yesCount}人
+      </span>
+      {maybeCount > 0 && (
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-amber-700">
+          調整中 {maybeCount}人
+        </span>
       )}
     </div>
+  </div>
+)}
 
     <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-stone-100">
       <div className="flex items-center justify-between border-b border-stone-50 px-5 py-3">
@@ -1226,20 +1269,34 @@ ${shareUrl}`
         </p>
       </div>
 
-      <div className="space-y-3 bg-white/[0.06] px-6 py-5">
-        <ReasonItem
-          icon="◎"
-          text={
-            recommendedDate.mainGuestAvailability === 'yes'
-              ? '主賓が参加できる'
-              : recommendedDate.mainGuestAvailability === 'maybe'
-              ? '主賓は調整すれば参加可能'
-              : '主賓は参加しにくい日程'
-          }
-          highlight={recommendedDate.mainGuestAvailability === 'yes'}
-        />
-        <ReasonItem icon="人" text={dateSummaryText} />
-      </div>
+<div className="space-y-3 bg-white/[0.06] px-6 py-5">
+  <ReasonItem
+    icon="◎"
+    text={
+      recommendedDate.mainGuestAvailability === 'yes'
+        ? '主賓が参加できる'
+        : recommendedDate.mainGuestAvailability === 'maybe'
+        ? '主賓は調整すれば参加可能'
+        : '主賓は参加しにくい日程'
+    }
+    highlight={recommendedDate.mainGuestAvailability === 'yes'}
+  />
+  <ReasonItem
+    icon="人"
+    text={`参加予定 ${yesCount}人${maybeCount > 0 ? ` / 調整中 ${maybeCount}人` : ''}`}
+  />
+</div>
+
+<div className="flex flex-wrap gap-2 px-6 pb-1">
+  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+    参加予定 {yesCount}人
+  </span>
+  {maybeCount > 0 && (
+    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+      調整中 {maybeCount}人
+    </span>
+  )}
+</div>
 
       <div className="px-6 py-5">
         <PrimaryBtn size="large" onClick={decideRecommendedDate}>
@@ -1275,22 +1332,78 @@ ${shareUrl}`
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑦ 日程確定
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        {step === 'dateConfirmed' && recommendedDate && (
-          <Card>
-            <StepLabel n={6} />
-            <CardTitle>日程が決まりました</CardTitle>
-            <CardSub>次は参加者の希望をもとにお店を決めます。</CardSub>
-            <div className="rounded-2xl bg-stone-50 px-5 py-5">
-              <p className="text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase mb-1.5">確定日程</p>
-              <p className="text-2xl font-black text-stone-900 tracking-tight">{recommendedDate.date.label}</p>
-            </div>
-            <ButtonRow>
-              <GhostBtn onClick={() => setStep('dateSuggestion')}>戻る</GhostBtn>
-<PrimaryBtn size="large" onClick={() => setStep('organizerConditions')}>
-  次へ（店決めへ）
-</PrimaryBtn>            </ButtonRow>
-          </Card>
+{step === 'dateConfirmed' && recommendedDate && (
+  <Card>
+    <StepLabel n={6} />
+    <CardTitle>日程が決まりました</CardTitle>
+    <CardSub>まずは参加予定を確認し、必要なら△の人に最終確認できます。</CardSub>
+
+    <div className="rounded-2xl bg-stone-50 px-5 py-5">
+      <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">
+        確定日程
+      </p>
+      <p className="text-2xl font-black tracking-tight text-stone-900">
+        {recommendedDate.date.label}
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+          参加予定 {yesCount}人
+        </span>
+        {maybeCount > 0 && (
+          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+            調整中 {maybeCount}人
+          </span>
         )}
+      </div>
+    </div>
+
+    {maybeCount > 0 && (
+      <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-4 ring-1 ring-amber-100">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700">
+          △の人に確認する
+        </p>
+        <p className="mt-2 text-sm leading-6 text-amber-800">
+          {maybeNames.join('、')} さんは「調整中」です。
+          この日で進めてよいか、最終確認できます。
+        </p>
+
+        <div className="mt-3 rounded-2xl bg-white/70 px-4 py-3">
+          <p className="whitespace-pre-line text-sm leading-6 text-stone-700">
+            {maybeConfirmText}
+          </p>
+        </div>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <GhostBtn
+            onClick={async () => {
+              if (!maybeConfirmText) return
+              await navigator.clipboard.writeText(maybeConfirmText)
+            }}
+          >
+            確認文をコピー
+          </GhostBtn>
+
+          <PrimaryBtn
+            onClick={() => {
+              if (!maybeConfirmText) return
+              openLineShare(maybeConfirmText)
+            }}
+          >
+            LINEで確認する
+          </PrimaryBtn>
+        </div>
+      </div>
+    )}
+
+    <ButtonRow>
+      <GhostBtn onClick={() => setStep('dateSuggestion')}>戻る</GhostBtn>
+      <PrimaryBtn size="large" onClick={() => setStep('organizerConditions')}>
+        次へ（店決めへ）
+      </PrimaryBtn>
+    </ButtonRow>
+  </Card>
+)}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑧ 幹事条件設定
@@ -1500,21 +1613,26 @@ ${finalStore?.link ?? ''}`
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
-              <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
-                回答者 {participantCount}人
-              </span>
-              {eventType && (
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
-                  {eventType}
-                </span>
-              )}
-              {effectiveTags.map((tag) => (
-                <span key={tag} className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
-                  {tag}
-                </span>
-              ))}
-            </div>
+ <div className="flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
+  <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
+    参加予定 {yesCount}人
+  </span>
+  {maybeCount > 0 && (
+    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
+      調整中 {maybeCount}人
+    </span>
+  )}
+  {eventType && (
+    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
+      {eventType}
+    </span>
+  )}
+  {effectiveTags.map((tag) => (
+    <span key={tag} className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
+      {tag}
+    </span>
+  ))}
+</div>
           </div>
 
           {/* 理由 */}
@@ -1523,7 +1641,17 @@ ${finalStore?.link ?? ''}`
               <p className="text-sm font-bold text-amber-900">この候補にした理由</p>
               <p className="mt-1 text-sm leading-6 text-amber-800">{finalStore.reason}</p>
             </div>
+
+            
           )}
+
+          <div className="rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
+  <p className="text-sm font-bold text-stone-800">参加状況</p>
+  <p className="mt-1 text-sm leading-6 text-stone-600">
+    参加予定は {yesCount}人です。
+    {maybeCount > 0 ? ` ほかに調整中が ${maybeCount}人います。` : ''}
+  </p>
+</div>
 
           {/* 共有文 + CTA */}
           <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
