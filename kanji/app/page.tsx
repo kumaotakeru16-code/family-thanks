@@ -487,9 +487,7 @@ const activeTags = [
   ...(organizerConditions ?? []),
 ]
 
-const reminderText = `まだ回答していない方、お願いします！
-すぐ終わるのでご協力ください🙏
-${shareUrl}`
+
 
 const activeParticipants = useMemo(() => {
   if (dbResponses.length === 0) return []
@@ -617,6 +615,8 @@ const storeReason = selectedStore
 
   const primaryStore = selectedStore
 const secondaryStores = alternativeStores.slice(0, 2)
+
+
 
 function buildSubStoreReason(store: StoreCandidate) {
 const areaHit = activeParticipants.some((p) =>
@@ -802,6 +802,10 @@ const shareUrl =
   typeof window !== 'undefined'
     ? `${window.location.origin}/e/${createdEventId}`
     : ''
+
+ const reminderText = `まだ回答していない方、お願いします！
+すぐ終わるのでご協力ください🙏
+${shareUrl}`   
 
 const finalSelectedDate =
   finalDecision && finalDates.length > 0
