@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { createEvent, submitResponse, loadEventData } from '@/lib/kanji-db'
 import { saveDecision } from '@/lib/kanji-db'
@@ -352,8 +352,17 @@ function cx(...c: (string | false | null | undefined)[]) {
 }
 
 const FLOW_STEPS: Step[] = [
-  'create', 'dates', 'shareLink', 'dashboard', 'dateSuggestion',
-  'dateConfirmed', 'organizerConditions', 'storeSuggestion', 'finalConfirm', 'shared',
+  'create',
+  'dates',
+  'shareLink',
+  'participant',
+  'dashboard',
+  'dateSuggestion',
+  'dateConfirmed',
+  'organizerConditions',
+  'storeSuggestion',
+  'finalConfirm',
+  'shared',
 ]
 
 // --- Main Component ---
@@ -385,7 +394,14 @@ export default function Page() {
   const [storeFetchError, setStoreFetchError] = useState<string | null>(null)
   const [eventDetail, setEventDetail] = useState<any>(null)
   const [copied, setCopied] = useState(false)
-  
+  const stepHistoryRef = useRef<Step[]>(['home'])
+const isHandlingBackRef = useRef(false)
+
+function getPreviousStep(currentStep: Step): Step | null {
+  const currentIndex = FLOW_STEPS.indexOf(currentStep)
+  if (currentIndex <= 0) return null
+  return FLOW_STEPS[currentIndex - 1] ?? null
+}
   
 
  
@@ -410,6 +426,45 @@ function normalizeDateAnswers(
   return normalized
 }
 
+useEffect(() => {
+  if (typeof window === 'undefined') return
+
+  const historyStack = stepHistoryRef.current
+  const lastStep = historyStack[historyStack.length - 1]
+
+  if (lastStep !== step) {
+    historyStack.push(step)
+  }
+
+  // アプリ内step用の履歴を1つ積む
+  window.history.pushState({ appStep: step }, '', window.location.href)
+}, [step])
+
+useEffect(() => {
+  if (typeof window === 'undefined') return
+
+  const onPopState = () => {
+    if (isHandlingBackRef.current) return
+
+    // homeなら通常のブラウザ戻るを許可
+    if (step === 'home') return
+
+    const previousStep = getPreviousStep(step)
+
+    if (!previousStep) return
+
+    isHandlingBackRef.current = true
+    setStep(previousStep)
+
+    // popstate後にフラグ解除
+    window.setTimeout(() => {
+      isHandlingBackRef.current = false
+    }, 0)
+  }
+
+  window.addEventListener('popstate', onPopState)
+  return () => window.removeEventListener('popstate', onPopState)
+}, [step])
 
   const activeDates = useMemo(() => {
   if (dbDates.length === 0) return dates
