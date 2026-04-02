@@ -803,15 +803,17 @@ const shareUrl =
     ? `${window.location.origin}/e/${createdEventId}`
     : ''
 
- const reminderText = `まだ回答していない方、お願いします！
-すぐ終わるのでご協力ください🙏
-${shareUrl}`   
+const reminderText = `日程調整の回答をお願いします！
+1分で終わります🙏
+
+${shareUrl}`
 
 const finalSelectedDate =
   finalDecision && finalDates.length > 0
     ? finalDates.find((d: any) => d.id === finalDecision.selected_date_id) ?? null
     : null
 
+    
 
 return (
   <main className="min-h-screen" style={{ background: '#F5F3EF' }}>
@@ -1215,7 +1217,16 @@ ${shareUrl}`
 )}
 
               <StatBox label="回答済み" value={`${answerCount} / ${totalCount}人`} />
-              <StatBox label="未入力候補" value={`${unanswered.length}人`} soft />
+             <div className="mt-3">
+  <GhostBtn
+    onClick={async () => {
+      if (!shareUrl) return
+      await navigator.clipboard.writeText(reminderText)
+    }}
+  >
+    リマインドを送る
+  </GhostBtn>
+</div>
             </div>
 
             <div className="mt-4 overflow-hidden rounded-2xl border border-stone-100 bg-white">
