@@ -260,70 +260,91 @@ function buildDateReason(params: {
 }
 
 function buildStoreReason(params: {
-  eventType: EventType
   store: StoreCandidate
   participants: Participant[]
   organizerConditions: string[]
 }) {
-  const { eventType, store, participants, organizerConditions } = params
+  const { store, participants, organizerConditions } = params
 
-  const topGenres = getTopGenres(participants)
-  const topAreas = getTopAreas(participants)
+  const genreCounts = new Map<string, number>()
+  const areaCounts = new Map<string, number>()
 
-  const topGenre = topGenres[0]
-  const topArea = topAreas[0]
+  participants.forEach((p) => {
+    ;(p.genres ?? []).forEach((genre) => {
+      genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1)
+    })
 
-  const hasPrivateRoom = organizerConditions.includes('個室あり')
-  const wantsQuiet = organizerConditions.includes('静かめ')
+    ;(p.area ?? []).forEach((area) => {
+      if (area !== '中間でOK') {
+        areaCounts.set(area, (areaCounts.get(area) ?? 0) + 1)
+      }
+    })
+  })
 
-  const isBusinessLike =
-    eventType === '会食' || eventType === '歓迎会' || eventType === '送別会'
+  const topGenreEntry =
+    [...genreCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? null
+  const topAreaEntry =
+    [...areaCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? null
 
-  const reasons: string[] = []
+  const topGenre = topGenreEntry?.[0] ?? null
+  const topGenreCount = topGenreEntry?.[1] ?? 0
+  const topArea = topAreaEntry?.[0] ?? null
 
-  // ジャンル軸
-  if (topGenre) {
-    reasons.push(`${topGenre}の希望に沿いやすい`)
+  const genreText = [
+    store.genre ?? '',
+    store.name ?? '',
+    store.reason ?? '',
+    ...(store.tags ?? []),
+  ].join(' ')
+
+  const areaText = [
+    store.area ?? '',
+    store.access ?? '',
+    store.reason ?? '',
+  ].join(' ')
+
+  const genreHit =
+    !!topGenre &&
+    topGenreCount >= 2 &&
+    genreText.includes(topGenre)
+
+  const areaHit =
+    !!topArea &&
+    areaText.includes(topArea)
+
+  const privateRoomHit =
+    organizerConditions.includes('個室あり') &&
+    (store.tags ?? []).includes('個室あり')
+
+  const quietHit =
+    organizerConditions.includes('静かめ') &&
+    (store.tags ?? []).includes('静かめ')
+
+  const businessHit =
+    organizerConditions.includes('会食向き') &&
+    (store.tags ?? []).includes('会食向き')
+
+  if (genreHit) {
+    return `${topGenre}希望が多かったため優先`
   }
 
-  // エリア軸
-  if (topArea) {
-    if (topArea === '中間でOK') {
-      reasons.push('全員が集まりやすいバランスの取れた立地')
-    } else if ((store.area ?? '').includes(topArea)) {
-      reasons.push(`${topArea}に集まりやすい`)
-    } else {
-      reasons.push(`${topArea}方面からもアクセスしやすい`)
-    }
+  if (areaHit) {
+    return `${topArea}に集まりやすいため優先`
   }
 
-  // 幹事条件
-  if (hasPrivateRoom && (store.tags ?? []).includes('個室あり')) {
-    reasons.push('個室条件を満たせる')
+  if (privateRoomHit) {
+    return '個室条件を満たしやすいため優先'
   }
 
-  if (wantsQuiet && (store.tags ?? []).includes('静かめ')) {
-    reasons.push('落ち着いて話しやすい')
+  if (quietHit) {
+    return '落ち着いて話しやすいため優先'
   }
 
-  // 会の性質
-  if (isBusinessLike && (store.tags ?? []).includes('会食向き')) {
-    reasons.push('会の目的にも合っている')
+  if (businessHit) {
+    return '会の目的に合いやすいため優先'
   }
 
-  // 出力ロジック（ここが重要）
-  if (reasons.length >= 3) {
- return `${reasons[0]}うえに、${reasons[1]}ため、さらに${reasons[2]}ことから、この店が最も無理がなく、全体として納得しやすい選択です。` }
-
-  if (reasons.length === 2) {
-    return `${reasons[0]}うえに、${reasons[1]}ため、この店が最も自然な選択です。`
-  }
-
-  if (reasons.length === 1) {
-    return `${reasons[0]}ため、この店が最も適しています。`
-  }
-
-  return '参加者の希望と条件を踏まえ、全体として最も無理の少ない候補です。'
+  return '条件のバランスがよいため優先'
 }
 
 function cx(...c: (string | false | null | undefined)[]) {
@@ -486,7 +507,10 @@ const alternativeStores =
 
   const selectedPastStore = MOCK_PAST_STORES.find(s => s.id === selectedPastStoreId)
 
-  const shareText = generateShareText(eventType, selectedStore, organizerConditions)
+  const shareText =
+  selectedStore
+    ? generateShareText(eventType, selectedStore, organizerConditions)
+    : ''
 
 const availableCount = recommendedDate?.availableCount ?? 0
   
@@ -509,12 +533,13 @@ const dateSummaryText =
     ? '現時点では1名が参加可能です'
     : `参加できる人 ${availableCount}人 — 現時点で最も集まりやすい候補です`
 
-const storeReason = buildStoreReason({
-  eventType,
-  store: selectedStore,
-  participants: activeParticipants,
-  organizerConditions,
-})
+const storeReason = selectedStore
+  ? buildStoreReason({
+      store: selectedStore,
+      participants: activeParticipants,
+      organizerConditions,
+    })
+  : '条件のバランスがよいため優先'
 
   // Merge store tags + active organizer conditions into display tags (max 4)
   const effectiveTags = useMemo(() => {
@@ -1419,9 +1444,9 @@ return (
             )}
 
             <div className="space-y-2 rounded-2xl bg-stone-50 p-3">
-              <p className="text-sm font-bold text-stone-800">
-                {primaryStore.reason || '参加者の希望と条件に合う候補です'}
-              </p>
+             <p className="text-sm font-bold text-stone-800">
+              {storeReason}
+            </p>
 
               <div className="flex flex-wrap gap-2 text-xs text-stone-500">
                 <span className="rounded-full bg-white px-3 py-1 font-semibold">
@@ -1459,10 +1484,9 @@ return (
           {/* 補足理由 */}
           <div className="rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-100">
             <p className="text-sm font-bold text-amber-900">この候補を出した理由</p>
-            <p className="mt-1 text-sm leading-6 text-amber-800">
-              {primaryStore.reason ||
-                '主賓の希望、参加者の傾向、幹事条件をもとに優先度高めで選んでいます。'}
-            </p>
+           <p className="mt-1 text-sm leading-6 text-amber-800">
+            {storeReason}
+          </p>
           </div>
 
           {/* 他候補 */}
