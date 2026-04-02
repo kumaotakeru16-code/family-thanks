@@ -400,7 +400,7 @@ export default function Page() {
   const url = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`
   window.open(url, '_blank')
 }
-
+  const [reminderCopied, setReminderCopied] = useState(false)
 
 function getPreviousStep(currentStep: Step): Step | null {
   const currentIndex = FLOW_STEPS.indexOf(currentStep)
@@ -1216,16 +1216,38 @@ ${shareUrl}`
   </div>
 )}
 
-              <StatBox label="回答済み" value={`${answerCount} / ${totalCount}人`} />
-             <div className="mt-3">
+<StatBox label="回答済み" value={`${answerCount} / ${totalCount}人`} />
+
+<div className="mt-3 rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
+  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">
+    REMINDER
+  </p>
+  <p className="mt-2 whitespace-pre-line text-sm leading-6 text-stone-700">
+    {reminderText}
+  </p>
+</div>
+
+<div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
   <GhostBtn
     onClick={async () => {
       if (!shareUrl) return
       await navigator.clipboard.writeText(reminderText)
+      setReminderCopied(true)
+      setTimeout(() => setReminderCopied(false), 1600)
     }}
   >
-    リマインドを送る
+    {reminderCopied ? 'コピーしました' : 'リマインドをコピー'}
   </GhostBtn>
+
+  <PrimaryBtn
+    onClick={() => {
+      if (!shareUrl) return
+      const url = `https://line.me/R/msg/text/?${encodeURIComponent(reminderText)}`
+      window.open(url, '_blank')
+    }}
+  >
+    LINEで送る
+  </PrimaryBtn>
 </div>
             </div>
 
