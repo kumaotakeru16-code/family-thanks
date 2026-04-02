@@ -487,6 +487,10 @@ const activeTags = [
   ...(organizerConditions ?? []),
 ]
 
+const reminderText = `まだ回答していない方、お願いします！
+すぐ終わるのでご協力ください🙏
+${shareUrl}`
+
 const activeParticipants = useMemo(() => {
   if (dbResponses.length === 0) return []
 
@@ -1173,6 +1177,17 @@ ${shareUrl}`
       </p>
     </div>
 
+    <div className="mt-3">
+  <GhostBtn
+    onClick={async () => {
+      if (!shareUrl) return
+      await navigator.clipboard.writeText(reminderText)
+    }}
+  >
+    まだの方向けメッセージをコピー
+  </GhostBtn>
+</div>
+
     <DecisionLayout
       main={
         <>
@@ -1196,7 +1211,7 @@ ${shareUrl}`
 )}
 
               <StatBox label="回答済み" value={`${answerCount} / ${totalCount}人`} />
-              <StatBox label="未回答" value={`${unanswered.length}人`} soft />
+              <StatBox label="未入力候補" value={`${unanswered.length}人`} soft />
             </div>
 
             <div className="mt-4 overflow-hidden rounded-2xl border border-stone-100 bg-white">
