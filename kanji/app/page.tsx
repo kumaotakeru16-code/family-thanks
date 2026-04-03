@@ -442,6 +442,9 @@ export default function Page() {
   const [showHeroParticipants, setShowHeroParticipants] = useState(false)
   const [showFinalParticipants, setShowFinalParticipants] = useState(false)
 
+
+  
+
   const [areaInput, setAreaInput] = useState('')
   const [showAltStores, setShowAltStores] = useState(false)
 
@@ -489,6 +492,9 @@ export default function Page() {
 
   const selectedTime = `${selectedHour}:${selectedMinute}`
 
+
+　
+  
 function getPreviousStep(currentStep: Step): Step | null {
   const currentIndex = FLOW_STEPS.indexOf(currentStep)
   if (currentIndex <= 0) return null
@@ -614,7 +620,17 @@ const activeParticipants = useMemo(() => {
   }))
 }, [dbResponses, activeDates])
 
+const finalDateId = finalDecision?.selected_date_id ?? null
 
+const finalYesParticipants =
+  finalDateId
+    ? activeParticipants.filter((p) => p.availability?.[finalDateId] === 'yes')
+    : []
+
+const finalMaybeParticipants =
+  finalDateId
+    ? activeParticipants.filter((p) => p.availability?.[finalDateId] === 'maybe')
+    : []
 
 const answeredParticipants = activeParticipants.filter((p) =>
   activeDates.some((date) => {
@@ -633,8 +649,8 @@ const unanswered = activeParticipants
   .map((p) => p.name)
 
 const answerCount = answeredParticipants.length
-const totalCount = activeParticipants.length
-const unansweredCount = totalCount - answerCount
+
+
 
 
 const recommendedDate = useMemo(() => {
@@ -723,7 +739,7 @@ const altDates = useMemo(
   () => activeDates.filter(d => d.id !== heroDate?.id),
   [activeDates, heroDate]
 )
-
+const totalCount = yesCount + maybeCount
 const participantMajority = useMemo(() => {
   const total = activeParticipants.length
   if (total === 0) return null
@@ -1817,7 +1833,7 @@ return (
   <div className="space-y-4">
     <div className="px-1">
       <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 6</p>
-      <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">日程が決まりました</h2>
+      <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">日程確定</h2>
     </div>
 
     {/* 確定日程 ヒーロー */}
@@ -1830,13 +1846,41 @@ return (
       </div>
       <div className="flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
         <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300">
-          参加予定 {yesCount}人
+<Chip>参加予定 {yesCount}人</Chip>
+<Chip>調整中 {maybeCount}人</Chip>
         </span>
-        {maybeCount > 0 && (
-          <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300">
-            調整中 {maybeCount}人
-          </span>
-        )}
+<button
+  type="button"
+  onClick={() => setShowFinalParticipants(v => !v)}
+  className="mt-2 text-xs font-bold text-white/70 underline"
+>
+  {showFinalParticipants ? '参加者を閉じる' : '参加者を見る'}
+</button>
+
+{showFinalParticipants && (
+  <div className="mt-3 space-y-2">
+    <div>
+      <p className="text-xs text-emerald-400 font-bold">参加予定</p>
+      <div className="flex flex-wrap gap-2 mt-1">
+        {finalYesParticipants.map(p => (
+          <span key={p.id} className="chip-green">{p.name}</span>
+        ))}
+      </div>
+    </div>
+
+    <div>
+      <p className="text-xs text-amber-400 font-bold">調整中</p>
+      <div className="flex flex-wrap gap-2 mt-1">
+        {finalMaybeParticipants.map(p => (
+          <span key={p.id} className="chip-amber">{p.name}</span>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
+
+
+
       </div>
     </div>
 
@@ -1960,7 +2004,15 @@ return (
     }
     className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-bold text-stone-700 outline-none transition focus:border-stone-400"
   >
-    {['〜3,000円', '〜5,000円', '〜7,000円', '〜8,000円', '制限なし'].map((price) => (
+    {[
+  '〜3,000円',
+  '〜4,000円',
+  '〜5,000円',
+  '〜6,000円',
+  '〜7,000円',
+  '〜8,000円',
+  '指定なし',
+].map((price) => (
       <option key={price} value={price}>
         {price}
       </option>
@@ -2225,20 +2277,11 @@ return (
 
       const finalStore = selectedStore || recommendedStores?.[0] || null
       const participantCount = dbResponses.length
-      const finalDateId = finalDecision?.selected_date_id ?? null
 
-const finalYesParticipants =
-  finalDateId
-    ? activeParticipants.filter((p) => p.availability?.[finalDateId] === 'yes')
-    : []
 
-const finalMaybeParticipants =
-  finalDateId
-    ? activeParticipants.filter((p) => p.availability?.[finalDateId] === 'maybe')
-    : []
-      const finalShareText =
-        shareText ||
-        `日程は ${finalSelectedDate?.label ?? '未設定'} で進めたいです！
+const finalShareText =
+  shareText ||
+  `日程は ${finalSelectedDate?.label ?? '未設定'} で進めたいです！
 候補はこちら：${finalStore?.name ?? 'お店未設定'}
 ${finalStore?.link ?? ''}`
 
@@ -2266,13 +2309,10 @@ ${finalStore?.link ?? ''}`
             </div>
  <div className="flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
   <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
-    参加予定 {yesCount}人
+<Chip>参加予定 {yesCount}人</Chip>
+<Chip>調整中 {maybeCount}人</Chip>
   </span>
-  {maybeCount > 0 && (
-    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
-      調整中 {maybeCount}人
-    </span>
-  )}
+ 
   {eventType && (
     <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
       {eventType}
