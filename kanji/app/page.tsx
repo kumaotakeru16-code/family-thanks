@@ -374,7 +374,6 @@ const FLOW_STEPS: Step[] = [
   'dates',
   'shareLink',
   'dashboard',
-  'dateSuggestion',
   'dateConfirmed',
   'organizerConditions',
   'storeSuggestion',
@@ -432,7 +431,12 @@ export default function Page() {
   const [calViewMonth, setCalViewMonth] = useState<Date>(new Date())
   const [dates, setDates] = useState<DateOption[]>(INITIAL_DATES)
   const [participants] = useState<Participant[]>(MOCK_PARTICIPANTS)
-  const [mainGuestId, setMainGuestId] = useState('p1')
+  const [mainGuestIds, setMainGuestIds] = useState<string[]>([])
+  const [showHeroParticipants, setShowHeroParticipants] = useState(false)
+  const [dashboardTab, setDashboardTab] = useState<'best' | 'alt'>('best')
+  const [areaInput, setAreaInput] = useState('')
+  const [showOrgDetails, setShowOrgDetails] = useState(false)
+  const [showAltStores, setShowAltStores] = useState(false)
   const [orgPrefs, setOrgPrefs] = useState<OrganizerPrefs>({
     priceRange: '',
     genres: [],
@@ -469,9 +473,10 @@ export default function Page() {
   const [savedEvents, setSavedEvents] = useState<SavedEvent[]>([])
   const [dateCopied, setDateCopied] = useState(false)
   const [maybeCopied, setMaybeCopied] = useState(false)
-  const [selectedTime, setSelectedTime] = useState('19:00')
-  const [showTimeMenu, setShowTimeMenu] = useState(false)
+  const [timeHour, setTimeHour] = useState(19)
+  const [timeMinute, setTimeMinute] = useState(0)
   const [heroBestDateId, setHeroBestDateId] = useState<string | null>(null)
+const selectedTime = `${timeHour}:${String(timeMinute).padStart(2, '0')}`
 
 function getPreviousStep(currentStep: Step): Step | null {
   const currentIndex = FLOW_STEPS.indexOf(currentStep)
@@ -578,8 +583,10 @@ useEffect(() => {
   }))
 }, [dbDates, dates])
 
-const selectedStore: StoreCandidate | null =
-  recommendedStores?.[0] ?? null
+const selectedStore: StoreCandidate | null = (() => {
+  const pool = recommendedStores.length > 0 ? recommendedStores : MOCK_STORES
+  return pool.find((s: StoreCandidate) => s.id === selectedStoreId) ?? pool[0] ?? null
+})()
 
 
 
@@ -632,9 +639,22 @@ const recommendedDate = useMemo(() => {
       p => p.availability?.[date.id] === 'yes'
     ).length
 
-    const mg = activeParticipants.find(p => p.id === mainGuestId)
-    const mga = mg?.availability?.[date.id]
-    const bonus = mga === 'yes' ? 3 : mga === 'maybe' ? 1 : 0
+    const mgBonuses = mainGuestIds.map(mgId => {
+      const mg = activeParticipants.find(p => p.id === mgId)
+      const mga = mg?.availability?.[date.id]
+      return mga === 'yes' ? 3 : mga === 'maybe' ? 1 : 0
+    })
+    const bonus = mgBonuses.reduce((s: number, b: number) => s + b, 0)
+
+    // summarize main guest availability: 'yes' if all yes, 'maybe' if any maybe, 'no' if any no, undefined if none selected
+    const mgAvails = mainGuestIds.map(mgId => {
+      const mg = activeParticipants.find(p => p.id === mgId)
+      return mg?.availability?.[date.id]
+    }).filter(Boolean) as Availability[]
+    const mga: Availability | undefined = mgAvails.length === 0 ? undefined
+      : mgAvails.every(a => a === 'yes') ? 'yes'
+      : mgAvails.some(a => a === 'no') ? 'no'
+      : 'maybe'
 
     return {
       date,
@@ -646,7 +666,7 @@ const recommendedDate = useMemo(() => {
 
   scored.sort((a, b) => b.score - a.score)
   return scored[0] ?? null
-}, [activeDates, activeParticipants, mainGuestId])
+}, [activeDates, activeParticipants, mainGuestIds])
 
 
 
@@ -762,6 +782,12 @@ useEffect(() => {
     if (raw) setSavedEvents(JSON.parse(raw))
   } catch {}
 }, [])
+
+useEffect(() => {
+  const pool = recommendedStores.length > 0 ? recommendedStores : MOCK_STORES
+  if (pool.length > 0) setSelectedStoreId(pool[0].id)
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [recommendedStores])
 
 const storePool = recommendedStores.length > 0 ? recommendedStores : MOCK_STORES
 
@@ -883,6 +909,12 @@ async function openSavedEvent(id: string, name: string, type: string) {
   setCreatedEventId(id)
   setEventName(name)
   setEventType(type as EventType)
+  setHeroBestDateId(null)
+  setRecommendedStores([])
+  setFinalDecision(null)
+  setMainGuestIds([])
+  setShowHeroParticipants(false)
+  setDashboardTab('best')
   try {
     const result = await loadEventData(id)
     setDbDates(result.dates ?? [])
@@ -932,7 +964,7 @@ const data = await saveDecision({
 }
 
 async function fetchRecommendedStores() {
-  if (!recommendedDate) {
+  if (!heroDate) {
     alert('先に日程を確定してください')
     return
   }
@@ -946,7 +978,7 @@ async function fetchRecommendedStores() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         eventType,
-        date: recommendedDate.date.label,
+        date: heroDate.label,
         participantCount: activeParticipants.length,
         participants: activeParticipants.map((p) => ({
           name: p.name,
@@ -1118,7 +1150,7 @@ return (
                         <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-600 ring-1 ring-amber-200">
                           進行中
                         </span>
-                        <span className="text-stone-400">→</span>
+                        <span className="text-xs font-bold text-stone-400">開く →</span>
                       </div>
                     </button>
                   ))}
@@ -1168,7 +1200,6 @@ return (
           <Card>
             <StepLabel n={1} />
             <CardTitle>イベントを作成</CardTitle>
-            <CardSub>会の種類を選ぶと、お店提案や共有文が自動で調整されます。</CardSub>
 
             <FieldLabel>会の種類</FieldLabel>
             <div className="mt-2.5 flex flex-wrap gap-2">
@@ -1210,7 +1241,6 @@ return (
             <div className="px-1">
               <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 2</p>
               <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">候補日を選ぶ</h2>
-              <p className="mt-1 text-sm text-stone-400">良さそうな日をタップして選んでください。</p>
             </div>
 
             {/* Date chips */}
@@ -1264,36 +1294,46 @@ return (
                     )}
 
                     {/* Time picker */}
-                    {!showTimeMenu ? (
-                      <button
-                        type="button"
-                        onClick={() => setShowTimeMenu(true)}
-                        className="mt-3 text-xs text-stone-400 underline underline-offset-2"
-                      >
-                        時間を変更する（任意）· 現在: {selectedTime}
-                      </button>
-                    ) : (
-                      <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
-                        <p className="mb-3 text-xs font-bold text-stone-600">開始時間</p>
-                        <div className="flex flex-wrap gap-2">
-                          {['18:00', '18:30', '19:00', '19:30', '20:00'].map(t => (
-                            <button
-                              type="button"
-                              key={t}
-                              onClick={() => { setSelectedTime(t); setShowTimeMenu(false) }}
-                              className={cx(
-                                'rounded-xl px-4 py-2 text-sm font-bold ring-1 transition active:scale-95',
-                                selectedTime === t
-                                  ? 'bg-stone-900 text-white ring-stone-900'
-                                  : 'bg-white text-stone-600 ring-stone-200 hover:bg-stone-50'
-                              )}
-                            >
-                              {t}
-                            </button>
-                          ))}
+                    <div className="mt-4 rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
+                      <p className="mb-3 text-xs font-bold text-stone-600">開始時間：{selectedTime}</p>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="mb-1.5 text-[11px] text-stone-400">時（17〜23時）</p>
+                          <input
+                            type="range"
+                            min={17}
+                            max={23}
+                            step={1}
+                            value={timeHour}
+                            onChange={e => setTimeHour(Number(e.target.value))}
+                            className="w-full accent-stone-900"
+                          />
+                          <div className="mt-1 flex justify-between text-[10px] text-stone-400">
+                            {[17,18,19,20,21,22,23].map(h => <span key={h}>{h}</span>)}
+                          </div>
+                        </div>
+                        <div>
+                          <p className="mb-1.5 text-[11px] text-stone-400">分</p>
+                          <div className="flex gap-2">
+                            {[0, 15, 30, 45].map(m => (
+                              <button
+                                type="button"
+                                key={m}
+                                onClick={() => setTimeMinute(m)}
+                                className={cx(
+                                  'flex-1 rounded-xl py-2 text-xs font-bold ring-1 transition active:scale-95',
+                                  timeMinute === m
+                                    ? 'bg-stone-900 text-white ring-stone-900'
+                                    : 'bg-white text-stone-600 ring-stone-200 hover:bg-stone-50'
+                                )}
+                              >
+                                :{String(m).padStart(2, '0')}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    )}
+                    </div>
                   </>
                 )}
               </div>
@@ -1380,7 +1420,6 @@ return (
           <Card>
             <StepLabel n={3} />
             <CardTitle>参加者に送る</CardTitle>
-            <CardSub>リンクを送るだけでOKです。</CardSub>
             <div className="rounded-2xl bg-stone-50 px-4 py-4">
               <p className="text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase mb-1.5">共有 URL</p>
             <p className="font-mono text-sm text-stone-600 break-all">
@@ -1448,8 +1487,7 @@ ${shareUrl}`
   <div className="space-y-5">
     <div className="px-1">
       <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 4</p>
-      <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">回答状況</h2>
-      <p className="mt-1 text-sm text-stone-400">今の回答だけで先に決めてOKです。</p>
+      <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">日程を決める</h2>
     </div>
 
     {/* 外側表示: 回答済み〇人 のみ */}
@@ -1457,68 +1495,105 @@ ${shareUrl}`
       回答済み <span className="font-black text-stone-900">{answerCount}人</span>
     </p>
 
-    {/* ヒーロー: おすすめ日程 + 参加予定/調整中 + この日で決定 */}
-    {heroDate ? (
-      <div className="overflow-hidden rounded-3xl bg-stone-900">
-        <div className="px-6 py-5">
-          <p className="mb-1 text-[10px] font-black uppercase tracking-[0.25em] text-white/40">
-            おすすめ日程
-          </p>
-          <p className="mt-2 text-3xl font-black leading-tight tracking-tight text-white">
-            {heroDate.label}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300">
-              参加予定 {heroYesCount}人
-            </span>
-            {heroMaybeCount > 0 && (
-              <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300">
-                調整中 {heroMaybeCount}人
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="px-6 pb-5">
-          <button
-            type="button"
-            onClick={decideRecommendedDate}
-            className="w-full rounded-2xl bg-white px-4 py-3.5 text-base font-black text-stone-900 transition hover:bg-stone-100 active:scale-[0.98]"
-          >
-            この日で決定
-          </button>
-        </div>
-      </div>
-    ) : (
-      <div className="rounded-2xl bg-stone-50 px-4 py-4 text-sm text-stone-400 ring-1 ring-stone-100">
-        まだ回答がありません
+    {/* 空状態 */}
+    {totalCount === 0 && (
+      <div className="rounded-3xl bg-stone-50 px-5 py-8 text-center ring-1 ring-stone-100">
+        <p className="text-base font-black text-stone-400">まだ回答がありません</p>
+        <p className="mt-1 text-xs text-stone-400">リンクを送って回答を集めましょう</p>
       </div>
     )}
 
-    {/* 他の候補: タップでヒーロー切替 */}
-    {altDates.length > 0 && (
-      <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-        <p className="mb-3 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">他の候補</p>
-        <div className="space-y-2">
-          {altDates.map(d => {
-            const dYes = activeParticipants.filter(p => p.availability?.[d.id] === 'yes').length
-            const dMaybe = activeParticipants.filter(p => p.availability?.[d.id] === 'maybe').length
-            return (
+    {/* ヒーロー: おすすめ日程 */}
+    {totalCount > 0 && heroDate && (
+      <>
+        {/* タブ */}
+        {altDates.length > 0 && (
+          <div className="flex gap-1 rounded-2xl bg-stone-100 p-1">
+            <button
+              type="button"
+              onClick={() => setDashboardTab('best')}
+              className={`flex-1 rounded-xl py-2 text-xs font-bold transition ${dashboardTab === 'best' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+            >
+              ベスト
+            </button>
+            <button
+              type="button"
+              onClick={() => setDashboardTab('alt')}
+              className={`flex-1 rounded-xl py-2 text-xs font-bold transition ${dashboardTab === 'alt' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+            >
+              ほかの日程
+            </button>
+          </div>
+        )}
+
+        {dashboardTab === 'best' && (
+          <div className="overflow-hidden rounded-3xl bg-stone-900">
+            <div className="px-6 py-5">
+              <p className="mb-1 text-[10px] font-black uppercase tracking-[0.25em] text-white/40">
+                おすすめ日程
+              </p>
+              <p className="mt-2 text-3xl font-black leading-tight tracking-tight text-white">
+                {heroDate.label}
+              </p>
               <button
                 type="button"
-                key={d.id}
-                onClick={() => setHeroBestDateId(d.id)}
-                className="flex w-full items-center justify-between rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-[0.99]"
+                onClick={() => setShowHeroParticipants(p => !p)}
+                className="mt-3 text-xs font-bold text-white/50 underline underline-offset-2 transition hover:text-white/70"
               >
-                <p className="text-sm font-bold text-stone-700">{d.label}</p>
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="font-bold text-emerald-600">{dYes}人</span>
-                  {dMaybe > 0 && <span className="text-amber-500">調整{dMaybe}人</span>}
-                </div>
+                参加者を見る
               </button>
-            )
-          })}
-        </div>
-      </div>
+              {showHeroParticipants && (
+                <div className="mt-3 space-y-1">
+                  {activeParticipants.filter(p => p.availability?.[heroDate.id] === 'yes').map(p => (
+                    <p key={p.id} className="text-xs text-emerald-300">○ {p.name}</p>
+                  ))}
+                  {activeParticipants.filter(p => p.availability?.[heroDate.id] === 'maybe').map(p => (
+                    <p key={p.id} className="text-xs text-amber-300">△ {p.name}</p>
+                  ))}
+                  {activeParticipants.filter(p => p.availability?.[heroDate.id] === 'no').map(p => (
+                    <p key={p.id} className="text-xs text-white/30">× {p.name}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="px-6 pb-5">
+              <button
+                type="button"
+                onClick={decideRecommendedDate}
+                className="w-full rounded-2xl bg-white px-4 py-3.5 text-base font-black text-stone-900 transition hover:bg-stone-100 active:scale-[0.98]"
+              >
+                この日で決定
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ほかの日程タブ: 最大3件 */}
+        {dashboardTab === 'alt' && altDates.length > 0 && (
+          <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+            <div className="space-y-2">
+              {altDates.slice(0, 3).map(d => {
+                const dYes = activeParticipants.filter(p => p.availability?.[d.id] === 'yes').length
+                const dMaybe = activeParticipants.filter(p => p.availability?.[d.id] === 'maybe').length
+                return (
+                  <button
+                    type="button"
+                    key={d.id}
+                    onClick={() => { setHeroBestDateId(d.id); setDashboardTab('best'); setShowHeroParticipants(false) }}
+                    className="flex w-full items-center justify-between rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-[0.99]"
+                  >
+                    <p className="text-sm font-bold text-stone-700">{d.label}</p>
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="font-bold text-emerald-600">{dYes}人</span>
+                      {dMaybe > 0 && <span className="text-amber-500">調整{dMaybe}人</span>}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </>
     )}
 
     <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-stone-100">
@@ -1575,10 +1650,10 @@ ${shareUrl}`
             <button
               type="button"
               key={p.id}
-              onClick={() => setMainGuestId(p.id)}
+              onClick={() => setMainGuestIds(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id])}
               className={cx(
                 'rounded-full px-4 py-2 text-sm font-bold transition',
-                mainGuestId === p.id
+                mainGuestIds.includes(p.id)
                   ? 'bg-stone-900 text-white'
                   : 'bg-white text-stone-500 ring-1 ring-stone-200 hover:bg-stone-50'
               )}
@@ -1644,17 +1719,19 @@ ${shareUrl}`
       </div>
 
 <div className="space-y-3 bg-white/[0.06] px-6 py-5">
-  <ReasonItem
-    icon="◎"
-    text={
-      recommendedDate.mainGuestAvailability === 'yes'
-        ? '主賓が参加できる'
-        : recommendedDate.mainGuestAvailability === 'maybe'
-        ? '主賓は調整すれば参加可能'
-        : '主賓は参加しにくい日程'
-    }
-    highlight={recommendedDate.mainGuestAvailability === 'yes'}
-  />
+  {mainGuestIds.length > 0 && recommendedDate.mainGuestAvailability !== undefined && (
+    <ReasonItem
+      icon="◎"
+      text={
+        recommendedDate.mainGuestAvailability === 'yes'
+          ? '主賓が参加できる'
+          : recommendedDate.mainGuestAvailability === 'maybe'
+          ? '主賓は調整すれば参加可能'
+          : '主賓は参加しにくい日程'
+      }
+      highlight={recommendedDate.mainGuestAvailability === 'yes'}
+    />
+  )}
   <ReasonItem
     icon="人"
     text={`参加予定 ${yesCount}人${maybeCount > 0 ? ` / 調整中 ${maybeCount}人` : ''}`}
@@ -1673,7 +1750,18 @@ ${shareUrl}`
 </div>
 
       <div className="px-6 py-5">
-        <PrimaryBtn size="large" onClick={decideRecommendedDate}>
+        <PrimaryBtn size="large" onClick={() => {
+          setHeroBestDateId(null)
+          // after state update, heroDate will equal recommendedDate.date on next render
+          // but decideRecommendedDate reads heroDate from closure — use recommendedDate.date.id directly
+          const currentEventId = createdEventId || finalEvent?.id
+          if (!currentEventId || !recommendedDate) return
+          if (totalCount === 0) { alert('まだ回答がありません。参加者の回答を待ってから日程を決めてください。'); return }
+          if (recommendedDate.availableCount === 0) { alert('参加できる人がいないため、この状態では日程を確定できません。'); return }
+          saveDecision({ eventId: currentEventId, selectedDateId: recommendedDate.date.id, organizerConditions })
+            .then(data => { setFinalDecision(data); setStep('dateConfirmed') })
+            .catch((e: any) => alert(`決定保存に失敗しました: ${e?.message ?? 'unknown error'}`))
+        }}>
           この日で決定
         </PrimaryBtn>
       </div>
@@ -1812,9 +1900,9 @@ ${shareUrl}`
     )}
 
     <PrimaryBtn size="large" onClick={() => setStep('organizerConditions')}>
-      次へ（店決めへ）
+      お店を決める
     </PrimaryBtn>
-    <GhostBtn onClick={() => setStep('dateSuggestion')}>← 戻る</GhostBtn>
+    <GhostBtn onClick={() => setStep('dashboard')}>← 戻る</GhostBtn>
   </div>
 )}
 
@@ -1825,8 +1913,7 @@ ${shareUrl}`
           <div className="space-y-4">
             <div className="px-1">
               <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 7</p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">店の条件</h2>
-              <p className="mt-1 text-sm text-stone-400">参加者の希望をもとに条件を調整してください。すべて任意です。</p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">条件を整える</h2>
             </div>
 
             {participantMajority && (
@@ -1854,8 +1941,9 @@ ${shareUrl}`
               <p className="mb-5 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">幹事条件（修正可）</p>
               <div className="space-y-5">
 
+                {/* 価格帯: チップ（主） + プルダウン（副） */}
                 <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">価格帯 <span className="ml-1 text-[10px] font-normal text-stone-300">強</span></p>
+                  <p className="mb-2 text-xs font-bold text-stone-700">価格帯</p>
                   <div className="flex flex-wrap gap-2">
                     {['〜3,000円', '〜5,000円', '〜8,000円', '制限なし'].map(v => (
                       <Chip key={v} active={orgPrefs.priceRange === v}
@@ -1864,10 +1952,21 @@ ${shareUrl}`
                       </Chip>
                     ))}
                   </div>
+                  <select
+                    value={orgPrefs.priceRange}
+                    onChange={e => setOrgPrefs(p => ({ ...p, priceRange: e.target.value }))}
+                    className="mt-2 w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-500 outline-none focus:border-stone-300 focus:bg-white"
+                  >
+                    <option value="">金額を細かく指定…</option>
+                    {[1000,2000,3000,4000,5000,6000,7000,8000,9000,10000].map(v => (
+                      <option key={v} value={`〜${v.toLocaleString()}円`}>〜{v.toLocaleString()}円</option>
+                    ))}
+                  </select>
                 </div>
 
+                {/* 個室 */}
                 <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">個室 <span className="ml-1 text-[10px] font-normal text-stone-300">強</span></p>
+                  <p className="mb-2 text-xs font-bold text-stone-700">個室</p>
                   <div className="flex flex-wrap gap-2">
                     {['必要', 'どちらでも', '不要'].map(v => (
                       <Chip key={v} active={orgPrefs.privateRoom === v}
@@ -1878,76 +1977,119 @@ ${shareUrl}`
                   </div>
                 </div>
 
+                {/* エリア: テキスト入力 + サジェスト */}
                 <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">エリア（駅）<span className="ml-1 text-[10px] font-normal text-stone-300">強</span></p>
-                  <div className="flex flex-wrap gap-2">
-                    {AREA_OPTIONS.map(v => (
-                      <Chip key={v} active={orgPrefs.areas.includes(v)}
-                        onClick={() => setOrgPrefs(p => ({ ...p, areas: p.areas.includes(v) ? p.areas.filter(x => x !== v) : [...p.areas, v] }))}>
-                        {v}
-                      </Chip>
+                  <p className="mb-2 text-xs font-bold text-stone-700">エリア（駅・地名）</p>
+                  <input
+                    type="text"
+                    value={areaInput}
+                    onChange={e => setAreaInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && areaInput.trim()) {
+                        const v = areaInput.trim()
+                        setOrgPrefs(p => ({ ...p, areas: p.areas.includes(v) ? p.areas : [...p.areas, v] }))
+                        setAreaInput('')
+                      }
+                    }}
+                    placeholder="駅名・地名を入力 → Enter"
+                    className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-300 focus:bg-white"
+                  />
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {AREA_OPTIONS.filter(v => !orgPrefs.areas.includes(v)).map(v => (
+                      <button
+                        type="button"
+                        key={v}
+                        onClick={() => setOrgPrefs(p => ({ ...p, areas: [...p.areas, v] }))}
+                        className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-500 transition hover:bg-stone-200 active:scale-95"
+                      >
+                        + {v}
+                      </button>
                     ))}
                   </div>
+                  {orgPrefs.areas.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {orgPrefs.areas.map(v => (
+                        <button
+                          type="button"
+                          key={v}
+                          onClick={() => setOrgPrefs(p => ({ ...p, areas: p.areas.filter(x => x !== v) }))}
+                          className="rounded-full bg-stone-900 px-3 py-1 text-xs font-bold text-white transition hover:bg-stone-700 active:scale-95"
+                        >
+                          {v} ×
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
+                {/* こだわり条件: 折りたたみ */}
                 <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">ジャンル <span className="ml-1 text-[10px] font-normal text-stone-300">中</span></p>
-                  <div className="flex flex-wrap gap-2">
-                    {GENRE_OPTIONS.map(v => (
-                      <Chip key={v} active={orgPrefs.genres.includes(v)}
-                        onClick={() => setOrgPrefs(p => ({ ...p, genres: p.genres.includes(v) ? p.genres.filter(x => x !== v) : [...p.genres, v] }))}>
-                        {v}
-                      </Chip>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">雰囲気 <span className="ml-1 text-[10px] font-normal text-stone-300">中</span></p>
-                  <div className="flex flex-wrap gap-2">
-                    {['落ち着き', 'にぎやか', 'おしゃれ', 'アットホーム'].map(v => (
-                      <Chip key={v} active={orgPrefs.atmosphere.includes(v)}
-                        onClick={() => setOrgPrefs(p => ({ ...p, atmosphere: p.atmosphere.includes(v) ? p.atmosphere.filter(x => x !== v) : [...p.atmosphere, v] }))}>
-                        {v}
-                      </Chip>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">飲み放題 <span className="ml-1 text-[10px] font-normal text-stone-300">中</span></p>
-                  <div className="flex flex-wrap gap-2">
-                    {['希望', 'どちらでも'].map(v => (
-                      <Chip key={v} active={orgPrefs.allYouCanDrink === v}
-                        onClick={() => setOrgPrefs(p => ({ ...p, allYouCanDrink: p.allYouCanDrink === v ? '' : v }))}>
-                        {v}
-                      </Chip>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">ドリンク <span className="ml-1 text-[10px] font-normal text-stone-300">弱</span></p>
-                  <div className="flex flex-wrap gap-2">
-                    {['ワイン', '日本酒', '焼酎'].map(v => (
-                      <Chip key={v} active={orgPrefs.drinks.includes(v)}
-                        onClick={() => setOrgPrefs(p => ({ ...p, drinks: p.drinks.includes(v) ? p.drinks.filter(x => x !== v) : [...p.drinks, v] }))}>
-                        {v}
-                      </Chip>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">喫煙 <span className="ml-1 text-[10px] font-normal text-stone-300">弱</span></p>
-                  <div className="flex flex-wrap gap-2">
-                    {['禁煙希望', 'どちらでも', '喫煙可'].map(v => (
-                      <Chip key={v} active={orgPrefs.smoking === v}
-                        onClick={() => setOrgPrefs(p => ({ ...p, smoking: p.smoking === v ? '' : v }))}>
-                        {v}
-                      </Chip>
-                    ))}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowOrgDetails(v => !v)}
+                    className="text-xs font-bold text-stone-400 underline underline-offset-2 transition hover:text-stone-600"
+                  >
+                    {showOrgDetails ? 'こだわり条件を閉じる' : 'こだわり条件を追加する（任意）'}
+                  </button>
+                  {showOrgDetails && (
+                    <div className="mt-4 space-y-4">
+                      <div>
+                        <p className="mb-2 text-xs font-bold text-stone-700">ジャンル</p>
+                        <div className="flex flex-wrap gap-2">
+                          {GENRE_OPTIONS.map(v => (
+                            <Chip key={v} active={orgPrefs.genres.includes(v)}
+                              onClick={() => setOrgPrefs(p => ({ ...p, genres: p.genres.includes(v) ? p.genres.filter(x => x !== v) : [...p.genres, v] }))}>
+                              {v}
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="mb-2 text-xs font-bold text-stone-700">雰囲気</p>
+                        <div className="flex flex-wrap gap-2">
+                          {['落ち着き', 'にぎやか', 'おしゃれ', 'アットホーム'].map(v => (
+                            <Chip key={v} active={orgPrefs.atmosphere.includes(v)}
+                              onClick={() => setOrgPrefs(p => ({ ...p, atmosphere: p.atmosphere.includes(v) ? p.atmosphere.filter(x => x !== v) : [...p.atmosphere, v] }))}>
+                              {v}
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="mb-2 text-xs font-bold text-stone-700">飲み放題</p>
+                        <div className="flex flex-wrap gap-2">
+                          {['希望', 'どちらでも'].map(v => (
+                            <Chip key={v} active={orgPrefs.allYouCanDrink === v}
+                              onClick={() => setOrgPrefs(p => ({ ...p, allYouCanDrink: p.allYouCanDrink === v ? '' : v }))}>
+                              {v}
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="mb-2 text-xs font-bold text-stone-700">ドリンク</p>
+                        <div className="flex flex-wrap gap-2">
+                          {['ワイン', '日本酒', '焼酎'].map(v => (
+                            <Chip key={v} active={orgPrefs.drinks.includes(v)}
+                              onClick={() => setOrgPrefs(p => ({ ...p, drinks: p.drinks.includes(v) ? p.drinks.filter(x => x !== v) : [...p.drinks, v] }))}>
+                              {v}
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="mb-2 text-xs font-bold text-stone-700">喫煙</p>
+                        <div className="flex flex-wrap gap-2">
+                          {['禁煙希望', 'どちらでも', '喫煙可'].map(v => (
+                            <Chip key={v} active={orgPrefs.smoking === v}
+                              onClick={() => setOrgPrefs(p => ({ ...p, smoking: p.smoking === v ? '' : v }))}>
+                              {v}
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
               </div>
@@ -1963,91 +2105,93 @@ ${shareUrl}`
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑨ 店提案（決断UI）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-{step === 'storeSuggestion' && recommendedDate && recommendedStores.length > 0 && (
+{step === 'storeSuggestion' && heroDate && storePool.length > 0 && (
   <div className="space-y-4">
     <div className="px-1">
       <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 9</p>
-      <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">今回の最適解</h2>
-      <p className="mt-1 text-sm text-stone-400">比較して悩むより、まずはこの候補から見ればOKです。</p>
+      <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">お店を選ぶ</h2>
     </div>
 
-    {(() => {
-      const primaryStore = recommendedStores[0]
-      const secondaryStores = recommendedStores.slice(1)
-      const participantCount = dbResponses.length
-      return (
-        <div className="space-y-4">
-          {/* 第一候補 — dark hero */}
-          <div className="overflow-hidden rounded-3xl bg-stone-900">
-            <div className="px-6 py-6">
-              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">Best Choice</p>
-              <h3 className="mt-2 text-2xl font-black tracking-tight text-white">{primaryStore.name}</h3>
-              {primaryStore.area && (
-                <p className="mt-1 text-sm text-white/50">
-                  {primaryStore.area}{primaryStore.access ? ` · ${primaryStore.access}` : ''}
-                </p>
-              )}
-            </div>
-
-            {primaryStore.image && (
-              <div className="overflow-hidden">
-                <img src={primaryStore.image} alt={primaryStore.name} className="h-52 w-full object-cover opacity-80" />
-              </div>
-            )}
-
-            <div className="bg-white/[0.06] px-6 py-5">
-              <p className="text-sm leading-6 text-white/70">{primaryStore.reason ?? storeReason}</p>
-            </div>
-
-            <div className="px-6 py-5">
-              <a
-                href={primaryStore.link}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-4 text-base font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
-              >
-                予約ページを見る
-              </a>
- <p className="mt-2 text-center text-xs font-semibold text-white/40">
-    まずはこの候補を見ればOKです
-  </p>
-
-            </div>
-          </div>
-
-          {/* 他候補 — 小さく、比較させない */}
-          {secondaryStores.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="px-1 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">別の選択肢</p>
-              {secondaryStores.map((store: any) => (
-                <a
-                  key={store.id}
-                  href={store.link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-stone-100 transition hover:bg-stone-50 active:scale-[0.99]"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-stone-700">{store.name}</p>
-                    {store.area && (
-                      <p className="mt-0.5 text-xs text-stone-400">
-                        {store.area}{store.access ? ` · ${store.access}` : ''}
-                      </p>
-                    )}
-                  </div>
-                  <span className="ml-3 shrink-0 text-xs text-stone-300">→</span>
-                </a>
-              ))}
-            </div>
+    {/* 第一候補 — dark hero */}
+    {primaryStore && (
+      <div className="overflow-hidden rounded-3xl bg-stone-900">
+        <div className="px-6 py-6">
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">Best Choice</p>
+          <h3 className="mt-2 text-2xl font-black tracking-tight text-white">{primaryStore.name}</h3>
+          {primaryStore.area && (
+            <p className="mt-1 text-sm text-white/50">
+              {primaryStore.area}{primaryStore.access ? ` · ${primaryStore.access}` : ''}
+            </p>
           )}
-
-          <PrimaryBtn size="large" onClick={() => setStep('finalConfirm')}>
-            この候補で進む
-          </PrimaryBtn>
-          <GhostBtn onClick={() => setStep('organizerConditions')}>条件を調整する</GhostBtn>
         </div>
-      )
-    })()}
+
+        {primaryStore.image && (
+          <div className="overflow-hidden">
+            <img src={primaryStore.image} alt={primaryStore.name} className="h-52 w-full object-cover opacity-80" />
+          </div>
+        )}
+
+        <div className="bg-white/[0.06] px-6 py-5">
+          <p className="text-sm leading-6 text-white/70">{primaryStore.reason ?? storeReason}</p>
+        </div>
+
+        <div className="px-6 py-5">
+          <a
+            href={primaryStore.link}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-4 text-base font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
+          >
+            予約ページを見る
+          </a>
+        </div>
+      </div>
+    )}
+
+    {/* 他候補: 折りたたみ + 選択可能 */}
+    {secondaryStores.length > 0 && (
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowAltStores(v => !v)}
+          className="w-full text-center text-xs font-bold text-stone-400 underline underline-offset-2 transition hover:text-stone-600"
+        >
+          {showAltStores ? 'ほかの候補を閉じる' : `ほかの候補を見る（${secondaryStores.length}件）`}
+        </button>
+        {showAltStores && (
+          <div className="mt-3 space-y-1.5">
+            {secondaryStores.map((store: StoreCandidate) => (
+              <button
+                type="button"
+                key={store.id}
+                onClick={() => { setSelectedStoreId(store.id); setShowAltStores(false) }}
+                className={cx(
+                  'flex w-full items-center justify-between rounded-2xl px-4 py-3 ring-1 transition hover:bg-stone-50 active:scale-[0.99]',
+                  selectedStoreId === store.id
+                    ? 'bg-stone-900 text-white ring-stone-900'
+                    : 'bg-white text-stone-700 ring-stone-100'
+                )}
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-bold">{store.name}</p>
+                  {store.area && (
+                    <p className={cx('mt-0.5 text-xs', selectedStoreId === store.id ? 'text-white/60' : 'text-stone-400')}>
+                      {store.area}{store.access ? ` · ${store.access}` : ''}
+                    </p>
+                  )}
+                </div>
+                <span className={cx('ml-3 shrink-0 text-xs', selectedStoreId === store.id ? 'text-white/60' : 'text-stone-300')}>→</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
+
+    <PrimaryBtn size="large" onClick={() => setStep('finalConfirm')}>
+      この候補で進む
+    </PrimaryBtn>
+    <GhostBtn onClick={() => setStep('organizerConditions')}>条件を調整する</GhostBtn>
   </div>
 )}
 
