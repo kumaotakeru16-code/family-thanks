@@ -1133,13 +1133,7 @@ const maybeConfirmText =
 日程：${heroDate.label}`
     : ''
 
-const finalSelectedDate =
-  finalDecision && finalDates.length > 0
-    ? finalDates.find((d: any) => d.id === finalDecision.selected_date_id) ?? null
-    : null
 
- const finalStore =
-  recommendedStores.find((s) => s.id === selectedStoreId) ?? recommendedStores[0] ?? null   
 
 return (
   <main className="min-h-screen" style={{ background: '#F5F3EF' }}>
@@ -2309,112 +2303,191 @@ return (
             ⑨-b 最終確認（決定内容 + 共有文プレビュー）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
 {/* 確定日程 ヒーロー */}
-<div className="overflow-hidden rounded-3xl bg-stone-900">
-  <div className="px-6 py-6">
-    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">
-      Final Summary
-    </p>
+{step === 'finalConfirm' && (
+  <div className="space-y-4">
+   <div className="px-1">
+  <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 10</p>
+  <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">確定情報の共有</h2>
+</div>
 
-    <div className="mt-4 space-y-4">
-      <div>
-        <p className="text-xs font-bold text-white/40">日程</p>
-        <p className="mt-1 text-3xl font-black text-white">
-          {finalSelectedDate?.label ?? '未設定'}
+    {(() => {
+      const finalSelectedDate =
+        finalDecision && finalDates.length > 0
+          ? finalDates.find((d: any) => d.id === finalDecision.selected_date_id) ?? null
+          : null
+
+      const finalStore = selectedStore || recommendedStores?.[0] || null
+      const participantCount = dbResponses.length
+
+
+const finalShareText =
+  shareText ||
+  `日程は ${finalSelectedDate?.label ?? '未設定'} で進めたいです！
+候補はこちら：${finalStore?.name ?? 'お店未設定'}
+${finalStore?.link ?? ''}`
+
+      return (
+        <div className="space-y-4">
+          {/* 決定内容 */}
+          <div className="overflow-hidden rounded-3xl bg-stone-900">
+            <div className="px-6 py-6">
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">Final Summary</p>
+              <div className="mt-4 space-y-4">
+                <div>
+                  <p className="text-xs font-bold text-white/40">日程</p>
+                  <p className="mt-1 text-xl font-black text-white">
+                    {finalSelectedDate?.label ?? recommendedDate?.date.label ?? '未設定'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-white/40">お店候補</p>
+                  <p className="mt-1 text-xl font-black text-white">{finalStore?.name ?? '未設定'}</p>
+                  {finalStore?.area && (
+                    <p className="mt-0.5 text-sm text-white/50">{finalStore.area}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+<p className="mt-2 text-sm font-bold text-white/70">
+  最大参加人数 {yesCount + maybeCount}人
+</p>
+
+<div className="mt-3 flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
+  <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+    参加予定 {yesCount}人
+  </span>
+
+  <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
+    調整中 {maybeCount}人
+  </span>
+ 
+  {eventType && (
+    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
+      {eventType}
+    </span>
+  )}
+  {effectiveTags.map((tag) => (
+    <span key={tag} className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
+      {tag}
+    </span>
+  ))}
+</div>
+          </div>
+
+          {/* 理由 */}
+          {finalStore?.reason && (
+            <div className="rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-100">
+              <p className="text-sm font-bold text-amber-900">この候補にした理由</p>
+              <p className="mt-1 text-sm leading-6 text-amber-800">{finalStore.reason}</p>
+            </div>
+
+            
+          )}
+
+<div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+  <button
+    type="button"
+    onClick={() => setShowFinalParticipants((v) => !v)}
+    className="w-full text-left"
+  >
+    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
+      参加者
+    </p>
+    <p className="mt-2 text-sm font-bold text-stone-700">
+      {showFinalParticipants ? '参加者を閉じる' : '参加者を見る'}
+    </p>
+  </button>
+
+  {showFinalParticipants && (
+    <div className="mt-4 space-y-3">
+      <div className="rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">
+          参加予定
         </p>
-        <p className="mt-2 text-sm font-bold text-white/70">
-          最大参加人数 {finalYesParticipants.length + finalMaybeParticipants.length}人
-        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {finalYesParticipants.length > 0 ? (
+            finalYesParticipants.map((p) => (
+              <span
+                key={p.id}
+                className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100"
+              >
+                {p.name}
+              </span>
+            ))
+          ) : (
+            <span className="text-xs text-stone-400">まだいません</span>
+          )}
+        </div>
       </div>
 
-      <div>
-        <p className="text-xs font-bold text-white/40">お店候補</p>
-        <p className="mt-1 text-2xl font-black text-white">
-          {finalStore?.name ?? '未設定'}
+      <div className="rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600">
+          調整中
         </p>
-        {finalStore?.area && (
-          <p className="mt-0.5 text-sm text-white/50">{finalStore.area}</p>
-        )}
+        <div className="mt-2 flex flex-wrap gap-2">
+          {finalMaybeParticipants.length > 0 ? (
+            finalMaybeParticipants.map((p) => (
+              <span
+                key={p.id}
+                className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 ring-1 ring-amber-100"
+              >
+                {p.name}
+              </span>
+            ))
+          ) : (
+            <span className="text-xs text-stone-400">いません</span>
+          )}
+        </div>
       </div>
     </div>
-
-    <button
-      type="button"
-      onClick={() => setShowFinalParticipants((v) => !v)}
-      className="mt-4 text-xs font-bold text-white/70 underline underline-offset-2"
-    >
-      {showFinalParticipants ? '参加者を閉じる' : '参加者を見る'}
-    </button>
-
-    {showFinalParticipants && (
-      <div className="mt-4 space-y-3">
-        <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/80">
-            参加予定
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {finalYesParticipants.length > 0 ? (
-              finalYesParticipants.map((p) => (
-                <span
-                  key={p.id}
-                  className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20"
-                >
-                  {p.name}
-                </span>
-              ))
-            ) : (
-              <span className="text-xs text-white/40">まだいません</span>
-            )}
-          </div>
-        </div>
-
-        <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300/80">
-            調整中
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {finalMaybeParticipants.length > 0 ? (
-              finalMaybeParticipants.map((p) => (
-                <span
-                  key={p.id}
-                  className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20"
-                >
-                  {p.name}
-                </span>
-              ))
-            ) : (
-              <span className="text-xs text-white/40">いません</span>
-            )}
-          </div>
-        </div>
-      </div>
-    )}
-  </div>
-
-  <div className="flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
-    <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
-      参加予定 {finalYesParticipants.length}人
-    </span>
-
-    <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
-      調整中 {finalMaybeParticipants.length}人
-    </span>
-
-    {eventType && (
-      <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
-        {eventType}
-      </span>
-    )}
-
-    {effectiveTags.map((tag) => (
-      <span
-        key={tag}
-        className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60"
-      >
-        {tag}
-      </span>
-    ))}
-  </div>
+  )}
 </div>
+
+          {/* 共有文 + CTA */}
+          <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+            <p className="mb-3 text-sm font-bold text-stone-900">共有文</p>
+            <div className="rounded-2xl bg-stone-50 p-4">
+              <p className="whitespace-pre-line text-sm leading-6 text-stone-700">{finalShareText}</p>
+            </div>
+            <div className="mt-3 space-y-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(finalShareText)
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 1600)
+                }}
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-4 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+              >
+                {copied ? 'コピーしました ✓' : '共有文をコピーする'}
+              </button>
+              <button
+                type="button"
+                onClick={() => openLineShare(finalShareText)}
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+              >
+                LINEで送る
+              </button>
+            </div>
+          </div>
+
+          {finalStore?.link && (
+            <a
+              href={finalStore.link}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 py-4 text-base font-black text-stone-900 transition hover:bg-stone-50 active:scale-[0.98]"
+            >
+              お店ページを開く →
+            </a>
+          )}
+
+          <GhostBtn onClick={() => setStep('storeSuggestion')}>← 店候補を見直す</GhostBtn>
+        </div>
+      )
+    })()}
+  </div>
+)}
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑩ 共有
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
