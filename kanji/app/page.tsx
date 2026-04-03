@@ -75,7 +75,7 @@ type SavedEvent = {
 
 // --- Constants ---
 const EVENT_TYPES: EventType[] = ['歓迎会', '送別会', '普通の飲み会', '少人数ごはん', '会食']
-const AREA_OPTIONS = ['渋谷', '新宿', '恵比寿', '中間でOK']
+const AREA_OPTIONS = ['渋谷', '新宿', '恵比寿']
 const GENRE_OPTIONS = ['居酒屋', '焼肉', 'イタリアン', 'カフェ']
 const INITIAL_DATES: DateOption[] = [
   { id: 'date1', label: '4/10（水）19:00' },
@@ -293,9 +293,9 @@ function buildStoreReason(params: {
     })
 
     ;(p.area ?? []).forEach((area) => {
-      if (area !== '中間でOK') {
+      
         areaCounts.set(area, (areaCounts.get(area) ?? 0) + 1)
-      }
+      
     })
   })
 
@@ -424,21 +424,28 @@ export default function Page() {
   const [step, setStep] = useState<Step>('home')
   const [eventType, setEventType] = useState<EventType>('歓迎会')
   const [eventName, setEventName] = useState('歓迎会')
+
   const [dateInput, setDateInput] = useState('')
   const [generatedDates, setGeneratedDates] = useState<DateOption[]>([])
   const [selectedDateIds, setSelectedDateIds] = useState<string[]>([])
   const [showCalendar, setShowCalendar] = useState(false)
+  const [showAltDates, setShowAltDates] = useState(false)
+  const [showTimePicker, setShowTimePicker] = useState(false)
   const [calViewMonth, setCalViewMonth] = useState<Date>(new Date())
+
+  const [selectedHour, setSelectedHour] = useState('19')
+  const [selectedMinute, setSelectedMinute] = useState('00')
+
   const [dates, setDates] = useState<DateOption[]>(INITIAL_DATES)
   const [participants] = useState<Participant[]>(MOCK_PARTICIPANTS)
   const [mainGuestIds, setMainGuestIds] = useState<string[]>([])
   const [showHeroParticipants, setShowHeroParticipants] = useState(false)
-  const [dashboardTab, setDashboardTab] = useState<'best' | 'alt'>('best')
+
   const [areaInput, setAreaInput] = useState('')
-  const [showOrgDetails, setShowOrgDetails] = useState(false)
   const [showAltStores, setShowAltStores] = useState(false)
+
   const [orgPrefs, setOrgPrefs] = useState<OrganizerPrefs>({
-    priceRange: '',
+    priceRange: '〜5,000円',
     genres: [],
     drinks: [],
     privateRoom: '',
@@ -447,6 +454,7 @@ export default function Page() {
     areas: [],
     atmosphere: [],
   })
+
   const orgPrefsInitRef = useRef(false)
   const [selectedStoreId, setSelectedStoreId] = useState('s1')
   const [selectedPastStoreId, setSelectedPastStoreId] = useState<string | null>(null)
@@ -463,20 +471,22 @@ export default function Page() {
   const [storeFetchError, setStoreFetchError] = useState<string | null>(null)
   const [eventDetail, setEventDetail] = useState<any>(null)
   const [copied, setCopied] = useState(false)
+
   const stepHistoryRef = useRef<Step[]>(['home'])
   const isHandlingBackRef = useRef(false)
+
   const openLineShare = (text: string) => {
-  const url = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`
-  window.open(url, '_blank')
-}
+    const url = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`
+    window.open(url, '_blank')
+  }
+
   const [reminderCopied, setReminderCopied] = useState(false)
   const [savedEvents, setSavedEvents] = useState<SavedEvent[]>([])
   const [dateCopied, setDateCopied] = useState(false)
   const [maybeCopied, setMaybeCopied] = useState(false)
-  const [timeHour, setTimeHour] = useState(19)
-  const [timeMinute, setTimeMinute] = useState(0)
   const [heroBestDateId, setHeroBestDateId] = useState<string | null>(null)
-const selectedTime = `${timeHour}:${String(timeMinute).padStart(2, '0')}`
+
+  const selectedTime = `${selectedHour}:${selectedMinute}`
 
 function getPreviousStep(currentStep: Step): Step | null {
   const currentIndex = FLOW_STEPS.indexOf(currentStep)
@@ -682,6 +692,14 @@ const heroYesCount = heroDate
   ? activeParticipants.filter(p => p.availability?.[heroDate.id] === 'yes').length
   : 0
 
+const heroYesParticipants = heroDate
+  ? activeParticipants.filter((p) => p.availability?.[heroDate.id] === 'yes')
+  : []
+
+const heroMaybeParticipants = heroDate
+  ? activeParticipants.filter((p) => p.availability?.[heroDate.id] === 'maybe')
+  : []
+
 const heroMaybeCount = heroDate
   ? activeParticipants.filter(p => p.availability?.[heroDate.id] === 'maybe').length
   : 0
@@ -851,7 +869,7 @@ const secondaryStores = alternativeStores.slice(0, 2)
 
 function buildSubStoreReason(store: StoreCandidate) {
 const areaHit = activeParticipants.some((p) =>
-  (p.area ?? []).some((a: string) => a !== '中間でOK' && (store.area ?? '').includes(a))
+  (p.area ?? []).some((a: string) =>  (store.area ?? '').includes(a))
 )
 
 const genreHit = activeParticipants.some((p) =>
@@ -912,9 +930,9 @@ async function openSavedEvent(id: string, name: string, type: string) {
   setHeroBestDateId(null)
   setRecommendedStores([])
   setFinalDecision(null)
-  setMainGuestIds([])
-  setShowHeroParticipants(false)
-  setDashboardTab('best')
+setMainGuestIds([])
+setShowHeroParticipants(false)
+setShowAltDates(false)
   try {
     const result = await loadEventData(id)
     setDbDates(result.dates ?? [])
@@ -1060,10 +1078,12 @@ const sortedPastStores = [...MOCK_PAST_STORES].sort((a, b) => {
   return order[a.rating] - order[b.rating]
 })
 
-const shareUrl =
-  typeof window !== 'undefined'
-    ? `${window.location.origin}/e/${createdEventId}`
-    : ''
+const shareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/kanji/join/${createdEventId || 'demo-123'}`
+
+const shareMessage = `日程調整をお願いします！
+以下のリンクから回答してください🙏
+
+${shareUrl}`
 
 const reminderText = `日程調整の回答をお願いします！
 1分で終わります🙏
@@ -1236,179 +1256,237 @@ return (
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ③ 候補日選択
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        {step === 'dates' && (
-          <div className="space-y-4">
-            <div className="px-1">
-              <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 2</p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">候補日を選ぶ</h2>
-            </div>
+{step === 'dates' && (
+  <Card>
+    <StepLabel n={2} />
+    <CardTitle>候補日を選ぶ</CardTitle>
 
-            {/* Date chips */}
-            {!showCalendar && (
-              <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-                {generatedDates.length === 0 ? (
-                  <p className="text-sm text-stone-400">候補日を生成中…</p>
-                ) : (
-                  <>
-                    <div className="flex flex-wrap gap-2">
-                      {generatedDates.map(d => {
-                        const isSelected = selectedDateIds.includes(d.id)
-                        return (
-                          <button
-                            type="button"
-                            key={d.id}
-                            onClick={() =>
-                              setSelectedDateIds(prev =>
-                                prev.includes(d.id)
-                                  ? prev.filter(id => id !== d.id)
-                                  : [...prev, d.id]
-                              )
-                            }
-                            className={cx(
-                              'rounded-2xl px-4 py-2.5 text-sm font-bold transition active:scale-95',
-                              isSelected
-                                ? 'bg-stone-900 text-white'
-                                : 'bg-stone-50 text-stone-500 ring-1 ring-stone-200 hover:bg-stone-100'
-                            )}
-                          >
-                            {d.label}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    {generatedDates.length > 0 && (
-                      <p className="mt-4 text-[11px] text-stone-400">
-                        {selectedDateIds.length}件 選択中
-                        <button
-                          type="button"
-                          onClick={() =>
-                            selectedDateIds.length === generatedDates.length
-                              ? setSelectedDateIds([])
-                              : setSelectedDateIds(generatedDates.map(d => d.id))
-                          }
-                          className="ml-3 font-bold text-stone-500 underline underline-offset-2"
-                        >
-                          {selectedDateIds.length === generatedDates.length ? 'すべて外す' : 'すべて選ぶ'}
-                        </button>
-                      </p>
-                    )}
+    <div className="space-y-4">
+      <div className="rounded-2xl bg-white px-4 py-4 ring-1 ring-stone-100">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-bold text-stone-700">
+            来週以降2週間の候補日
+          </p>
 
-                    {/* Time picker */}
-                    <div className="mt-4 rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
-                      <p className="mb-3 text-xs font-bold text-stone-600">開始時間：{selectedTime}</p>
-                      <div className="space-y-3">
-                        <div>
-                          <p className="mb-1.5 text-[11px] text-stone-400">時（17〜23時）</p>
-                          <input
-                            type="range"
-                            min={17}
-                            max={23}
-                            step={1}
-                            value={timeHour}
-                            onChange={e => setTimeHour(Number(e.target.value))}
-                            className="w-full accent-stone-900"
-                          />
-                          <div className="mt-1 flex justify-between text-[10px] text-stone-400">
-                            {[17,18,19,20,21,22,23].map(h => <span key={h}>{h}</span>)}
-                          </div>
-                        </div>
-                        <div>
-                          <p className="mb-1.5 text-[11px] text-stone-400">分</p>
-                          <div className="flex gap-2">
-                            {[0, 15, 30, 45].map(m => (
-                              <button
-                                type="button"
-                                key={m}
-                                onClick={() => setTimeMinute(m)}
-                                className={cx(
-                                  'flex-1 rounded-xl py-2 text-xs font-bold ring-1 transition active:scale-95',
-                                  timeMinute === m
-                                    ? 'bg-stone-900 text-white ring-stone-900'
-                                    : 'bg-white text-stone-600 ring-stone-200 hover:bg-stone-50'
-                                )}
-                              >
-                                :{String(m).padStart(2, '0')}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+          {generatedDates.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedDateIds.length === generatedDates.length) {
+                  setSelectedDateIds([])
+                } else {
+                  setSelectedDateIds(generatedDates.map((d) => d.id))
+                }
+              }}
+              className="text-xs font-bold text-stone-500 underline underline-offset-2"
+            >
+              {selectedDateIds.length === generatedDates.length ? 'すべて外す' : 'すべて選ぶ'}
+            </button>
+          )}
+        </div>
 
-            {/* Calendar single-tap picker */}
-            {showCalendar && (
-              <CalendarPicker
-                viewMonth={calViewMonth}
-                onChangeMonth={setCalViewMonth}
-                selectedIds={selectedDateIds}
-                disabledBefore={(() => {
-                  const t = new Date(); t.setHours(0,0,0,0)
-                  const c = new Date(t); c.setDate(t.getDate() + 3)
-                  return dateKey(c)
-                })()}
-                onDayClick={(key) => {
-                  const id = `wd-${key}`
-                  const existing = generatedDates.find(d => d.id === id)
-                  if (existing) {
-                    setSelectedDateIds(prev =>
-                      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-                    )
-                  } else {
-                    const [y, mo, dy] = key.split('-').map(Number)
-                    const d = new Date(y, mo - 1, dy)
-                    const newDate = { id, label: weekdayLabel(d, selectedTime) }
-                    setGeneratedDates(prev =>
-                      [...prev, newDate].sort((a, b) => a.id < b.id ? -1 : 1)
-                    )
-                    setSelectedDateIds(prev => [...prev, id])
-                  }
-                }}
-                onClose={() => setShowCalendar(false)}
-              />
-            )}
+        <div className="mt-3 flex flex-wrap gap-2">
+          {generatedDates.map((date) => {
+            const selected = selectedDateIds.includes(date.id)
+            const isWeekend = date.label.includes('（土）') || date.label.includes('（日）')
 
-            {!showCalendar && (
+            return (
               <button
+                key={date.id}
                 type="button"
-                onClick={() => {
-                  setShowCalendar(true)
+                onClick={() =>
+                  setSelectedDateIds((prev) =>
+                    prev.includes(date.id)
+                      ? prev.filter((id) => id !== date.id)
+                      : [...prev, date.id]
+                  )
+                }
+                className={cx(
+                  'rounded-2xl px-4 py-3 text-sm font-bold ring-1 transition active:scale-[0.98]',
+                  selected
+                    ? 'bg-stone-900 text-white ring-stone-900'
+                    : isWeekend
+                    ? 'bg-stone-50 text-stone-400 ring-stone-200 hover:bg-stone-100'
+                    : 'bg-white text-stone-700 ring-stone-200 hover:bg-stone-50'
+                )}
+              >
+                {date.label}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setShowTimePicker((v) => !v)}
+            className="inline-flex items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-bold text-stone-600 transition hover:bg-stone-50 active:scale-[0.98]"
+          >
+            {showTimePicker ? '時間設定を閉じる' : `時間を変更する（現在 ${selectedTime}）`}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setShowCalendar((v) => {
+                const next = !v
+                if (!v) {
                   const monday = getNextWeekMonday()
                   setCalViewMonth(monday)
-                }}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-bold text-stone-600 transition hover:bg-stone-50 active:scale-[0.98]"
+                }
+                return next
+              })
+            }}
+            className="inline-flex items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-bold text-stone-600 transition hover:bg-stone-50 active:scale-[0.98]"
+          >
+            {showCalendar ? 'カレンダーを閉じる' : '別の日程を選ぶ'}
+          </button>
+        </div>
+      </div>
+
+      {showTimePicker && (
+        <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
+          <p className="text-xs font-bold text-stone-600">開始時間</p>
+
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="mb-1.5 block text-[11px] font-bold text-stone-400">時</span>
+              <select
+                value={selectedHour}
+                onChange={(e) => setSelectedHour(e.target.value)}
+                className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none transition focus:border-stone-400"
               >
-                別の日程を選ぶ（カレンダーで指定）
-              </button>
-            )}
+                {['17', '18', '19', '20', '21', '22', '23'].map((hour) => (
+                  <option key={hour} value={hour}>
+                    {hour}時
+                  </option>
+                ))}
+              </select>
+            </label>
 
-            <PrimaryBtn
-              size="large"
-              disabled={selectedDateIds.length === 0}
-              onClick={async () => {
-                const selectedDates = generatedDates.filter(d => selectedDateIds.includes(d.id))
-                setDates(selectedDates)
-                const eventId = await createEvent(
-                  eventName,
-                  eventType,
-                  selectedDates.map(d => d.label)
-                )
-                setCreatedEventId(eventId)
-                persistEvent(eventId, eventName, eventType)
-                setStep('shareLink')
-              }}
-            >
-              {selectedDateIds.length === 0
-                ? '候補日を選んでください'
-                : `この${selectedDateIds.length}件で作成`}
-            </PrimaryBtn>
-
-            <GhostBtn onClick={() => setStep('create')}>← 戻る</GhostBtn>
+            <label className="block">
+              <span className="mb-1.5 block text-[11px] font-bold text-stone-400">分</span>
+              <select
+                value={selectedMinute}
+                onChange={(e) => setSelectedMinute(e.target.value)}
+                className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none transition focus:border-stone-400"
+              >
+                {['00', '15', '30', '45'].map((minute) => (
+                  <option key={minute} value={minute}>
+                    {minute}分
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-        )}
+        </div>
+      )}
+
+      {showCalendar && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-stone-500">
+              カレンダーから追加できます
+            </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                const monday = getNextWeekMonday()
+                const twoWeeksLater = new Date(monday)
+                twoWeeksLater.setDate(monday.getDate() + 13)
+
+                const resetDates = generateWeekdays(monday, twoWeeksLater).map((d) => ({
+                  ...d,
+                  label: weekdayLabel(
+                    new Date(d.id.replace('wd-', '')),
+                    selectedTime
+                  ),
+                }))
+
+                setGeneratedDates(resetDates)
+                setSelectedDateIds(resetDates.map((d) => d.id))
+              }}
+              className="text-xs font-bold text-stone-500 underline underline-offset-2"
+            >
+              リセット
+            </button>
+          </div>
+
+          <CalendarPicker
+            viewMonth={calViewMonth}
+            onChangeMonth={setCalViewMonth}
+            selectedIds={selectedDateIds}
+            disabledBefore={(() => {
+              const t = new Date()
+              t.setHours(0, 0, 0, 0)
+              const c = new Date(t)
+              c.setDate(t.getDate() + 3)
+              return dateKey(c)
+            })()}
+            onDayClick={(key) => {
+              const id = `wd-${key}`
+              const existing = generatedDates.find((d) => d.id === id)
+
+              if (existing) {
+                setSelectedDateIds((prev) =>
+                  prev.includes(id)
+                    ? prev.filter((x) => x !== id)
+                    : [...prev, id]
+                )
+              } else {
+                const [y, mo, dy] = key.split('-').map(Number)
+                const d = new Date(y, mo - 1, dy)
+                const newDate = { id, label: weekdayLabel(d, selectedTime) }
+
+                setGeneratedDates((prev) =>
+                  [...prev, newDate].sort((a, b) => (a.id < b.id ? -1 : 1))
+                )
+                setSelectedDateIds((prev) => [...prev, id])
+              }
+            }}
+            onClose={() => setShowCalendar(false)}
+          />
+        </div>
+      )}
+
+      <PrimaryBtn
+        size="large"
+        disabled={selectedDateIds.length === 0}
+        onClick={async () => {
+          const selectedDates = generatedDates
+            .filter((d) => selectedDateIds.includes(d.id))
+            .map((d) => {
+              const base = d.id.replace('wd-', '')
+              const [y, mo, dy] = base.split('-').map(Number)
+              const date = new Date(y, mo - 1, dy)
+
+              return {
+                ...d,
+                label: weekdayLabel(date, selectedTime),
+              }
+            })
+
+          setDates(selectedDates)
+          const eventId = await createEvent(
+            eventName,
+            eventType,
+            selectedDates.map((d) => d.label)
+          )
+          setCreatedEventId(eventId)
+          persistEvent(eventId, eventName, eventType)
+          setStep('shareLink')
+        }}
+      >
+        {selectedDateIds.length === 0
+          ? '候補日を選んでください'
+          : `この${selectedDateIds.length}件で作成`}
+      </PrimaryBtn>
+
+      <GhostBtn onClick={() => setStep('create')}>← 戻る</GhostBtn>
+    </div>
+  </Card>
+)}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             参加者に送る
@@ -1416,286 +1494,341 @@ return (
         
         
         
-        {step === 'shareLink' && (
-          <Card>
-            <StepLabel n={3} />
-            <CardTitle>参加者に送る</CardTitle>
-            <div className="rounded-2xl bg-stone-50 px-4 py-4">
-              <p className="text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase mb-1.5">共有 URL</p>
-            <p className="font-mono text-sm text-stone-600 break-all">
+{step === 'shareLink' && (
+  <Card>
+    <StepLabel n={3} />
+    <CardTitle>参加者に送る</CardTitle>
 
-              
-              {shareUrl}
-            </p>
-            </div>
+    <div className="space-y-4">
+      <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
+        <p className="text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase mb-2">
+          この内容を送ります
+        </p>
+        <div className="rounded-2xl bg-white px-4 py-4 ring-1 ring-stone-100">
+          <p className="whitespace-pre-wrap text-sm leading-6 text-stone-700">
+            {shareMessage}
+          </p>
+        </div>
+      </div>
 
-<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-  <PrimaryBtn
-    onClick={async () => {
-      if (!shareUrl) return
-      await navigator.clipboard.writeText(shareUrl)
-    }}
-  >
-    リンクをコピー
-  </PrimaryBtn>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={async () => {
+            await navigator.clipboard.writeText(shareMessage)
+            setCopied(true)
+            setTimeout(() => setCopied(false), 1600)
+          }}
+          className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
+        >
+          {copied ? 'コピーしました' : '全文をコピー'}
+        </button>
 
-  <GhostBtn
-    onClick={() => {
-      if (!shareUrl) return
-      const text = `日程調整お願いします！
-以下のリンクから回答してください🙏
-${shareUrl}`
+        <button
+          type="button"
+          onClick={() => openLineShare(shareMessage)}
+          className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-[0.98]"
+        >
+          LINEで送る
+        </button>
+      </div>
 
-      const url = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`
-      window.open(url, '_blank')
-    }}
-  >
-    LINEで送る
-  </GhostBtn>
-</div>
+      <div className="rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-100">
+        <p className="text-sm leading-6 text-amber-800">
+          回答が集まったら、おすすめ日程からすぐ決められます。
+        </p>
+      </div>
 
-            <div className="mt-3 rounded-2xl bg-amber-50 px-4 py-3.5 ring-1 ring-amber-100">
-              <p className="text-sm leading-6 text-amber-800">
-                回答はすぐ終わります。
-              </p>
-            </div>
-            
-            <ButtonRow>
-              <GhostBtn onClick={() => setStep('dates')}>戻る</GhostBtn>
-             <PrimaryBtn
-  onClick={async () => {
-    const result = await loadEventData(createdEventId)
+      <PrimaryBtn size="large" onClick={() => setStep('dashboard')}>
+        回答状況を見る
+      </PrimaryBtn>
 
-    setDbDates(result.dates ?? [])
-    setDbResponses(result.responses ?? [])
-
-    setStep('dashboard')
-  }}
->
-  回答を確認して決める
-</PrimaryBtn>
-            </ButtonRow>
-          </Card>
-        )}
+      <GhostBtn onClick={() => setStep('dates')}>← 戻る</GhostBtn>
+    </div>
+  </Card>
+)}
 
 
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑤ ダッシュボード
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-       {step === 'dashboard' && (
-  <div className="space-y-5">
+{step === 'dashboard' && (
+  <div className="space-y-4">
     <div className="px-1">
-      <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 4</p>
+      <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 6</p>
       <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">日程を決める</h2>
     </div>
 
-    {/* 外側表示: 回答済み〇人 のみ */}
-    <p className="px-1 text-sm text-stone-500">
-      回答済み <span className="font-black text-stone-900">{answerCount}人</span>
-    </p>
-
-    {/* 空状態 */}
-    {totalCount === 0 && (
-      <div className="rounded-3xl bg-stone-50 px-5 py-8 text-center ring-1 ring-stone-100">
-        <p className="text-base font-black text-stone-400">まだ回答がありません</p>
-        <p className="mt-1 text-xs text-stone-400">リンクを送って回答を集めましょう</p>
+    {totalCount === 0 || !heroDate ? (
+      <div className="rounded-3xl bg-white px-6 py-7 shadow-sm ring-1 ring-stone-100">
+        <p className="text-base font-black text-stone-900">回答がまだありません</p>
+        <p className="mt-2 text-sm leading-6 text-stone-500">
+          リンクを送って回答を集めましょう。
+        </p>
+        <div className="mt-5">
+          <PrimaryBtn size="large" onClick={() => setStep('shareLink')}>
+            参加者に送る
+          </PrimaryBtn>
+        </div>
       </div>
-    )}
-
-    {/* ヒーロー: おすすめ日程 */}
-    {totalCount > 0 && heroDate && (
+    ) : (
       <>
-        {/* タブ */}
-        {altDates.length > 0 && (
-          <div className="flex gap-1 rounded-2xl bg-stone-100 p-1">
-            <button
-              type="button"
-              onClick={() => setDashboardTab('best')}
-              className={`flex-1 rounded-xl py-2 text-xs font-bold transition ${dashboardTab === 'best' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
-            >
-              ベスト
-            </button>
-            <button
-              type="button"
-              onClick={() => setDashboardTab('alt')}
-              className={`flex-1 rounded-xl py-2 text-xs font-bold transition ${dashboardTab === 'alt' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
-            >
-              ほかの日程
-            </button>
-          </div>
-        )}
+        <div className="overflow-hidden rounded-3xl bg-stone-900">
+          <div className="px-6 py-5">
+            <p className="mb-1 text-[10px] font-black uppercase tracking-[0.25em] text-white/40">
+              おすすめ日程
+            </p>
 
-        {dashboardTab === 'best' && (
-          <div className="overflow-hidden rounded-3xl bg-stone-900">
-            <div className="px-6 py-5">
-              <p className="mb-1 text-[10px] font-black uppercase tracking-[0.25em] text-white/40">
-                おすすめ日程
-              </p>
-              <p className="mt-2 text-3xl font-black leading-tight tracking-tight text-white">
-                {heroDate.label}
-              </p>
-              <button
-                type="button"
-                onClick={() => setShowHeroParticipants(p => !p)}
-                className="mt-3 text-xs font-bold text-white/50 underline underline-offset-2 transition hover:text-white/70"
-              >
-                参加者を見る
-              </button>
-              {showHeroParticipants && (
-                <div className="mt-3 space-y-1">
-                  {activeParticipants.filter(p => p.availability?.[heroDate.id] === 'yes').map(p => (
-                    <p key={p.id} className="text-xs text-emerald-300">○ {p.name}</p>
-                  ))}
-                  {activeParticipants.filter(p => p.availability?.[heroDate.id] === 'maybe').map(p => (
-                    <p key={p.id} className="text-xs text-amber-300">△ {p.name}</p>
-                  ))}
-                  {activeParticipants.filter(p => p.availability?.[heroDate.id] === 'no').map(p => (
-                    <p key={p.id} className="text-xs text-white/30">× {p.name}</p>
-                  ))}
+            <p className="mt-2 text-3xl font-black leading-tight tracking-tight text-white">
+              {heroDate.label}
+            </p>
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+                参加予定 {heroYesCount}人
+              </span>
+              <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
+                調整中 {heroMaybeCount}人
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowHeroParticipants((p) => !p)}
+              className="mt-4 text-xs font-bold text-white/60 underline underline-offset-2 transition hover:text-white/80"
+            >
+              {showHeroParticipants ? '参加者を閉じる' : '参加者を見る'}
+            </button>
+
+            {showHeroParticipants && (
+              <div className="mt-4 space-y-3">
+                <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/80">
+                    参加予定
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {heroYesParticipants.length > 0 ? (
+                      heroYesParticipants.map((p) => (
+                        <span
+                          key={p.id}
+                          className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20"
+                        >
+                          {p.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-white/40">まだいません</span>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-            <div className="px-6 pb-5">
-              <button
-                type="button"
-                onClick={decideRecommendedDate}
-                className="w-full rounded-2xl bg-white px-4 py-3.5 text-base font-black text-stone-900 transition hover:bg-stone-100 active:scale-[0.98]"
-              >
-                この日で決定
-              </button>
-            </div>
+
+                <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300/80">
+                    調整中
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {heroMaybeParticipants.length > 0 ? (
+                      heroMaybeParticipants.map((p) => (
+                        <span
+                          key={p.id}
+                          className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20"
+                        >
+                          {p.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-white/40">まだいません</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="px-6 pb-5">
+            <button
+              type="button"
+              onClick={decideRecommendedDate}
+              className="w-full rounded-2xl bg-white px-4 py-3.5 text-base font-black text-stone-900 transition hover:bg-stone-100 active:scale-[0.98]"
+            >
+              この日で決定
+            </button>
+          </div>
+        </div>
+
+        {altDates.length > 0 && (
+          <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+            <button
+              type="button"
+              onClick={() => setShowAltDates((v) => !v)}
+              className="w-full text-center text-sm font-bold text-stone-500 underline underline-offset-2 transition hover:text-stone-800"
+            >
+              {showAltDates ? 'ほかの日程を閉じる' : `ほかの日程を見る（${Math.min(altDates.length, 3)}件）`}
+            </button>
+
+            {showAltDates && (
+              <div className="mt-4 space-y-2">
+                {altDates.slice(0, 3).map((d) => {
+                  const dYes = activeParticipants.filter((p) => p.availability?.[d.id] === 'yes').length
+                  const dMaybe = activeParticipants.filter((p) => p.availability?.[d.id] === 'maybe').length
+
+                  return (
+                    <button
+                      type="button"
+                      key={d.id}
+                      onClick={() => {
+                        setHeroBestDateId(d.id)
+                        setShowAltDates(false)
+                        setShowHeroParticipants(false)
+                      }}
+                      className="flex w-full items-center justify-between rounded-2xl bg-stone-50 px-4 py-3 text-left ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-[0.99]"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-stone-900">{d.label}</p>
+                      </div>
+
+                      <div className="ml-3 flex shrink-0 items-center gap-2">
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-600 ring-1 ring-emerald-100">
+                          {dYes}人
+                        </span>
+                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-600 ring-1 ring-amber-100">
+                          {dMaybe}人
+                        </span>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 
-        {/* ほかの日程タブ: 最大3件 */}
-        {dashboardTab === 'alt' && altDates.length > 0 && (
+        {mainGuestIds.length > 0 && (
           <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-            <div className="space-y-2">
-              {altDates.slice(0, 3).map(d => {
-                const dYes = activeParticipants.filter(p => p.availability?.[d.id] === 'yes').length
-                const dMaybe = activeParticipants.filter(p => p.availability?.[d.id] === 'maybe').length
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
+              主賓
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {mainGuestIds.map((id) => {
+                const guest = activeParticipants.find((p) => p.id === id)
+                if (!guest) return null
+
+                const status = heroDate ? guest.availability?.[heroDate.id] : undefined
+                const tone =
+                  status === 'yes'
+                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+                    : status === 'maybe'
+                    ? 'bg-amber-50 text-amber-700 ring-amber-100'
+                    : 'bg-stone-100 text-stone-500 ring-stone-200'
+
                 return (
-                  <button
-                    type="button"
-                    key={d.id}
-                    onClick={() => { setHeroBestDateId(d.id); setDashboardTab('best'); setShowHeroParticipants(false) }}
-                    className="flex w-full items-center justify-between rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-[0.99]"
+                  <span
+                    key={id}
+                    className={`rounded-full px-3 py-1 text-xs font-bold ring-1 ${tone}`}
                   >
-                    <p className="text-sm font-bold text-stone-700">{d.label}</p>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="font-bold text-emerald-600">{dYes}人</span>
-                      {dMaybe > 0 && <span className="text-amber-500">調整{dMaybe}人</span>}
-                    </div>
-                  </button>
+                    {guest.name}
+                  </span>
                 )
               })}
             </div>
           </div>
         )}
+
+        <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
+            回答テーブル
+          </p>
+
+          <div className="mt-4 overflow-x-auto">
+            <div className="min-w-[760px]">
+              <div
+                className="grid items-center gap-2 text-xs font-bold text-stone-500"
+                style={{ gridTemplateColumns: `92px repeat(${activeDates.length}, minmax(72px, 1fr))` }}
+              >
+                <div>参加者</div>
+                {activeDates.map((date) => (
+                  <div
+                    key={date.id}
+                    className={date.id === heroDate.id ? 'text-stone-900' : ''}
+                  >
+                    {date.label}
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {activeParticipants.map((participant) => (
+                  <div
+                    key={participant.id}
+                    className="grid items-center gap-2"
+                    style={{ gridTemplateColumns: `92px repeat(${activeDates.length}, minmax(72px, 1fr))` }}
+                  >
+                    <div className="truncate text-sm font-bold text-stone-900">
+                      {participant.name}
+                    </div>
+
+                    {activeDates.map((date) => {
+                      const value = participant.availability?.[date.id]
+                      const isHero = date.id === heroDate.id
+
+                      return (
+                        <div
+                          key={date.id}
+                          className={`flex h-9 items-center justify-center rounded-xl text-sm font-bold ring-1 ${
+                            isHero ? 'bg-stone-50 ring-stone-200' : 'bg-white ring-stone-100'
+                          } ${
+                            value === 'yes'
+                              ? 'text-emerald-600'
+                              : value === 'maybe'
+                              ? 'text-amber-500'
+                              : 'text-stone-300'
+                          }`}
+                        >
+                          {value === 'yes' ? '○' : value === 'maybe' ? '△' : value === 'no' ? '×' : '—'}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
+            主賓を指定（任意）
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {activeParticipants.map((participant) => {
+              const selected = mainGuestIds.includes(participant.id)
+
+              return (
+                <button
+                  key={participant.id}
+                  type="button"
+                  onClick={() =>
+                    setMainGuestIds((prev) =>
+                      prev.includes(participant.id)
+                        ? prev.filter((id) => id !== participant.id)
+                        : [...prev, participant.id]
+                    )
+                  }
+                  className={`rounded-full px-4 py-2 text-sm font-bold ring-1 transition ${
+                    selected
+                      ? 'bg-stone-900 text-white ring-stone-900'
+                      : 'bg-white text-stone-600 ring-stone-200 hover:bg-stone-50'
+                  }`}
+                >
+                  {participant.name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </>
     )}
-
-    <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-stone-100">
-      <div className="flex items-center justify-between border-b border-stone-50 px-5 py-3">
-        <p className="text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">回答テーブル</p>
-        <p className="text-[10px] text-stone-300">○ △ ×</p>
-      </div>
-      <div className="overflow-x-auto px-5 py-4">
-        <table className="min-w-full border-separate border-spacing-y-2 text-sm">
-          <thead>
-            <tr className="text-left">
-              <th className="pr-5 text-[11px] font-semibold text-stone-400">参加者</th>
-              {activeDates.map((d) => (
-                <th
-                  key={d.id}
-                  className={cx(
-                    'whitespace-nowrap pr-6 text-[11px] font-semibold',
-                    d.id === recommendedDate?.date.id ? 'text-stone-900' : 'text-stone-400'
-                  )}
-                >
-                  {d.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {activeParticipants.map((p) => (
-              <tr key={p.id}>
-                <td className="whitespace-nowrap pr-5 text-sm font-bold text-stone-700">{p.name}</td>
-                {activeDates.map((d) => (
-                  <td
-                    key={d.id}
-                    className={cx(
-                      'whitespace-nowrap pr-6 text-sm',
-                      availabilityStyle(p.availability[d.id]),
-                      d.id === recommendedDate?.date.id && 'rounded-md bg-stone-50'
-                    )}
-                  >
-                    {availabilityLabel(p.availability[d.id])}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    {activeParticipants.length > 0 && (
-      <div className="rounded-3xl bg-white px-5 py-4 shadow-sm ring-1 ring-stone-100">
-        <p className="mb-3 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">主賓を指定（任意）</p>
-        <div className="flex flex-wrap gap-2">
-          {activeParticipants.map((p) => (
-            <button
-              type="button"
-              key={p.id}
-              onClick={() => setMainGuestIds(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id])}
-              className={cx(
-                'rounded-full px-4 py-2 text-sm font-bold transition',
-                mainGuestIds.includes(p.id)
-                  ? 'bg-stone-900 text-white'
-                  : 'bg-white text-stone-500 ring-1 ring-stone-200 hover:bg-stone-50'
-              )}
-            >
-              {p.name}
-            </button>
-          ))}
-        </div>
-      </div>
-    )}
-
-    <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-      <p className="mb-2 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">未回答への催促</p>
-      <p className="mb-4 whitespace-pre-line text-sm leading-6 text-stone-600">{reminderText}</p>
-      <div className="space-y-2">
-        <button
-          type="button"
-          onClick={async () => {
-            if (!shareUrl) return
-            await navigator.clipboard.writeText(reminderText)
-            setReminderCopied(true)
-            setTimeout(() => setReminderCopied(false), 1600)
-          }}
-          className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-100 px-4 py-3 text-sm font-bold text-stone-700 transition hover:bg-stone-200 active:scale-[0.98]"
-        >
-          {reminderCopied ? 'コピーしました' : 'リマインドをコピー'}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (!shareUrl) return
-            const url = `https://line.me/R/msg/text/?${encodeURIComponent(reminderText)}`
-            window.open(url, '_blank')
-          }}
-          className="inline-flex w-full items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
-        >
-          LINEで催促する
-        </button>
-      </div>
-    </div>
-
-    <GhostBtn onClick={() => setStep('shareLink')}>← 戻る</GhostBtn>
   </div>
 )}
 
@@ -1913,7 +2046,7 @@ ${shareUrl}`
           <div className="space-y-4">
             <div className="px-1">
               <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 7</p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">条件を整える</h2>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">条件を設定</h2>
             </div>
 
             {participantMajority && (
@@ -1942,27 +2075,25 @@ ${shareUrl}`
               <div className="space-y-5">
 
                 {/* 価格帯: チップ（主） + プルダウン（副） */}
-                <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">価格帯</p>
-                  <div className="flex flex-wrap gap-2">
-                    {['〜3,000円', '〜5,000円', '〜8,000円', '制限なし'].map(v => (
-                      <Chip key={v} active={orgPrefs.priceRange === v}
-                        onClick={() => setOrgPrefs(p => ({ ...p, priceRange: p.priceRange === v ? '' : v }))}>
-                        {v}
-                      </Chip>
-                    ))}
-                  </div>
-                  <select
-                    value={orgPrefs.priceRange}
-                    onChange={e => setOrgPrefs(p => ({ ...p, priceRange: e.target.value }))}
-                    className="mt-2 w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-xs text-stone-500 outline-none focus:border-stone-300 focus:bg-white"
-                  >
-                    <option value="">金額を細かく指定…</option>
-                    {[1000,2000,3000,4000,5000,6000,7000,8000,9000,10000].map(v => (
-                      <option key={v} value={`〜${v.toLocaleString()}円`}>〜{v.toLocaleString()}円</option>
-                    ))}
-                  </select>
-                </div>
+               <div>
+  <p className="mb-2 text-xs font-bold text-stone-700">価格帯</p>
+  <select
+    value={orgPrefs.priceRange}
+    onChange={(e) =>
+      setOrgPrefs((p) => ({
+        ...p,
+        priceRange: e.target.value,
+      }))
+    }
+    className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-bold text-stone-700 outline-none transition focus:border-stone-400"
+  >
+    {['〜3,000円', '〜5,000円', '〜7,000円', '〜8,000円', '制限なし'].map((price) => (
+      <option key={price} value={price}>
+        {price}
+      </option>
+    ))}
+  </select>
+</div>
 
                 {/* 個室 */}
                 <div>
@@ -1994,18 +2125,33 @@ ${shareUrl}`
                     placeholder="駅名・地名を入力 → Enter"
                     className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-300 focus:bg-white"
                   />
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {AREA_OPTIONS.filter(v => !orgPrefs.areas.includes(v)).map(v => (
-                      <button
-                        type="button"
-                        key={v}
-                        onClick={() => setOrgPrefs(p => ({ ...p, areas: [...p.areas, v] }))}
-                        className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-500 transition hover:bg-stone-200 active:scale-95"
-                      >
-                        + {v}
-                      </button>
-                    ))}
-                  </div>
+<div className="mt-2 flex flex-wrap gap-2">
+  {AREA_OPTIONS.map((area) => {
+    const selected = orgPrefs.areas.includes(area)
+
+    return (
+      <button
+        key={area}
+        type="button"
+        onClick={() =>
+          setOrgPrefs((p) => ({
+            ...p,
+            areas: p.areas.includes(area)
+              ? p.areas.filter((a) => a !== area)
+              : [...p.areas, area],
+          }))
+        }
+        className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition ${
+          selected
+            ? 'bg-stone-900 text-white ring-stone-900'
+            : 'bg-stone-50 text-stone-600 ring-stone-200 hover:bg-stone-100'
+        }`}
+      >
+        {area}
+      </button>
+    )
+  })}
+</div>
                   {orgPrefs.areas.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {orgPrefs.areas.map(v => (
@@ -2024,14 +2170,7 @@ ${shareUrl}`
 
                 {/* こだわり条件: 折りたたみ */}
                 <div>
-                  <button
-                    type="button"
-                    onClick={() => setShowOrgDetails(v => !v)}
-                    className="text-xs font-bold text-stone-400 underline underline-offset-2 transition hover:text-stone-600"
-                  >
-                    {showOrgDetails ? 'こだわり条件を閉じる' : 'こだわり条件を追加する（任意）'}
-                  </button>
-                  {showOrgDetails && (
+ 
                     <div className="mt-4 space-y-4">
                       <div>
                         <p className="mb-2 text-xs font-bold text-stone-700">ジャンル</p>
@@ -2089,7 +2228,7 @@ ${shareUrl}`
                         </div>
                       </div>
                     </div>
-                  )}
+                  )
                 </div>
 
               </div>
@@ -2748,7 +2887,7 @@ function CalendarPicker({
 
       {/* Day-of-week header */}
       <div className="mb-1 grid grid-cols-7">
-        {['日', '月', '火', '水', '木', '金', '土'].map(d => (
+        {['日', '月', '火', '水', '木', '金', '土'].map((d) => (
           <div key={d} className="py-1 text-center text-[11px] font-bold text-stone-300">
             {d}
           </div>
@@ -2757,35 +2896,47 @@ function CalendarPicker({
 
       {/* Day grid */}
       <div className="grid grid-cols-7 gap-y-1">
-        {cells.map((day, i) => {
-          if (!day) return <div key={`e-${i}`} />
-          const k = dk(day)
-          const isWeekend = day.getDay() === 0 || day.getDay() === 6
-          const isDisabled = isWeekend || k < disabledBefore
-          const isSelected = selectedIds.includes(`wd-${k}`)
+        {cells.map((date, index) => {
+          if (!date) {
+            return <div key={`empty-${index}`} className="h-10 w-10" />
+          }
+
+          const dateKeyValue = dk(date)
+          const id = `wd-${dateKeyValue}`
+          const isWeekend = date.getDay() === 0 || date.getDay() === 6
+          const isDisabledBefore = disabledBefore ? dateKeyValue < disabledBefore : false
+          const isSelected =
+            selectedIds.includes(id) || selectedIds.includes(dateKeyValue)
+
           return (
             <button
+              key={dateKeyValue}
               type="button"
-              key={k}
-              disabled={isDisabled}
-              onClick={() => !isDisabled && onDayClick(k)}
+              disabled={isDisabledBefore}
+              onClick={() => onDayClick(dateKeyValue)}
               className={cx(
-                'h-9 w-full rounded-xl text-sm font-semibold transition',
-                isDisabled
-                  ? 'cursor-not-allowed text-stone-200'
-                  : isSelected
-                  ? 'bg-stone-900 text-white'
-                  : 'text-stone-600 hover:bg-stone-50'
+                'flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold transition',
+                isSelected && 'bg-stone-900 text-white ring-1 ring-stone-900',
+                !isSelected &&
+                  !isDisabledBefore &&
+                  !isWeekend &&
+                  'bg-white text-stone-700 ring-1 ring-stone-200 hover:bg-stone-50',
+                !isSelected &&
+                  !isDisabledBefore &&
+                  isWeekend &&
+                  'bg-stone-50 text-stone-400 ring-1 ring-stone-200 hover:bg-stone-100',
+                isDisabledBefore &&
+                  'cursor-not-allowed bg-stone-50 text-stone-300 ring-1 ring-stone-100'
               )}
             >
-              {day.getDate()}
+              {date.getDate()}
             </button>
           )
         })}
       </div>
 
       {/* Hint */}
-      <p className="mt-3 text-xs text-stone-400">平日をタップして追加・解除できます</p>
+      <p className="mt-3 text-xs text-stone-400">日付をタップして追加・解除できます</p>
 
       {/* Close */}
       <div className="mt-4">
