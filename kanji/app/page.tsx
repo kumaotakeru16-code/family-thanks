@@ -440,6 +440,7 @@ export default function Page() {
   const [participants] = useState<Participant[]>(MOCK_PARTICIPANTS)
   const [mainGuestIds, setMainGuestIds] = useState<string[]>([])
   const [showHeroParticipants, setShowHeroParticipants] = useState(false)
+  const [showFinalParticipants, setShowFinalParticipants] = useState(false)
 
   const [areaInput, setAreaInput] = useState('')
   const [showAltStores, setShowAltStores] = useState(false)
@@ -1091,8 +1092,10 @@ const shareUrl =
     ? `${window.location.origin}/e/${createdEventId}`
     : ''
 
-const shareMessage = `日程調整をお願いします！
+const shareMessage = `${eventName || '会'}の日程調整をお願いします！
 以下のリンクから回答してください🙏
+
+
 
 ${shareUrl}`
 
@@ -1106,10 +1109,8 @@ const dateConfirmedShareText =
     ? `日程はこちらに決まりました！\nお店の詳細は追って連絡します。\n\n日程：${heroDate.label}`
     : ''
 
-const maybeConfirmText =
-  heroDate && maybeNames.length > 0
-    ? `${maybeNames.join('、')} さん\n\nこの日で進めようと思っています！\nまだ未確定でしたら参加可否を教えてください🙏\n\n日程：${heroDate.label}`
-    : ''
+const maybeShareText = `この日程で進めたいと思っています。
+ご都合が問題なさそうか、確認お願いします。`
 
 const finalSelectedDate =
   finalDecision && finalDates.length > 0
@@ -2206,11 +2207,10 @@ return (
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
 {step === 'finalConfirm' && (
   <div className="space-y-4">
-    <div className="px-1">
-      <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 10</p>
-      <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">これで進めればOKです</h2>
-      <p className="mt-1 text-sm text-stone-400">日程と候補がまとまりました。あとは共有するだけです。</p>
-    </div>
+   <div className="px-1">
+  <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 10</p>
+  <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">確定情報の共有</h2>
+</div>
 
     {(() => {
       const finalSelectedDate =
@@ -2220,7 +2220,17 @@ return (
 
       const finalStore = selectedStore || recommendedStores?.[0] || null
       const participantCount = dbResponses.length
+      const finalDateId = finalDecision?.selected_date_id ?? null
 
+const finalYesParticipants =
+  finalDateId
+    ? activeParticipants.filter((p) => p.availability?.[finalDateId] === 'yes')
+    : []
+
+const finalMaybeParticipants =
+  finalDateId
+    ? activeParticipants.filter((p) => p.availability?.[finalDateId] === 'maybe')
+    : []
       const finalShareText =
         shareText ||
         `日程は ${finalSelectedDate?.label ?? '未設定'} で進めたいです！
@@ -2281,12 +2291,63 @@ ${finalStore?.link ?? ''}`
             
           )}
 
-          <div className="rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
-  <p className="text-sm font-bold text-stone-800">参加状況</p>
-  <p className="mt-1 text-sm leading-6 text-stone-600">
-    参加予定は {yesCount}人です。
-    {maybeCount > 0 ? ` ほかに調整中が ${maybeCount}人います。` : ''}
-  </p>
+<div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+  <button
+    type="button"
+    onClick={() => setShowFinalParticipants((v) => !v)}
+    className="w-full text-left"
+  >
+    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
+      参加者
+    </p>
+    <p className="mt-2 text-sm font-bold text-stone-700">
+      {showFinalParticipants ? '参加者を閉じる' : '参加者を見る'}
+    </p>
+  </button>
+
+  {showFinalParticipants && (
+    <div className="mt-4 space-y-3">
+      <div className="rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">
+          参加予定
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {finalYesParticipants.length > 0 ? (
+            finalYesParticipants.map((p) => (
+              <span
+                key={p.id}
+                className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-100"
+              >
+                {p.name}
+              </span>
+            ))
+          ) : (
+            <span className="text-xs text-stone-400">まだいません</span>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600">
+          調整中
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {finalMaybeParticipants.length > 0 ? (
+            finalMaybeParticipants.map((p) => (
+              <span
+                key={p.id}
+                className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 ring-1 ring-amber-100"
+              >
+                {p.name}
+              </span>
+            ))
+          ) : (
+            <span className="text-xs text-stone-400">いません</span>
+          )}
+        </div>
+      </div>
+    </div>
+  )}
 </div>
 
           {/* 共有文 + CTA */}
