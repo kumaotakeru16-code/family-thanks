@@ -1551,16 +1551,15 @@ return (
       <>
         <div className="overflow-hidden rounded-3xl bg-stone-900">
           <div className="px-6 py-5">
-            <p className="mb-1 text-[10px] font-black uppercase tracking-[0.25em] text-white/40">
-              おすすめ日程
-            </p>
+ <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">
+  おすすめ日程
+</p>
+<p className="mt-1 text-3xl font-black text-white">
+  {finalSelectedDate?.label}
+</p>
 
-            <p className="mt-2 text-3xl font-black leading-tight tracking-tight text-white">
-              {heroDate.label}
-            </p>
-
-<p className="mt-2 text-xs font-bold text-white/60">
-  Max人数 {yesCount + maybeCount}人（参加予定{yesCount}人、調整中{maybeCount}人）
+<p className="mt-2 text-sm font-bold text-white/70">
+  最大参加人数 {yesCount + maybeCount}人
 </p>
 
 <div className="mt-3 flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
@@ -1571,15 +1570,30 @@ return (
   <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
     調整中 {maybeCount}人
   </span>
-            </div>
 
-            <button
-              type="button"
-              onClick={() => setShowHeroParticipants((p) => !p)}
-              className="mt-4 text-xs font-bold text-white/60 underline underline-offset-2 transition hover:text-white/80"
-            >
-              {showHeroParticipants ? '参加者を閉じる' : '参加者を見る'}
-            </button>
+  {eventType && (
+    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
+      {eventType}
+    </span>
+  )}
+
+  {effectiveTags.map((tag) => (
+    <span
+      key={tag}
+      className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60"
+    >
+      {tag}
+    </span>
+  ))}
+</div>
+
+<button
+  type="button"
+  onClick={() => setShowFinalParticipants((v) => !v)}
+  className="mt-3 text-xs font-bold text-white/70 underline"
+>
+  {showFinalParticipants ? '参加者を閉じる' : '参加者を見る'}
+</button>
 
             {showHeroParticipants && (
               <div className="mt-4 space-y-3">
@@ -1844,13 +1858,15 @@ return (
     {/* 確定日程 ヒーロー */}
     <div className="overflow-hidden rounded-3xl bg-stone-900">
       <div className="px-6 py-6">
-        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.25em] text-white/40">確定日程</p>
-        <p className="text-3xl font-black leading-tight tracking-tight text-white">
-          {heroDate.label}
-        </p>
-      </div>
-<p className="mt-2 text-xs font-bold text-white/60">
-  Max人数 {yesCount + maybeCount}人（参加予定{yesCount}人、調整中{maybeCount}人）
+ <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">
+  確定日程
+</p>
+<p className="mt-1 text-3xl font-black text-white">
+  {finalSelectedDate?.label}
+</p>
+
+<p className="mt-2 text-sm font-bold text-white/70">
+  最大参加人数 {yesCount + maybeCount}人
 </p>
 
 <div className="mt-3 flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
@@ -1861,10 +1877,27 @@ return (
   <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
     調整中 {maybeCount}人
   </span>
+
+  {eventType && (
+    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
+      {eventType}
+    </span>
+  )}
+
+  {effectiveTags.map((tag) => (
+    <span
+      key={tag}
+      className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60"
+    >
+      {tag}
+    </span>
+  ))}
+</div>
+
 <button
   type="button"
-  onClick={() => setShowFinalParticipants(v => !v)}
-  className="mt-2 text-xs font-bold text-white/70 underline"
+  onClick={() => setShowFinalParticipants((v) => !v)}
+  className="mt-3 text-xs font-bold text-white/70 underline"
 >
   {showFinalParticipants ? '参加者を閉じる' : '参加者を見る'}
 </button>
