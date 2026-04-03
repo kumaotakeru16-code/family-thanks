@@ -39,6 +39,7 @@ export default function EventParticipantPage() {
 
   const [participantName, setParticipantName] = useState('')
   const [answers, setAnswers] = useState<Record<string, AvailabilityValue | undefined>>({})
+  const [showPrefs, setShowPrefs] = useState(false)
   const [prefGenres, setPrefGenres] = useState<string[]>([])
   const [prefAtmosphere, setPrefAtmosphere] = useState<string>('')
   const [prefPrivateRoom, setPrefPrivateRoom] = useState<string>('')
@@ -269,86 +270,85 @@ export default function EventParticipantPage() {
           )}
         </div>
 
-        <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-black/5">
-          <div className="flex items-baseline justify-between">
-            <p className="text-sm font-bold text-stone-900">お店の希望</p>
-            <span className="text-[10px] text-stone-400">任意・答えなくてもOK</span>
-          </div>
-          <div className="mt-4 space-y-5">
+        {showPrefs && (
+          <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-black/5">
+            <p className="mb-4 text-sm font-bold text-stone-900">こだわり</p>
+            <div className="space-y-5">
 
-            <div>
-              <p className="mb-2 text-xs font-bold text-stone-600">ジャンル</p>
-              <div className="flex flex-wrap gap-2">
-                {['居酒屋', '焼肉', 'イタリアン', '和食', 'カフェ・バル'].map(v => (
-                  <button type="button" key={v}
-                    onClick={() => setPrefGenres(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])}
-                    className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition active:scale-95 ${
-                      prefGenres.includes(v) ? 'bg-stone-900 text-white ring-stone-900' : 'bg-stone-50 text-stone-500 ring-stone-200 hover:bg-stone-100'
-                    }`}
-                  >{v}</button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="mb-2 text-xs font-bold text-stone-600">雰囲気</p>
-              <div className="flex flex-wrap gap-2">
-                {['にぎやか', '落ち着き', 'おしゃれ', 'アットホーム'].map(v => (
-                  <button type="button" key={v}
-                    onClick={() => setPrefAtmosphere(prev => prev === v ? '' : v)}
-                    className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition active:scale-95 ${
-                      prefAtmosphere === v ? 'bg-stone-900 text-white ring-stone-900' : 'bg-stone-50 text-stone-500 ring-stone-200 hover:bg-stone-100'
-                    }`}
-                  >{v}</button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="mb-2 text-xs font-bold text-stone-600">個室</p>
-                <div className="flex gap-2">
-                  {['希望する', 'どちらでも'].map(v => (
+                <p className="mb-2 text-xs font-bold text-stone-600">ジャンル</p>
+                <div className="flex flex-wrap gap-2">
+                  {['居酒屋', '焼肉', 'イタリアン', '和食', 'カフェ・バル'].map(v => (
                     <button type="button" key={v}
-                      onClick={() => setPrefPrivateRoom(prev => prev === v ? '' : v)}
-                      className={`flex-1 rounded-xl py-2 text-xs font-bold ring-1 transition active:scale-95 ${
-                        prefPrivateRoom === v ? 'bg-stone-900 text-white ring-stone-900' : 'bg-white text-stone-500 ring-stone-200 hover:bg-stone-50'
+                      onClick={() => setPrefGenres(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])}
+                      className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition active:scale-95 ${
+                        prefGenres.includes(v) ? 'bg-stone-900 text-white ring-stone-900' : 'bg-stone-50 text-stone-500 ring-stone-200 hover:bg-stone-100'
                       }`}
                     >{v}</button>
                   ))}
                 </div>
               </div>
+
               <div>
-                <p className="mb-2 text-xs font-bold text-stone-600">飲み放題</p>
-                <div className="flex gap-2">
-                  {['希望する', 'どちらでも'].map(v => (
+                <p className="mb-2 text-xs font-bold text-stone-600">雰囲気</p>
+                <div className="flex flex-wrap gap-2">
+                  {['にぎやか', '落ち着き', 'おしゃれ', 'アットホーム'].map(v => (
                     <button type="button" key={v}
-                      onClick={() => setPrefAllYouCanDrink(prev => prev === v ? '' : v)}
-                      className={`flex-1 rounded-xl py-2 text-xs font-bold ring-1 transition active:scale-95 ${
-                        prefAllYouCanDrink === v ? 'bg-stone-900 text-white ring-stone-900' : 'bg-white text-stone-500 ring-stone-200 hover:bg-stone-50'
+                      onClick={() => setPrefAtmosphere(prev => prev === v ? '' : v)}
+                      className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition active:scale-95 ${
+                        prefAtmosphere === v ? 'bg-stone-900 text-white ring-stone-900' : 'bg-stone-50 text-stone-500 ring-stone-200 hover:bg-stone-100'
                       }`}
                     >{v}</button>
                   ))}
                 </div>
               </div>
-            </div>
 
-            <div>
-              <p className="mb-2 text-xs font-bold text-stone-600">ドリンクの好み</p>
-              <div className="flex flex-wrap gap-2">
-                {['ワイン', '日本酒', '焼酎'].map(v => (
-                  <button type="button" key={v}
-                    onClick={() => setPrefDrinks(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])}
-                    className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition active:scale-95 ${
-                      prefDrinks.includes(v) ? 'bg-stone-900 text-white ring-stone-900' : 'bg-stone-50 text-stone-500 ring-stone-200 hover:bg-stone-100'
-                    }`}
-                  >{v}</button>
-                ))}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="mb-2 text-xs font-bold text-stone-600">個室</p>
+                  <div className="flex gap-2">
+                    {['希望する', 'どちらでも'].map(v => (
+                      <button type="button" key={v}
+                        onClick={() => setPrefPrivateRoom(prev => prev === v ? '' : v)}
+                        className={`flex-1 rounded-xl py-2 text-xs font-bold ring-1 transition active:scale-95 ${
+                          prefPrivateRoom === v ? 'bg-stone-900 text-white ring-stone-900' : 'bg-white text-stone-500 ring-stone-200 hover:bg-stone-50'
+                        }`}
+                      >{v}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-2 text-xs font-bold text-stone-600">飲み放題</p>
+                  <div className="flex gap-2">
+                    {['希望する', 'どちらでも'].map(v => (
+                      <button type="button" key={v}
+                        onClick={() => setPrefAllYouCanDrink(prev => prev === v ? '' : v)}
+                        className={`flex-1 rounded-xl py-2 text-xs font-bold ring-1 transition active:scale-95 ${
+                          prefAllYouCanDrink === v ? 'bg-stone-900 text-white ring-stone-900' : 'bg-white text-stone-500 ring-stone-200 hover:bg-stone-50'
+                        }`}
+                      >{v}</button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
 
+              <div>
+                <p className="mb-2 text-xs font-bold text-stone-600">ドリンクの好み</p>
+                <div className="flex flex-wrap gap-2">
+                  {['ワイン', '日本酒', '焼酎'].map(v => (
+                    <button type="button" key={v}
+                      onClick={() => setPrefDrinks(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])}
+                      className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition active:scale-95 ${
+                        prefDrinks.includes(v) ? 'bg-stone-900 text-white ring-stone-900' : 'bg-stone-50 text-stone-500 ring-stone-200 hover:bg-stone-100'
+                      }`}
+                    >{v}</button>
+                  ))}
+                </div>
+              </div>
+
+            </div>
           </div>
-        </div>
+        )}
 
         {errorMessage ? (
           <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-100">
@@ -364,6 +364,16 @@ export default function EventParticipantPage() {
         >
           {submitting ? '送信中…' : '回答を送信'}
         </button>
+
+        {!showPrefs && (
+          <button
+            type="button"
+            onClick={() => setShowPrefs(true)}
+            className="w-full text-center text-xs text-stone-400 underline underline-offset-2"
+          >
+            こだわりを追加する（任意）
+          </button>
+        )}
       </div>
     </div>
   )
