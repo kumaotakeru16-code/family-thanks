@@ -32,6 +32,17 @@ type Participant = {
   area: string[]
   genres: string[]
 }
+type OrganizerPrefs = {
+  priceRange: string
+  genres: string[]
+  drinks: string[]
+  privateRoom: string
+  allYouCanDrink: string
+  smoking: string
+  areas: string[]
+  atmosphere: string[]
+}
+
 type StoreCandidate = {
   id: string
   name: string
@@ -58,8 +69,6 @@ type PastStore = {
 const EVENT_TYPES: EventType[] = ['歓迎会', '送別会', '普通の飲み会', '少人数ごはん', '会食']
 const AREA_OPTIONS = ['渋谷', '新宿', '恵比寿', '中間でOK']
 const GENRE_OPTIONS = ['居酒屋', '焼肉', 'イタリアン', 'カフェ']
-const ORGANIZER_CONDITION_OPTIONS = ['個室あり', '禁煙希望', '喫煙可がよい', '静かめ', '会食向き']
-
 const INITIAL_DATES: DateOption[] = [
   { id: 'date1', label: '4/10（水）19:00' },
   { id: 'date2', label: '4/12（金）19:00' },
@@ -199,7 +208,9 @@ function getTopGenres(participants: Participant[]) {
 
   participants.forEach((p) => {
     p.genres.forEach((genre) => {
-      counts.set(genre, (counts.get(genre) ?? 0) + 1)
+      if (!genre.startsWith('atm:') && !genre.startsWith('pref:') && !genre.startsWith('drink:')) {
+        counts.set(genre, (counts.get(genre) ?? 0) + 1)
+      }
     })
   })
 
@@ -406,7 +417,17 @@ export default function Page() {
   const [dates, setDates] = useState<DateOption[]>(INITIAL_DATES)
   const [participants] = useState<Participant[]>(MOCK_PARTICIPANTS)
   const [mainGuestId, setMainGuestId] = useState('p1')
-  const [organizerConditions, setOrganizerConditions] = useState<string[]>([])
+  const [orgPrefs, setOrgPrefs] = useState<OrganizerPrefs>({
+    priceRange: '',
+    genres: [],
+    drinks: [],
+    privateRoom: '',
+    allYouCanDrink: '',
+    smoking: '',
+    areas: [],
+    atmosphere: [],
+  })
+  const orgPrefsInitRef = useRef(false)
   const [selectedStoreId, setSelectedStoreId] = useState('s1')
   const [selectedPastStoreId, setSelectedPastStoreId] = useState<string | null>(null)
   const [storeDetailOrigin, setStoreDetailOrigin] = useState<Step>('pastStores')
@@ -521,10 +542,6 @@ useEffect(() => {
 const selectedStore: StoreCandidate | null =
   recommendedStores?.[0] ?? null
 
-const activeTags = [
-  ...(selectedStore?.tags ?? []),
-  ...(organizerConditions ?? []),
-]
 
 
 
@@ -610,6 +627,78 @@ const altDates = useMemo(
   () => activeDates.filter(d => d.id !== recommendedDate?.date.id).slice(0, 2),
   [activeDates, recommendedDate]
 )
+
+const participantMajority = useMemo(() => {
+  const total = activeParticipants.length
+  if (total === 0) return null
+  const genreCounts = new Map<string, number>()
+  const atmCounts = new Map<string, number>()
+  let privateRoomCount = 0
+  let allYouCanDrinkCount = 0
+  const drinkCounts = new Map<string, number>()
+  activeParticipants.forEach(p => {
+    ;(p.genres ?? []).forEach((g: string) => {
+      if (g.startsWith('atm:')) {
+        const atm = g.slice(4)
+        atmCounts.set(atm, (atmCounts.get(atm) ?? 0) + 1)
+      } else if (g === 'pref:個室') {
+        privateRoomCount++
+      } else if (g === 'pref:飲み放題') {
+        allYouCanDrinkCount++
+      } else if (g.startsWith('drink:')) {
+        const drink = g.slice(6)
+        drinkCounts.set(drink, (drinkCounts.get(drink) ?? 0) + 1)
+      } else {
+        genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1)
+      }
+    })
+  })
+  const half = total / 2
+  return {
+    genres: [...genreCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .filter(([, c]) => c > half)
+      .map(([g]) => g),
+    atmosphere: [...atmCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([a]) => a)
+      .slice(0, 2),
+    privateRoom: privateRoomCount > half ? '必要' : 'どちらでも',
+    allYouCanDrink: allYouCanDrinkCount > half ? '希望' : 'どちらでも',
+    drinks: [...drinkCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([d]) => d)
+      .slice(0, 2),
+    areas: getTopAreas(activeParticipants).slice(0, 2),
+  }
+}, [activeParticipants])
+
+const organizerConditions = useMemo(() => {
+  const c: string[] = []
+  if (orgPrefs.privateRoom === '必要') c.push('個室あり')
+  if (orgPrefs.smoking === '禁煙希望') c.push('禁煙希望')
+  if (orgPrefs.smoking === '喫煙可') c.push('喫煙可がよい')
+  if (orgPrefs.atmosphere.includes('落ち着き')) c.push('静かめ')
+  orgPrefs.genres.forEach(g => c.push(g))
+  orgPrefs.areas.forEach(a => c.push(a))
+  if (orgPrefs.allYouCanDrink === '希望') c.push('飲み放題希望')
+  return c
+}, [orgPrefs])
+
+useEffect(() => {
+  if (step === 'organizerConditions' && participantMajority && !orgPrefsInitRef.current) {
+    orgPrefsInitRef.current = true
+    setOrgPrefs(p => ({
+      ...p,
+      genres: participantMajority.genres.length ? participantMajority.genres : p.genres,
+      atmosphere: participantMajority.atmosphere.length ? participantMajority.atmosphere : p.atmosphere,
+      privateRoom: participantMajority.privateRoom === '必要' ? '必要' : p.privateRoom,
+      allYouCanDrink: participantMajority.allYouCanDrink === '希望' ? '希望' : p.allYouCanDrink,
+      drinks: participantMajority.drinks.length ? participantMajority.drinks : p.drinks,
+      areas: participantMajority.areas.length ? participantMajority.areas : p.areas,
+    }))
+  }
+}, [step, participantMajority])
 
 const storePool = recommendedStores.length > 0 ? recommendedStores : MOCK_STORES
 
@@ -775,9 +864,10 @@ async function fetchRecommendedStores() {
         participants: activeParticipants.map((p) => ({
           name: p.name,
           areas: p.area ?? [],
-          genres: p.genres ?? [],
+          genres: (p.genres ?? []).filter((g: string) => !g.startsWith('atm:') && !g.startsWith('pref:') && !g.startsWith('drink:')),
         })),
         organizerConditions,
+        orgPrefs,
       }),
     })
 
@@ -1544,31 +1634,142 @@ ${shareUrl}`
             ⑧ 幹事条件設定
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'organizerConditions' && (
-          <Card>
-            <StepLabel n={7} />
-            <CardTitle>幹事の条件</CardTitle>
-            <CardSub>参加者には見せない、幹事だけの条件を追加できます。すべて任意です。</CardSub>
-            <div className="flex flex-wrap gap-2">
-              {ORGANIZER_CONDITION_OPTIONS.map(c => (
-                <Chip key={c} active={organizerConditions.includes(c)} onClick={() => toggleItem(c, organizerConditions, setOrganizerConditions)}>
-                  {c}
-                </Chip>
-              ))}
+          <div className="space-y-4">
+            <div className="px-1">
+              <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 7</p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">店の条件</h2>
+              <p className="mt-1 text-sm text-stone-400">参加者の希望をもとに条件を調整してください。すべて任意です。</p>
             </div>
-            {organizerConditions.length > 0 && (
-              <div className="mt-4 rounded-xl bg-stone-50 px-4 py-3">
-                <p className="text-xs text-stone-500">
-                  選択中：<span className="font-bold text-stone-700">{organizerConditions.join('・')}</span>
-                </p>
+
+            {participantMajority && (
+              <div className="rounded-3xl bg-stone-50 px-5 py-4 ring-1 ring-stone-100">
+                <p className="mb-3 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">参加者の多数派</p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    ...participantMajority.genres,
+                    ...participantMajority.atmosphere,
+                    ...(participantMajority.privateRoom === '必要' ? ['個室希望'] : []),
+                    ...(participantMajority.allYouCanDrink === '希望' ? ['飲み放題希望'] : []),
+                    ...participantMajority.drinks,
+                    ...participantMajority.areas,
+                  ].map(tag => (
+                    <span key={tag} className="rounded-full bg-white px-3 py-1 text-xs font-bold text-stone-700 ring-1 ring-stone-200">{tag}</span>
+                  ))}
+                  {participantMajority.genres.length === 0 && participantMajority.atmosphere.length === 0 && (
+                    <p className="text-sm text-stone-400">まだ希望が集まっていません</p>
+                  )}
+                </div>
               </div>
             )}
-            <ButtonRow>
-              <GhostBtn onClick={() => setStep('dateConfirmed')}>戻る</GhostBtn>
-              <PrimaryBtn onClick={fetchRecommendedStores}>
-                {isLoadingStores ? '店を提案中…' : 'おすすめの店を見る'}
-              </PrimaryBtn>
-            </ButtonRow>
-          </Card>
+
+            <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+              <p className="mb-5 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">幹事条件（修正可）</p>
+              <div className="space-y-5">
+
+                <div>
+                  <p className="mb-2 text-xs font-bold text-stone-700">価格帯 <span className="ml-1 text-[10px] font-normal text-stone-300">強</span></p>
+                  <div className="flex flex-wrap gap-2">
+                    {['〜3,000円', '〜5,000円', '〜8,000円', '制限なし'].map(v => (
+                      <Chip key={v} active={orgPrefs.priceRange === v}
+                        onClick={() => setOrgPrefs(p => ({ ...p, priceRange: p.priceRange === v ? '' : v }))}>
+                        {v}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-bold text-stone-700">個室 <span className="ml-1 text-[10px] font-normal text-stone-300">強</span></p>
+                  <div className="flex flex-wrap gap-2">
+                    {['必要', 'どちらでも', '不要'].map(v => (
+                      <Chip key={v} active={orgPrefs.privateRoom === v}
+                        onClick={() => setOrgPrefs(p => ({ ...p, privateRoom: p.privateRoom === v ? '' : v }))}>
+                        {v}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-bold text-stone-700">エリア（駅）<span className="ml-1 text-[10px] font-normal text-stone-300">強</span></p>
+                  <div className="flex flex-wrap gap-2">
+                    {AREA_OPTIONS.map(v => (
+                      <Chip key={v} active={orgPrefs.areas.includes(v)}
+                        onClick={() => setOrgPrefs(p => ({ ...p, areas: p.areas.includes(v) ? p.areas.filter(x => x !== v) : [...p.areas, v] }))}>
+                        {v}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-bold text-stone-700">ジャンル <span className="ml-1 text-[10px] font-normal text-stone-300">中</span></p>
+                  <div className="flex flex-wrap gap-2">
+                    {GENRE_OPTIONS.map(v => (
+                      <Chip key={v} active={orgPrefs.genres.includes(v)}
+                        onClick={() => setOrgPrefs(p => ({ ...p, genres: p.genres.includes(v) ? p.genres.filter(x => x !== v) : [...p.genres, v] }))}>
+                        {v}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-bold text-stone-700">雰囲気 <span className="ml-1 text-[10px] font-normal text-stone-300">中</span></p>
+                  <div className="flex flex-wrap gap-2">
+                    {['落ち着き', 'にぎやか', 'おしゃれ', 'アットホーム'].map(v => (
+                      <Chip key={v} active={orgPrefs.atmosphere.includes(v)}
+                        onClick={() => setOrgPrefs(p => ({ ...p, atmosphere: p.atmosphere.includes(v) ? p.atmosphere.filter(x => x !== v) : [...p.atmosphere, v] }))}>
+                        {v}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-bold text-stone-700">飲み放題 <span className="ml-1 text-[10px] font-normal text-stone-300">中</span></p>
+                  <div className="flex flex-wrap gap-2">
+                    {['希望', 'どちらでも'].map(v => (
+                      <Chip key={v} active={orgPrefs.allYouCanDrink === v}
+                        onClick={() => setOrgPrefs(p => ({ ...p, allYouCanDrink: p.allYouCanDrink === v ? '' : v }))}>
+                        {v}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-bold text-stone-700">ドリンク <span className="ml-1 text-[10px] font-normal text-stone-300">弱</span></p>
+                  <div className="flex flex-wrap gap-2">
+                    {['ワイン', '日本酒', '焼酎'].map(v => (
+                      <Chip key={v} active={orgPrefs.drinks.includes(v)}
+                        onClick={() => setOrgPrefs(p => ({ ...p, drinks: p.drinks.includes(v) ? p.drinks.filter(x => x !== v) : [...p.drinks, v] }))}>
+                        {v}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs font-bold text-stone-700">喫煙 <span className="ml-1 text-[10px] font-normal text-stone-300">弱</span></p>
+                  <div className="flex flex-wrap gap-2">
+                    {['禁煙希望', 'どちらでも', '喫煙可'].map(v => (
+                      <Chip key={v} active={orgPrefs.smoking === v}
+                        onClick={() => setOrgPrefs(p => ({ ...p, smoking: p.smoking === v ? '' : v }))}>
+                        {v}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <PrimaryBtn size="large" onClick={fetchRecommendedStores}>
+              {isLoadingStores ? '店を提案中…' : 'おすすめの店を見る'}
+            </PrimaryBtn>
+            <GhostBtn onClick={() => setStep('dateConfirmed')}>← 戻る</GhostBtn>
+          </div>
         )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1607,7 +1808,7 @@ ${shareUrl}`
             )}
 
             <div className="space-y-2 bg-white/[0.06] px-6 py-5">
-              <p className="text-sm font-bold text-white/80">{storeReason}</p>
+              <p className="text-sm font-bold text-white/80">{primaryStore.reason ?? storeReason}</p>
               <div className="flex flex-wrap gap-2">
                 <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
                   {recommendedDate.date.label}
@@ -1630,7 +1831,7 @@ ${shareUrl}`
                 rel="noreferrer"
                 className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-4 text-base font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
               >
-                この店で予約に進む →
+                予約ページを見る
               </a>
  <p className="mt-2 text-center text-xs font-semibold text-white/40">
     まずはこの候補を見ればOKです
@@ -1639,61 +1840,40 @@ ${shareUrl}`
             </div>
           </div>
 
-          {/* 補足理由 */}
-          <div className="rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-100">
-            <p className="text-sm font-bold text-amber-900">この候補を出した理由</p>
-            <p className="mt-1 text-sm leading-6 text-amber-800">{storeReason}</p>
-          </div>
-
           {/* 他候補 */}
           {secondaryStores.length > 0 && (
-            <details className="rounded-2xl bg-stone-50 p-4">
-              <summary className="cursor-pointer text-sm font-bold text-stone-700">
-                他の候補を見る
-              </summary>
-              <div className="mt-4 space-y-3">
-                {secondaryStores.map((store: any) => (
-                  <div key={store.id} className="rounded-2xl border border-stone-200 bg-white p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-stone-900">{store.name}</p>
-                        {store.genre && <p className="mt-1 text-xs text-stone-500">{store.genre}</p>}
-                      </div>
-                      {store.area && (
-                        <span className="rounded-full bg-stone-100 px-3 py-1 text-[11px] font-semibold text-stone-600">
-                          {store.area}
-                        </span>
-                      )}
-                    </div>
-                    {store.reason && (
-                      <p className="mt-2 text-sm leading-6 text-stone-600">
-  {buildSubStoreReason(store)}
-</p>
+            <div className="space-y-2">
+              <p className="px-1 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">他の候補</p>
+              {secondaryStores.map((store: any) => (
+                <div key={store.id} className="flex items-start gap-3 rounded-2xl bg-white px-4 py-4 ring-1 ring-stone-100">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-stone-900">{store.name}</p>
+                    {store.area && (
+                      <p className="mt-0.5 text-xs text-stone-400">
+                        {store.area}{store.access ? ` · ${store.access}` : ''}
+                      </p>
                     )}
-                    <div className="mt-3">
-                      <a
-                        href={store.link}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center justify-center rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-bold text-stone-700 transition hover:bg-stone-50"
-                      >
-                        この候補を見る
-                      </a>
-                    </div>
+                    {(store.reason || store.name) && (
+                      <p className="mt-1 text-xs leading-5 text-stone-500">{store.reason ?? buildSubStoreReason(store)}</p>
+                    )}
                   </div>
-                ))}
-              </div>
-            </details>
+                  <a
+                    href={store.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 rounded-xl bg-stone-100 px-3 py-2 text-xs font-bold text-stone-700 transition hover:bg-stone-200 active:scale-[0.98]"
+                  >
+                    見る →
+                  </a>
+                </div>
+              ))}
+            </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => setStep('finalConfirm')}
-            className="w-full rounded-3xl bg-stone-900 px-6 py-5 text-base font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
-          >
-            この候補で進む →
-          </button>
-          <GhostBtn onClick={() => setStep('organizerConditions')}>← 条件を見直す</GhostBtn>
+          <PrimaryBtn size="large" onClick={() => setStep('finalConfirm')}>
+            この候補で進む
+          </PrimaryBtn>
+          <GhostBtn onClick={() => setStep('organizerConditions')}>条件を調整する</GhostBtn>
         </div>
       )
     })()}
@@ -2184,7 +2364,7 @@ function Chip({ children, active, onClick }: { children: React.ReactNode; active
       onClick={onClick}
       className={cx(
         'rounded-full px-4 py-2 text-sm font-bold transition active:scale-95',
-        active ? 'bg-white text-stone-900 ring-1 ring-stone-200' : 'bg-white text-stone-500 ring-1 ring-stone-200 hover:bg-stone-50'
+        active ? 'bg-stone-900 text-white' : 'bg-stone-50 text-stone-500 ring-1 ring-stone-200 hover:bg-stone-100'
       )}
     >
       {children}

@@ -42,31 +42,41 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
 
+    const p = body.orgPrefs ?? {}
     const prompt = `
 あなたは飲み会の店候補を提案するアシスタントです。
-以下の条件に合う店候補を3件、日本語JSONで返してください。
+以下の条件に合う実在する店候補を3件、日本語JSONで返してください。
 
 条件:
 - 会の種類: ${body.eventType}
 - 日時: ${body.date}
 - 参加人数: ${body.participantCount}
-- 参加者の希望: ${JSON.stringify(body.participants)}
-- 幹事条件: ${JSON.stringify(body.organizerConditions)}
+- 参加者のジャンル希望: ${(body.participants ?? []).map((r: any) => r.genres?.join('/')).filter(Boolean).join(', ') || 'なし'}
+- 参加者のエリア希望: ${(body.participants ?? []).map((r: any) => r.areas?.join('/')).filter(Boolean).join(', ') || 'なし'}
+- 価格帯: ${p.priceRange || '指定なし'}
+- ジャンル: ${(p.genres ?? []).join('、') || '指定なし'}
+- 個室: ${p.privateRoom || '指定なし'}
+- 飲み放題: ${p.allYouCanDrink || '指定なし'}
+- ドリンク: ${(p.drinks ?? []).join('、') || '指定なし'}
+- 喫煙: ${p.smoking || '指定なし'}
+- エリア: ${(p.areas ?? []).join('、') || '指定なし'}
+- 雰囲気: ${(p.atmosphere ?? []).join('、') || '指定なし'}
 
-返却形式:
+各候補には、条件に具体的に言及した「理由」を必ず記述してください。
+
+返却形式（JSONのみ、コードブロック不要）:
 {
   "stores": [
     {
       "name": "店名",
       "area": "エリア",
-      "access": "アクセス",
-      "reason": "おすすめ理由",
-      "link": "https://example.com",
+      "access": "最寄り駅 徒歩X分",
+      "reason": "この店を選んだ具体的な理由",
+      "link": "https://tabelog.com/...",
       "tags": ["個室あり", "駅近"]
     }
   ]
 }
-必ずJSONのみを返してください。
 `
 
     const controller = new AbortController()
