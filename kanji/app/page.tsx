@@ -507,7 +507,7 @@ function normalizeDateAnswers(
 
   datesForMap.forEach((date, index) => {
     const legacyKey = `date${index + 1}`
-    const value = rawAnswers?.[legacyKey]
+    const value = rawAnswers?.[date.id] ?? rawAnswers?.[legacyKey]
 
     if (value) {
       normalized[date.id] = value
@@ -1472,10 +1472,27 @@ return (
           回答が集まったら、おすすめ日程からすぐ決められます。
         </p>
       </div>
+<PrimaryBtn
+  size="large"
+  onClick={async () => {
+    if (!createdEventId) {
+      setStep('dashboard')
+      return
+    }
 
-      <PrimaryBtn size="large" onClick={() => setStep('dashboard')}>
-        回答状況を見る
-      </PrimaryBtn>
+    try {
+      const result = await loadEventData(createdEventId)
+      setDbDates(result.dates ?? [])
+      setDbResponses(result.responses ?? [])
+    } catch (e) {
+      console.error('回答状況の再取得に失敗:', e)
+    }
+
+    setStep('dashboard')
+  }}
+>
+  回答状況を見る
+</PrimaryBtn>
 
       <GhostBtn onClick={() => setStep('dates')}>← 戻る</GhostBtn>
     </div>
