@@ -1084,7 +1084,10 @@ const sortedPastStores = [...MOCK_PAST_STORES].sort((a, b) => {
   return order[a.rating] - order[b.rating]
 })
 
-const shareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/kanji/join/${createdEventId || 'demo-123'}`
+const shareUrl =
+  typeof window !== 'undefined'
+    ? `${window.location.origin}/e/${createdEventId}`
+    : ''
 
 const shareMessage = `日程調整をお願いします！
 以下のリンクから回答してください🙏
