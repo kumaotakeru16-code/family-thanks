@@ -1268,10 +1268,46 @@ return (
     <CardTitle>候補日を選ぶ</CardTitle>
 
     <div className="space-y-4">
-      <div className="rounded-2xl bg-white px-4 py-4 ring-1 ring-stone-100">
+      <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
+        <p className="text-xs font-bold text-stone-600">開始時間</p>
+
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="mb-1.5 block text-[11px] font-bold text-stone-400">時</span>
+            <select
+              value={selectedHour}
+              onChange={(e) => setSelectedHour(e.target.value)}
+              className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none transition focus:border-stone-400"
+            >
+              {['17', '18', '19', '20', '21', '22', '23'].map((hour) => (
+                <option key={hour} value={hour}>
+                  {hour}時
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-[11px] font-bold text-stone-400">分</span>
+            <select
+              value={selectedMinute}
+              onChange={(e) => setSelectedMinute(e.target.value)}
+              className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none transition focus:border-stone-400"
+            >
+              {['00', '15', '30', '45'].map((minute) => (
+                <option key={minute} value={minute}>
+                  {minute}分
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-bold text-stone-700">
-            来週以降2週間の平日を選択済み
+          <p className="text-xs font-bold text-stone-500">
+            カレンダーから候補日を選ぶ
           </p>
 
           <button
@@ -1281,65 +1317,6 @@ return (
           >
             すべて外す
           </button>
-        </div>
-
-        <div className="mt-3 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowTimePicker((v) => !v)}
-            className="inline-flex items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-bold text-stone-600 transition hover:bg-stone-50 active:scale-[0.98]"
-          >
-            {showTimePicker ? '時間設定を閉じる' : `時間を変更する（現在 ${selectedTime}）`}
-          </button>
-        </div>
-      </div>
-
-      {showTimePicker && (
-        <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
-          <p className="text-xs font-bold text-stone-600">開始時間</p>
-
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <label className="block">
-              <span className="mb-1.5 block text-[11px] font-bold text-stone-400">時</span>
-              <select
-                value={selectedHour}
-                onChange={(e) => setSelectedHour(e.target.value)}
-                className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none transition focus:border-stone-400"
-              >
-                {['17', '18', '19', '20', '21', '22', '23'].map((hour) => (
-                  <option key={hour} value={hour}>
-                    {hour}時
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="mb-1.5 block text-[11px] font-bold text-stone-400">分</span>
-              <select
-                value={selectedMinute}
-                onChange={(e) => setSelectedMinute(e.target.value)}
-                className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none transition focus:border-stone-400"
-              >
-                {['00', '15', '30', '45'].map((minute) => (
-                  <option key={minute} value={minute}>
-                    {minute}分
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-        </div>
-      )}
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-bold text-stone-500">
-            カレンダーから候補日を選べます
-          </p>
-          <p className="text-xs text-stone-400">
-            土日も選択できます
-          </p>
         </div>
 
         <CalendarPicker
@@ -1374,7 +1351,6 @@ return (
               setSelectedDateIds((prev) => [...prev, id])
             }
           }}
-          onClose={() => {}}
         />
       </div>
 
@@ -1382,6 +1358,7 @@ return (
         <p className="text-xs font-bold text-stone-500">
           選択中 {selectedDateIds.length}件
         </p>
+
         <div className="mt-3 flex flex-wrap gap-2">
           {generatedDates
             .filter((d) => selectedDateIds.includes(d.id))
@@ -2692,14 +2669,12 @@ function CalendarPicker({
   selectedIds,
   disabledBefore,
   onDayClick,
-  onClose,
 }: {
   viewMonth: Date
   onChangeMonth: (d: Date) => void
   selectedIds: string[]
   disabledBefore: string
   onDayClick: (key: string) => void
-  onClose: () => void
 }) {
   const year = viewMonth.getFullYear()
   const month = viewMonth.getMonth()
@@ -2791,13 +2766,7 @@ function CalendarPicker({
         })}
       </div>
 
-      {/* Hint */}
-      <p className="mt-3 text-xs text-stone-400">日付をタップして追加・解除できます</p>
 
-      {/* Close */}
-      <div className="mt-4">
-        <GhostBtn onClick={onClose}>閉じる</GhostBtn>
-      </div>
     </div>
   )
 }
