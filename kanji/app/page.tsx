@@ -65,6 +65,14 @@ type PastStore = {
   memo: string
 }
 
+// --- Types (continued) ---
+type SavedEvent = {
+  id: string
+  name: string
+  eventType: string
+  createdAt: number
+}
+
 // --- Constants ---
 const EVENT_TYPES: EventType[] = ['歓迎会', '送別会', '普通の飲み会', '少人数ごはん', '会食']
 const AREA_OPTIONS = ['渋谷', '新宿', '恵比寿', '中間でOK']
@@ -450,6 +458,9 @@ export default function Page() {
   window.open(url, '_blank')
 }
   const [reminderCopied, setReminderCopied] = useState(false)
+  const [savedEvents, setSavedEvents] = useState<SavedEvent[]>([])
+  const [dateCopied, setDateCopied] = useState(false)
+  const [maybeCopied, setMaybeCopied] = useState(false)
 
 function getPreviousStep(currentStep: Step): Step | null {
   const currentIndex = FLOW_STEPS.indexOf(currentStep)
@@ -700,6 +711,14 @@ useEffect(() => {
   }
 }, [step, participantMajority])
 
+useEffect(() => {
+  if (typeof window === 'undefined') return
+  try {
+    const raw = localStorage.getItem('kanji_events')
+    if (raw) setSavedEvents(JSON.parse(raw))
+  } catch {}
+}, [])
+
 const storePool = recommendedStores.length > 0 ? recommendedStores : MOCK_STORES
 
 
@@ -806,7 +825,31 @@ const genreHit = activeParticipants.some((p) =>
     setEventName(type)
     setStep('create')
   }
-  async function copyShareText() {
+  function persistEvent(id: string, name: string, type: string) {
+  const item: SavedEvent = { id, name, eventType: type, createdAt: Date.now() }
+  setSavedEvents(prev => {
+    const filtered = prev.filter(e => e.id !== id)
+    const updated = [item, ...filtered].slice(0, 3)
+    try { localStorage.setItem('kanji_events', JSON.stringify(updated)) } catch {}
+    return updated
+  })
+}
+
+async function openSavedEvent(id: string, name: string, type: string) {
+  setCreatedEventId(id)
+  setEventName(name)
+  setEventType(type as EventType)
+  try {
+    const result = await loadEventData(id)
+    setDbDates(result.dates ?? [])
+    setDbResponses(result.responses ?? [])
+    setStep('dashboard')
+  } catch {
+    setStep('dashboard')
+  }
+}
+
+async function copyShareText() {
     try { await navigator.clipboard.writeText(shareText); alert('コピーしました') }
     catch { alert('コピーに失敗しました') }
   }
@@ -951,13 +994,14 @@ const reminderText = `日程調整の回答をお願いします！
 
 ${shareUrl}`
 
-const maybeConfirmText =
+const dateConfirmedShareText =
   recommendedDate
-    ? `この日で進めようと思っています！
-参加できそうか、最終的にどうか教えてください🙏
+    ? `日程はこちらに決まりました！\nお店の詳細は追って連絡します。\n\n日程：${recommendedDate.date.label}`
+    : ''
 
-日程：${recommendedDate.date.label}
-${shareUrl}`
+const maybeConfirmText =
+  recommendedDate && maybeNames.length > 0
+    ? `${maybeNames.join('、')} さん\n\nこの日で進めようと思っています！\nまだ未確定でしたら参加可否を教えてください🙏\n\n日程：${recommendedDate.date.label}`
     : ''
 
 const finalSelectedDate =
@@ -1011,33 +1055,32 @@ return (
             </button>
 
             {/* 進行中の会 */}
-           {/*<section>
-              <SectionLabel>進行中の会</SectionLabel>
-              <button type="button"
-                onClick={() => setStep('dashboard')}
-                className="mt-2.5 block w-full rounded-3xl bg-white px-5 py-4 text-left shadow-sm ring-1 ring-stone-100 transition hover:shadow-md active:scale-[0.99]"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-base font-black text-stone-900 tracking-tight">新入社員 歓迎会</p>
-                    <p className="mt-0.5 text-xs text-stone-400">4/12（金）調整中</p>
-                  </div>
-                  <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-600 ring-1 ring-amber-200">
-                    回答待ち 3/5
-                  </span>
+            {savedEvents.length > 0 && (
+              <section>
+                <SectionLabel>進行中の会</SectionLabel>
+                <div className="mt-2.5 space-y-2">
+                  {savedEvents.map(ev => (
+                    <button
+                      type="button"
+                      key={ev.id}
+                      onClick={() => openSavedEvent(ev.id, ev.name, ev.eventType)}
+                      className="flex w-full items-center justify-between rounded-2xl bg-white px-5 py-4 text-left shadow-sm ring-1 ring-stone-100 transition hover:shadow-md active:scale-[0.99]"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-base font-black tracking-tight text-stone-900">{ev.name}</p>
+                        <p className="mt-0.5 text-xs text-stone-400">{ev.eventType}</p>
+                      </div>
+                      <div className="ml-3 flex shrink-0 items-center gap-2">
+                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-600 ring-1 ring-amber-200">
+                          進行中
+                        </span>
+                        <span className="text-stone-400">→</span>
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                <div className="mt-3.5 flex items-center justify-between border-t border-stone-50 pt-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-                    <p className="text-[11px] text-stone-400">鈴木・高橋が未回答</p>
-                  </div>
-                  <div className="flex items-center gap-1 rounded-full bg-stone-900 px-3 py-1.5">
-                    <p className="text-[11px] font-bold text-white">日程を確定する</p>
-                    <span className="text-[11px] text-white/50">→</span>
-                  </div>
-                </div>
-              </button>
-            </section>*/}
+              </section>
+            )}
 
             {/* 過去のお店 — "また使えそうなお店"として見せる */}
             {/*<section>
@@ -1242,6 +1285,7 @@ return (
                   selectedDates.map(d => d.label)
                 )
                 setCreatedEventId(eventId)
+                persistEvent(eventId, eventName, eventType)
                 setStep('shareLink')
               }}
             >
@@ -1558,76 +1602,102 @@ ${shareUrl}`
             ⑦ 日程確定
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
 {step === 'dateConfirmed' && recommendedDate && (
-  <Card>
-    <StepLabel n={6} />
-    <CardTitle>日程が決まりました</CardTitle>
-    <CardSub>まずは参加予定を確認し、必要なら△の人に最終確認できます。</CardSub>
+  <div className="space-y-4">
+    <div className="px-1">
+      <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 6</p>
+      <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">日程が決まりました</h2>
+    </div>
 
-    <div className="rounded-2xl bg-stone-50 px-5 py-5">
-      <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">
-        確定日程
-      </p>
-      <p className="text-2xl font-black tracking-tight text-stone-900">
-        {recommendedDate.date.label}
-      </p>
-
-      <div className="mt-4 flex flex-wrap gap-2">
-        <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
+    {/* 確定日程 ヒーロー */}
+    <div className="overflow-hidden rounded-3xl bg-stone-900">
+      <div className="px-6 py-6">
+        <p className="mb-2 text-[10px] font-black uppercase tracking-[0.25em] text-white/40">確定日程</p>
+        <p className="text-3xl font-black leading-tight tracking-tight text-white">
+          {recommendedDate.date.label}
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
+        <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300">
           参加予定 {yesCount}人
         </span>
         {maybeCount > 0 && (
-          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
+          <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300">
             調整中 {maybeCount}人
           </span>
         )}
       </div>
     </div>
 
+    {/* 参加者への連絡 */}
+    <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+      <p className="mb-3 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">参加者への連絡</p>
+      <div className="rounded-2xl bg-stone-50 px-4 py-4">
+        <p className="whitespace-pre-line text-sm leading-6 text-stone-700">{dateConfirmedShareText}</p>
+      </div>
+      <div className="mt-3 space-y-2">
+        <button
+          type="button"
+          onClick={async () => {
+            await navigator.clipboard.writeText(dateConfirmedShareText)
+            setDateCopied(true)
+            setTimeout(() => setDateCopied(false), 1600)
+          }}
+          className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-3.5 text-sm font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
+        >
+          {dateCopied ? 'コピーしました ✓' : 'コピー'}
+        </button>
+        <button
+          type="button"
+          onClick={() => openLineShare(dateConfirmedShareText)}
+          className="inline-flex w-full items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+        >
+          LINEで送る
+        </button>
+      </div>
+    </div>
+
+    {/* △フォロー — △がいる場合のみ */}
     {maybeCount > 0 && (
-      <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-4 ring-1 ring-amber-100">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700">
-          △の人に確認する
-        </p>
-        <p className="mt-2 text-sm leading-6 text-amber-800">
-          {maybeNames.join('、')} さんは「調整中」です。
-          この日で進めてよいか、最終確認できます。
-        </p>
-
-        <div className="mt-3 rounded-2xl bg-white/70 px-4 py-3">
-          <p className="whitespace-pre-line text-sm leading-6 text-stone-700">
-            {maybeConfirmText}
-          </p>
+      <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-amber-100">
+        <p className="mb-3 text-[10px] font-black tracking-[0.2em] text-amber-500 uppercase">調整中の方へ</p>
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {maybeNames.map(name => (
+            <span key={name} className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 ring-1 ring-amber-200">
+              {name}さん
+            </span>
+          ))}
         </div>
-
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <GhostBtn
+        <div className="rounded-2xl bg-stone-50 px-4 py-4">
+          <p className="whitespace-pre-line text-sm leading-6 text-stone-700">{maybeConfirmText}</p>
+        </div>
+        <div className="mt-3 space-y-2">
+          <button
+            type="button"
             onClick={async () => {
-              if (!maybeConfirmText) return
               await navigator.clipboard.writeText(maybeConfirmText)
+              setMaybeCopied(true)
+              setTimeout(() => setMaybeCopied(false), 1600)
             }}
+            className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-3.5 text-sm font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
           >
-            確認文をコピー
-          </GhostBtn>
-
-          <PrimaryBtn
-            onClick={() => {
-              if (!maybeConfirmText) return
-              openLineShare(maybeConfirmText)
-            }}
+            {maybeCopied ? 'コピーしました ✓' : 'コピー'}
+          </button>
+          <button
+            type="button"
+            onClick={() => openLineShare(maybeConfirmText)}
+            className="inline-flex w-full items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
           >
-            LINEで確認する
-          </PrimaryBtn>
+            LINEで送る
+          </button>
         </div>
       </div>
     )}
 
-    <ButtonRow>
-      <GhostBtn onClick={() => setStep('dateSuggestion')}>戻る</GhostBtn>
-      <PrimaryBtn size="large" onClick={() => setStep('organizerConditions')}>
-        次へ（店決めへ）
-      </PrimaryBtn>
-    </ButtonRow>
-  </Card>
+    <PrimaryBtn size="large" onClick={() => setStep('organizerConditions')}>
+      次へ（店決めへ）
+    </PrimaryBtn>
+    <GhostBtn onClick={() => setStep('dateSuggestion')}>← 戻る</GhostBtn>
+  </div>
 )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
