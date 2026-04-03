@@ -13,7 +13,7 @@ type Step =
   | 'dates'
   | 'shareLink'
   | 'dashboard'
-  | 'dateSuggestion'
+
   | 'dateConfirmed'
   | 'organizerConditions'
   | 'storeSuggestion'
@@ -428,7 +428,7 @@ export default function Page() {
   const [dateInput, setDateInput] = useState('')
   const [generatedDates, setGeneratedDates] = useState<DateOption[]>([])
   const [selectedDateIds, setSelectedDateIds] = useState<string[]>([])
-  const [showCalendar, setShowCalendar] = useState(false)
+
   const [showAltDates, setShowAltDates] = useState(false)
   const [showTimePicker, setShowTimePicker] = useState(false)
   const [calViewMonth, setCalViewMonth] = useState<Date>(new Date())
@@ -913,12 +913,18 @@ const genreHit = activeParticipants.some((p) =>
     setEventName(type)
     setStep('create')
   }
-  function persistEvent(id: string, name: string, type: string) {
+
+function persistEvent(id: string, name: string, type: string) {
   const item: SavedEvent = { id, name, eventType: type, createdAt: Date.now() }
-  setSavedEvents(prev => {
-    const filtered = prev.filter(e => e.id !== id)
+
+  setSavedEvents((prev) => {
+    const filtered = prev.filter((e) => e.id !== id)
     const updated = [item, ...filtered].slice(0, 3)
-    try { localStorage.setItem('kanji_events', JSON.stringify(updated)) } catch {}
+
+    try {
+      localStorage.setItem('kanji_events', JSON.stringify(updated))
+    } catch {}
+
     return updated
   })
 }
@@ -1265,81 +1271,25 @@ return (
       <div className="rounded-2xl bg-white px-4 py-4 ring-1 ring-stone-100">
         <div className="flex items-center justify-between">
           <p className="text-sm font-bold text-stone-700">
-            来週以降2週間の候補日
+            来週以降2週間の平日を選択済み
           </p>
 
-          {generatedDates.length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                if (selectedDateIds.length === generatedDates.length) {
-                  setSelectedDateIds([])
-                } else {
-                  setSelectedDateIds(generatedDates.map((d) => d.id))
-                }
-              }}
-              className="text-xs font-bold text-stone-500 underline underline-offset-2"
-            >
-              {selectedDateIds.length === generatedDates.length ? 'すべて外す' : 'すべて選ぶ'}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setSelectedDateIds([])}
+            className="text-xs font-bold text-stone-500 underline underline-offset-2"
+          >
+            すべて外す
+          </button>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          {generatedDates.map((date) => {
-            const selected = selectedDateIds.includes(date.id)
-            const isWeekend = date.label.includes('（土）') || date.label.includes('（日）')
-
-            return (
-              <button
-                key={date.id}
-                type="button"
-                onClick={() =>
-                  setSelectedDateIds((prev) =>
-                    prev.includes(date.id)
-                      ? prev.filter((id) => id !== date.id)
-                      : [...prev, date.id]
-                  )
-                }
-                className={cx(
-                  'rounded-2xl px-4 py-3 text-sm font-bold ring-1 transition active:scale-[0.98]',
-                  selected
-                    ? 'bg-stone-900 text-white ring-stone-900'
-                    : isWeekend
-                    ? 'bg-stone-50 text-stone-400 ring-stone-200 hover:bg-stone-100'
-                    : 'bg-white text-stone-700 ring-stone-200 hover:bg-stone-50'
-                )}
-              >
-                {date.label}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-3 flex items-center gap-2">
           <button
             type="button"
             onClick={() => setShowTimePicker((v) => !v)}
             className="inline-flex items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-bold text-stone-600 transition hover:bg-stone-50 active:scale-[0.98]"
           >
             {showTimePicker ? '時間設定を閉じる' : `時間を変更する（現在 ${selectedTime}）`}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setShowCalendar((v) => {
-                const next = !v
-                if (!v) {
-                  const monday = getNextWeekMonday()
-                  setCalViewMonth(monday)
-                }
-                return next
-              })
-            }}
-            className="inline-flex items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-bold text-stone-600 transition hover:bg-stone-50 active:scale-[0.98]"
-          >
-            {showCalendar ? 'カレンダーを閉じる' : '別の日程を選ぶ'}
           </button>
         </div>
       </div>
@@ -1382,73 +1332,74 @@ return (
         </div>
       )}
 
-      {showCalendar && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-bold text-stone-500">
-              カレンダーから追加できます
-            </p>
-
-            <button
-              type="button"
-              onClick={() => {
-                const monday = getNextWeekMonday()
-                const twoWeeksLater = new Date(monday)
-                twoWeeksLater.setDate(monday.getDate() + 13)
-
-                const resetDates = generateWeekdays(monday, twoWeeksLater).map((d) => ({
-                  ...d,
-                  label: weekdayLabel(
-                    new Date(d.id.replace('wd-', '')),
-                    selectedTime
-                  ),
-                }))
-
-                setGeneratedDates(resetDates)
-                setSelectedDateIds(resetDates.map((d) => d.id))
-              }}
-              className="text-xs font-bold text-stone-500 underline underline-offset-2"
-            >
-              リセット
-            </button>
-          </div>
-
-          <CalendarPicker
-            viewMonth={calViewMonth}
-            onChangeMonth={setCalViewMonth}
-            selectedIds={selectedDateIds}
-            disabledBefore={(() => {
-              const t = new Date()
-              t.setHours(0, 0, 0, 0)
-              const c = new Date(t)
-              c.setDate(t.getDate() + 3)
-              return dateKey(c)
-            })()}
-            onDayClick={(key) => {
-              const id = `wd-${key}`
-              const existing = generatedDates.find((d) => d.id === id)
-
-              if (existing) {
-                setSelectedDateIds((prev) =>
-                  prev.includes(id)
-                    ? prev.filter((x) => x !== id)
-                    : [...prev, id]
-                )
-              } else {
-                const [y, mo, dy] = key.split('-').map(Number)
-                const d = new Date(y, mo - 1, dy)
-                const newDate = { id, label: weekdayLabel(d, selectedTime) }
-
-                setGeneratedDates((prev) =>
-                  [...prev, newDate].sort((a, b) => (a.id < b.id ? -1 : 1))
-                )
-                setSelectedDateIds((prev) => [...prev, id])
-              }
-            }}
-            onClose={() => setShowCalendar(false)}
-          />
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-bold text-stone-500">
+            カレンダーから候補日を選べます
+          </p>
+          <p className="text-xs text-stone-400">
+            土日も選択できます
+          </p>
         </div>
-      )}
+
+        <CalendarPicker
+          viewMonth={calViewMonth}
+          onChangeMonth={setCalViewMonth}
+          selectedIds={selectedDateIds}
+          disabledBefore={(() => {
+            const t = new Date()
+            t.setHours(0, 0, 0, 0)
+            const c = new Date(t)
+            c.setDate(t.getDate() + 3)
+            return dateKey(c)
+          })()}
+          onDayClick={(key) => {
+            const id = `wd-${key}`
+            const existing = generatedDates.find((d) => d.id === id)
+
+            if (existing) {
+              setSelectedDateIds((prev) =>
+                prev.includes(id)
+                  ? prev.filter((x) => x !== id)
+                  : [...prev, id]
+              )
+            } else {
+              const [y, mo, dy] = key.split('-').map(Number)
+              const d = new Date(y, mo - 1, dy)
+              const newDate = { id, label: weekdayLabel(d, selectedTime) }
+
+              setGeneratedDates((prev) =>
+                [...prev, newDate].sort((a, b) => (a.id < b.id ? -1 : 1))
+              )
+              setSelectedDateIds((prev) => [...prev, id])
+            }
+          }}
+          onClose={() => {}}
+        />
+      </div>
+
+      <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
+        <p className="text-xs font-bold text-stone-500">
+          選択中 {selectedDateIds.length}件
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {generatedDates
+            .filter((d) => selectedDateIds.includes(d.id))
+            .sort((a, b) => (a.id < b.id ? -1 : 1))
+            .map((d) => (
+              <span
+                key={d.id}
+                className="rounded-full bg-stone-900 px-3 py-1.5 text-xs font-bold text-white"
+              >
+                {d.label}
+              </span>
+            ))}
+
+          {selectedDateIds.length === 0 && (
+            <span className="text-sm text-stone-400">候補日がまだ選ばれていません</span>
+          )}
+        </div>
+      </div>
 
       <PrimaryBtn
         size="large"
@@ -1466,8 +1417,11 @@ return (
                 label: weekdayLabel(date, selectedTime),
               }
             })
+            .sort((a, b) => (a.id < b.id ? -1 : 1))
 
           setDates(selectedDates)
+          setGeneratedDates(selectedDates)
+
           const eventId = await createEvent(
             eventName,
             eventType,
@@ -1835,105 +1789,7 @@ return (
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑥ 日程提案（決断UI）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-{step === 'dateSuggestion' && recommendedDate && (
-  <div className="space-y-4">
-    <div className="px-1">
-      <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 5</p>
-      <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">この日程でどうですか</h2>
-      <p className="mt-1 text-sm text-stone-400">参加状況から最も集まりやすい日を選びました。</p>
-    </div>
 
-    <div className="overflow-hidden rounded-3xl bg-stone-900">
-      <div className="px-6 py-6">
-        <p className="mb-3 text-[10px] font-black uppercase tracking-[0.25em] text-white/40">この日がベスト</p>
-        <p className="text-4xl font-black leading-tight tracking-tight text-white">
-          {recommendedDate.date.label}
-        </p>
-      </div>
-
-<div className="space-y-3 bg-white/[0.06] px-6 py-5">
-  {mainGuestIds.length > 0 && recommendedDate.mainGuestAvailability !== undefined && (
-    <ReasonItem
-      icon="◎"
-      text={
-        recommendedDate.mainGuestAvailability === 'yes'
-          ? '主賓が参加できる'
-          : recommendedDate.mainGuestAvailability === 'maybe'
-          ? '主賓は調整すれば参加可能'
-          : '主賓は参加しにくい日程'
-      }
-      highlight={recommendedDate.mainGuestAvailability === 'yes'}
-    />
-  )}
-  <ReasonItem
-    icon="人"
-    text={`参加予定 ${yesCount}人${maybeCount > 0 ? ` / 調整中 ${maybeCount}人` : ''}`}
-  />
-</div>
-
-<div className="flex flex-wrap gap-2 px-6 pb-1">
-  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">
-    参加予定 {yesCount}人
-  </span>
-  {maybeCount > 0 && (
-    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">
-      調整中 {maybeCount}人
-    </span>
-  )}
-</div>
-
-      <div className="px-6 py-5">
-        <PrimaryBtn size="large" onClick={() => {
-          setHeroBestDateId(null)
-          // after state update, heroDate will equal recommendedDate.date on next render
-          // but decideRecommendedDate reads heroDate from closure — use recommendedDate.date.id directly
-          const currentEventId = createdEventId || finalEvent?.id
-          if (!currentEventId || !recommendedDate) return
-          if (totalCount === 0) { alert('まだ回答がありません。参加者の回答を待ってから日程を決めてください。'); return }
-          if (recommendedDate.availableCount === 0) { alert('参加できる人がいないため、この状態では日程を確定できません。'); return }
-          saveDecision({ eventId: currentEventId, selectedDateId: recommendedDate.date.id, organizerConditions })
-            .then(data => { setFinalDecision(data); setStep('dateConfirmed') })
-            .catch((e: any) => alert(`決定保存に失敗しました: ${e?.message ?? 'unknown error'}`))
-        }}>
-          この日で決定
-        </PrimaryBtn>
-      </div>
-    </div>
-
-    <div className="rounded-2xl bg-amber-50 px-4 py-4 ring-1 ring-amber-100">
-      <p className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-amber-700">提案理由</p>
-      <p className="text-sm leading-6 text-amber-800">{dateReason}</p>
-    </div>
-
-    {altDates.length > 0 && (
-      <div className="rounded-2xl bg-white px-5 py-4 ring-1 ring-stone-100 shadow-sm">
-        <p className="mb-3 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">他の候補</p>
-        <div className="space-y-2">
-          {altDates.map((d) => {
-            const dYes = activeParticipants.filter(p => p.availability?.[d.id] === 'yes').length
-            const dMaybe = activeParticipants.filter(p => p.availability?.[d.id] === 'maybe').length
-            return (
-              <button
-                type="button"
-                key={d.id}
-                onClick={() => setHeroBestDateId(d.id)}
-                className="flex w-full items-center justify-between rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-[0.99]"
-              >
-                <p className="text-sm font-bold text-stone-700">{d.label}</p>
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="font-bold text-emerald-600">{dYes}人</span>
-                  {dMaybe > 0 && <span className="text-amber-500">調整{dMaybe}人</span>}
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-    )}
-
-    <GhostBtn onClick={() => setStep('dashboard')}>← 戻る</GhostBtn>
-  </div>
-)}
 
 
 
