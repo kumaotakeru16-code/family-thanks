@@ -2352,8 +2352,8 @@ ${finalStore?.link ?? ''}`
                 </div>
               </div>
             </div>
-<p className="mt-2 text-xs font-bold text-white/60">
-  Max人数 {yesCount + maybeCount}人（参加予定{yesCount}人、調整中{maybeCount}人）
+<p className="mt-2 text-sm font-bold text-white/70">
+  最大参加人数 {yesCount + maybeCount}人
 </p>
 
 <div className="mt-3 flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
