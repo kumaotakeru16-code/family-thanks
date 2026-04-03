@@ -1559,13 +1559,18 @@ return (
               {heroDate.label}
             </p>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
-                参加予定 {heroYesCount}人
-              </span>
-              <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
-                調整中 {heroMaybeCount}人
-              </span>
+<p className="mt-2 text-xs font-bold text-white/60">
+  Max人数 {yesCount + maybeCount}人（参加予定{yesCount}人、調整中{maybeCount}人）
+</p>
+
+<div className="mt-3 flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
+  <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+    参加予定 {yesCount}人
+  </span>
+
+  <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
+    調整中 {maybeCount}人
+  </span>
             </div>
 
             <button
@@ -1844,11 +1849,18 @@ return (
           {heroDate.label}
         </p>
       </div>
-      <div className="flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
-        <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300">
-<Chip>参加予定 {yesCount}人</Chip>
-<Chip>調整中 {maybeCount}人</Chip>
-        </span>
+<p className="mt-2 text-xs font-bold text-white/60">
+  Max人数 {yesCount + maybeCount}人（参加予定{yesCount}人、調整中{maybeCount}人）
+</p>
+
+<div className="mt-3 flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
+  <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+    参加予定 {yesCount}人
+  </span>
+
+  <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
+    調整中 {maybeCount}人
+  </span>
 <button
   type="button"
   onClick={() => setShowFinalParticipants(v => !v)}
@@ -2307,10 +2319,17 @@ ${finalStore?.link ?? ''}`
                 </div>
               </div>
             </div>
- <div className="flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
-  <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
-<Chip>参加予定 {yesCount}人</Chip>
-<Chip>調整中 {maybeCount}人</Chip>
+<p className="mt-2 text-xs font-bold text-white/60">
+  Max人数 {yesCount + maybeCount}人（参加予定{yesCount}人、調整中{maybeCount}人）
+</p>
+
+<div className="mt-3 flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
+  <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+    参加予定 {yesCount}人
+  </span>
+
+  <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
+    調整中 {maybeCount}人
   </span>
  
   {eventType && (
