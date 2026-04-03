@@ -700,6 +700,8 @@ const heroMaybeParticipants = heroDate
   ? activeParticipants.filter((p) => p.availability?.[heroDate.id] === 'maybe')
   : []
 
+  const selectedMainGuests = activeParticipants.filter((p) => mainGuestIds.includes(p.id))
+
 const heroMaybeCount = heroDate
   ? activeParticipants.filter(p => p.availability?.[heroDate.id] === 'maybe').length
   : 0
@@ -1746,41 +1748,53 @@ return (
             </div>
           </div>
         </div>
+<div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
+    優先したい人（任意）
+  </p>
 
-        <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
-            主賓を指定（任意）
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {activeParticipants.map((participant) => {
-              const selected = mainGuestIds.includes(participant.id)
+  <div className="mt-3 flex flex-wrap gap-2">
+    {activeParticipants.map((participant) => {
+      const selected = mainGuestIds.includes(participant.id)
 
-              return (
-                <button
-                  key={participant.id}
-                  type="button"
-                  onClick={() =>
-                    setMainGuestIds((prev) =>
-                      prev.includes(participant.id)
-                        ? prev.filter((id) => id !== participant.id)
-                        : [...prev, participant.id]
-                    )
-                  }
-                  className={`rounded-full px-4 py-2 text-sm font-bold ring-1 transition ${
-                    selected
-                      ? 'bg-stone-900 text-white ring-stone-900'
-                      : 'bg-white text-stone-600 ring-stone-200 hover:bg-stone-50'
-                  }`}
-                >
-                  {participant.name}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      </>
-    )}
+      return (
+        <button
+          key={participant.id}
+          type="button"
+          onClick={() =>
+            setMainGuestIds((prev) =>
+              prev.includes(participant.id)
+                ? prev.filter((id) => id !== participant.id)
+                : [...prev, participant.id]
+            )
+          }
+          className={`rounded-full px-4 py-2 text-sm font-bold ring-1 transition ${
+            selected
+              ? 'bg-stone-900 text-white ring-stone-900'
+              : 'bg-white text-stone-600 ring-stone-200 hover:bg-stone-50'
+          }`}
+        >
+          {participant.name}
+        </button>
+      )
+    })}
   </div>
+
+  {mainGuestIds.length > 0 && (
+    <p className="mt-4 text-xs font-bold text-stone-500">
+      選択中：
+      <span className="ml-1 text-stone-800">
+        {activeParticipants
+          .filter((participant) => mainGuestIds.includes(participant.id))
+          .map((participant) => participant.name)
+          .join('、')}
+      </span>
+    </p>
+  )}
+</div>
+</>
+)}
+</div>
 )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
