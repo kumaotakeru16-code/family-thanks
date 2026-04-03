@@ -1862,7 +1862,7 @@ return (
   確定日程
 </p>
 <p className="mt-1 text-3xl font-black text-white">
-    {finalSelectedDate?.label}
+    {heroDate?.label}
 </p>
 
 <p className="mt-2 text-sm font-bold text-white/70">
