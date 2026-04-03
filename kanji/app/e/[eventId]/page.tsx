@@ -200,7 +200,7 @@ export default function EventParticipantPage() {
           <p className="mt-1 text-sm text-stone-400">{eventType}</p>
         </div>
 
-        <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-black/5">
+        <div className="rounded-3xl bg-white px-4 py-4 shadow-sm ring-1 ring-black/5">
           <p className="text-sm font-bold text-stone-900">お名前</p>
           <input
             value={participantName}
@@ -210,7 +210,7 @@ export default function EventParticipantPage() {
           />
         </div>
 
-        <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-black/5">
+        <div className="rounded-3xl bg-white px-4 py-4 shadow-sm ring-1 ring-black/5">
           <p className="text-sm font-bold text-stone-900">候補日</p>
 
           {dates.length === 0 ? (
@@ -230,7 +230,7 @@ export default function EventParticipantPage() {
                       <button
                         type="button"
                         onClick={() => setAnswer(d.id, 'yes')}
-                        className={`rounded-xl px-3 py-2 text-sm font-bold ring-1 ${
+                        className={`rounded-xl px-3 py-1.5 text-sm font-bold ring-1 ${
                           selected === 'yes'
                             ? 'bg-emerald-500 text-white ring-emerald-500'
                             : 'bg-white text-stone-700 ring-stone-200'
@@ -242,7 +242,7 @@ export default function EventParticipantPage() {
                       <button
                         type="button"
                         onClick={() => setAnswer(d.id, 'maybe')}
-                        className={`rounded-xl px-3 py-2 text-sm font-bold ring-1 ${
+                        className={`rounded-xl px-3 py-1.5 text-sm font-bold ring-1 ${
                           selected === 'maybe'
                             ? 'bg-amber-400 text-white ring-amber-400'
                             : 'bg-white text-stone-700 ring-stone-200'
@@ -254,7 +254,7 @@ export default function EventParticipantPage() {
                       <button
                         type="button"
                         onClick={() => setAnswer(d.id, 'no')}
-                        className={`rounded-xl px-3 py-2 text-sm font-bold ring-1 ${
+                        className={`rounded-xl px-3 py-1.5 text-sm font-bold ring-1 ${
                           selected === 'no'
                             ? 'bg-stone-700 text-white ring-stone-700'
                             : 'bg-white text-stone-700 ring-stone-200'
@@ -271,8 +271,8 @@ export default function EventParticipantPage() {
         </div>
 
         {showPrefs && (
-          <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-black/5">
-            <p className="mb-4 text-sm font-bold text-stone-900">こだわり</p>
+          <div className="rounded-3xl bg-white px-4 py-4 shadow-sm ring-1 ring-black/5">
+            <p className="mb-4 text-sm font-bold text-stone-900">お店の希望</p>
             <div className="space-y-5">
 
               <div>
@@ -371,7 +371,7 @@ export default function EventParticipantPage() {
             onClick={() => setShowPrefs(true)}
             className="w-full text-center text-xs text-stone-400 underline underline-offset-2"
           >
-            こだわりを追加する（任意）
+            お店の希望を追加する（任意）
           </button>
         )}
       </div>

@@ -1109,8 +1109,13 @@ const dateConfirmedShareText =
     ? `日程はこちらに決まりました！\nお店の詳細は追って連絡します。\n\n日程：${heroDate.label}`
     : ''
 
-const maybeShareText = `この日程で進めたいと思っています。
-ご都合が問題なさそうか、確認お願いします。`
+const maybeConfirmText =
+  heroDate && maybeNames.length > 0
+    ? `この日で進めようと思っています！
+ご都合が問題なさそうか、確認お願いします🙏
+
+日程：${heroDate.label}`
+    : ''
 
 const finalSelectedDate =
   finalDecision && finalDates.length > 0
