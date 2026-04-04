@@ -139,11 +139,10 @@ function buildBaseParams(args: {
     count: String(Math.min(Math.max(count, 1), 10)),
   })
 
-  // Phase 2: explicit area resolution — swap resolveAreaForSearch impl in Phase 3
-  // to return { type: 'middle_area' | 'small_area', code } without touching this block
-  const resolved = resolveAreaForSearch(areas)
-  if (resolved.type === 'keyword') {
-    params.set('keyword', resolved.value)
+  const resolvedArea = resolveAreaForSearch(areas)
+
+  if (resolvedArea.type === 'keyword') {
+    params.set('keyword', resolvedArea.value)
   } else {
     params.set('large_service_area', 'SS10')
   }
@@ -165,6 +164,59 @@ function buildBaseParams(args: {
   return params
 }
 
+/**
+ * Sort stores so the selected station feels more "station-near" in the UI.
+ *
+ * Why:
+ * Hot Pepper keyword search is broad, so "横浜" can return 関内 etc.
+ * This scorer boosts stores that look closer to the chosen station.
+ */
+function scoreStoreForArea(shop: any, primaryArea: string): number {
+  if (!primaryArea) return 0
+
+  let score = 0
+
+  const area = String(
+    shop?.small_area?.name ??
+      shop?.middle_area?.name ??
+      shop?.address ??
+      ''
+  )
+  const access = String(shop?.access ?? '')
+  const name = String(shop?.name ?? '')
+
+  // Strongest: exact station mention in access
+  if (access.includes(`${primaryArea}駅`)) score += 8
+
+  // General station/area mention in access
+  if (access.includes(primaryArea)) score += 6
+
+  // Area label match
+  if (area.includes(primaryArea)) score += 4
+
+  // Store name match
+  if (name.includes(primaryArea)) score += 2
+
+  return score
+}
+
+function sortShopsByPrimaryArea(shops: any[], areas: string[]) {
+  const resolvedArea = resolveAreaForSearch(areas)
+  const primaryArea = resolvedArea.type === 'keyword' ? resolvedArea.value : ''
+
+  if (!primaryArea) return shops
+
+  return [...shops].sort((a, b) => {
+    const scoreDiff =
+      scoreStoreForArea(b, primaryArea) - scoreStoreForArea(a, primaryArea)
+
+    if (scoreDiff !== 0) return scoreDiff
+
+    // Stable-ish tie breaker: keep original API order as much as possible
+    return 0
+  })
+}
+
 export async function POST(req: NextRequest) {
   const apiKey = process.env.RECRUIT_API_KEY
 
@@ -179,13 +231,15 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
 
-    // フロントから body.orgPrefs で来ても body直下で来ても両対応
+    // body.orgPrefs でも body直下でも受けられるようにする
     const prefs = body?.orgPrefs ?? body ?? {}
 
     const areas = normalizeStringArray(prefs?.areas)
     const genres = normalizeStringArray(prefs?.genres)
-    const priceRange = typeof prefs?.priceRange === 'string' ? prefs.priceRange : '指定なし'
-    const privateRoom = typeof prefs?.privateRoom === 'string' ? prefs.privateRoom : 'こだわらない'
+    const priceRange =
+      typeof prefs?.priceRange === 'string' ? prefs.priceRange : '指定なし'
+    const privateRoom =
+      typeof prefs?.privateRoom === 'string' ? prefs.privateRoom : 'こだわらない'
     const count = typeof body?.count === 'number' ? body.count : 6
 
     const strictParams = buildBaseParams({
@@ -197,8 +251,11 @@ export async function POST(req: NextRequest) {
       count,
     })
 
+    const resolvedArea = resolveAreaForSearch(areas)
+
     console.log('[hotpepper/search] request:', {
       areas,
+      resolvedArea,
       genres,
       priceRange,
       privateRoom,
@@ -252,6 +309,8 @@ export async function POST(req: NextRequest) {
         ? {
             id: shops[0].id,
             name: shops[0].name,
+            access: shops[0].access,
+            area: shops[0]?.small_area?.name ?? shops[0]?.middle_area?.name,
             url: shops[0]?.urls?.pc,
           }
         : null,
@@ -266,7 +325,8 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const stores = shops.map(mapShopToStore)
+    const sortedShops = sortShopsByPrimaryArea(shops, areas)
+    const stores = sortedShops.map(mapShopToStore)
 
     return NextResponse.json({
       stores,
