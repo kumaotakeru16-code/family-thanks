@@ -15,15 +15,40 @@ type Props = {
   value: string[]
   onChange: (stations: string[]) => void
   placeholder?: string
+  /**
+   * single=true: exactly one station; selected name shows inside the input itself.
+   * No chip strip. Selecting a new station replaces the previous one.
+   * Clearing the input calls onChange([]).
+   */
+  single?: boolean
 }
 
-export function StationInput({ value, onChange, placeholder = '駅名を入力' }: Props) {
-  const [query, setQuery] = useState('')
+export function StationInput({
+  value,
+  onChange,
+  placeholder = '駅名を入力',
+  single = false,
+}: Props) {
+  const [query, setQuery] = useState(() => (single ? (value[0] ?? '') : ''))
   const [suggestions, setSuggestions] = useState<StationSuggestion[]>([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // In single mode: sync query when external value[0] changes
+  // (e.g. orgPrefsInitRef pre-populates from participant majority)
+  const prevValue0Ref = useRef<string | undefined>(value[0])
+  useEffect(() => {
+    if (!single) return
+    const v0 = value[0] ?? ''
+    if (v0 !== prevValue0Ref.current) {
+      prevValue0Ref.current = v0
+      setQuery(v0)
+      setSuggestions([])
+      setOpen(false)
+    }
+  })
 
   // Debounced search
   useEffect(() => {
@@ -32,6 +57,11 @@ export function StationInput({ value, onChange, placeholder = '駅名を入力' 
     if (query.length < 2) {
       setSuggestions([])
       setOpen(false)
+      return
+    }
+
+    // In single mode: don't re-search while the query matches the committed value
+    if (single && query === (value[0] ?? '')) {
       return
     }
 
@@ -54,7 +84,7 @@ export function StationInput({ value, onChange, placeholder = '駅名を入力' 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [query])
+  }, [query, single, value])
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -68,10 +98,15 @@ export function StationInput({ value, onChange, placeholder = '駅名を入力' 
   }, [])
 
   const addStation = (name: string) => {
-    if (!value.includes(name)) {
-      onChange([...value, name])
+    if (single) {
+      setQuery(name)
+      onChange([name])
+    } else {
+      if (!value.includes(name)) {
+        onChange([...value, name])
+      }
+      setQuery('')
     }
-    setQuery('')
     setSuggestions([])
     setOpen(false)
   }
@@ -80,13 +115,21 @@ export function StationInput({ value, onChange, placeholder = '駅名を入力' 
     onChange(value.filter((v) => v !== name))
   }
 
+  const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = e.target.value
+    setQuery(v)
+    if (single && v.trim() === '') {
+      onChange([])
+    }
+  }
+
   return (
     <div ref={containerRef} className="relative">
       <div className="relative">
         <input
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={handleQueryChange}
           placeholder={placeholder}
           autoComplete="off"
           className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-300 focus:bg-white"
@@ -121,8 +164,8 @@ export function StationInput({ value, onChange, placeholder = '駅名を入力' 
         </div>
       )}
 
-      {/* Selected station chips */}
-      {value.length > 0 && (
+      {/* Multi-select chip strip (not shown in single mode) */}
+      {!single && value.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {value.map((v) => (
             <button

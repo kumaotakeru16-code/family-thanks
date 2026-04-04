@@ -86,6 +86,7 @@ const HP_GENRE_OPTIONS = [
   'イタリアン・フレンチ',
   '中華',
   '焼肉・ホルモン',
+  '焼き鳥',
   '韓国料理',
   'カフェ・スイーツ',
   'バー・ダイニングバー',
@@ -2045,10 +2046,11 @@ return (
               <p className="mb-5 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">幹事条件（修正可）</p>
               <div className="space-y-5">
 
-                {/* エリア */}
+                {/* エリア — 単一選択 */}
                 <div>
                   <p className="mb-2 text-xs font-bold text-stone-700">エリア（駅名）</p>
                   <StationInput
+                    single
                     value={orgPrefs.areas}
                     onChange={(stations) => setOrgPrefs((p) => ({ ...p, areas: stations }))}
                   />
@@ -2086,6 +2088,30 @@ return (
                     {HP_GENRE_OPTIONS.map(v => (
                       <Chip key={v} active={orgPrefs.genres.includes(v)}
                         onClick={() => setOrgPrefs(p => ({ ...p, genres: p.genres.includes(v) ? p.genres.filter(x => x !== v) : [...p.genres, v] }))}>
+                        {v}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 飲み放題 */}
+                <div>
+                  <p className="mb-2 text-xs font-bold text-stone-700">飲み放題</p>
+                  <div className="flex gap-2">
+                    <Chip active={orgPrefs.allYouCanDrink === '希望'}
+                      onClick={() => setOrgPrefs(p => ({ ...p, allYouCanDrink: p.allYouCanDrink === '希望' ? '' : '希望' }))}>
+                      希望する
+                    </Chip>
+                  </div>
+                </div>
+
+                {/* ドリンク希望 */}
+                <div>
+                  <p className="mb-2 text-xs font-bold text-stone-700">ドリンクの好み</p>
+                  <div className="flex flex-wrap gap-2">
+                    {['ワイン', '日本酒', '焼酎'].map(v => (
+                      <Chip key={v} active={orgPrefs.drinks.includes(v)}
+                        onClick={() => setOrgPrefs(p => ({ ...p, drinks: p.drinks.includes(v) ? p.drinks.filter(x => x !== v) : [...p.drinks, v] }))}>
                         {v}
                       </Chip>
                     ))}
@@ -2132,8 +2158,8 @@ return (
         </div>
 
         {primaryStore.image && (
-          <div className="overflow-hidden">
-            <img src={primaryStore.image} alt={primaryStore.name} className="h-52 w-full object-cover opacity-80" />
+          <div className="aspect-[4/3] overflow-hidden">
+            <img src={primaryStore.image} alt={primaryStore.name} className="h-full w-full object-cover object-center opacity-90" />
           </div>
         )}
 

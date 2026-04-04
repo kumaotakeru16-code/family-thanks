@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { StationInput } from '@/app/components/StationInput'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,7 +45,6 @@ export default function EventParticipantPage() {
   const [prefPrivateRoom, setPrefPrivateRoom] = useState<string>('')
   const [prefAllYouCanDrink, setPrefAllYouCanDrink] = useState<string>('')
   const [prefDrinks, setPrefDrinks] = useState<string[]>([])
-  const [prefAreas, setPrefAreas] = useState<string[]>([])
 
   useEffect(() => {
     if (!eventId) return
@@ -142,7 +140,7 @@ export default function EventParticipantPage() {
         ...(prefAllYouCanDrink === '希望する' ? ['pref:飲み放題'] : []),
         ...prefDrinks.map(d => `drink:${d}`),
       ],
-      areas: prefAreas,
+      areas: [],
     })
 
   if (error) {
@@ -301,21 +299,11 @@ export default function EventParticipantPage() {
             </div>
             <div className="space-y-5">
 
-              {/* 行きやすい駅 */}
-              <div>
-                <p className="mb-2 text-xs font-bold text-stone-600">行きやすい駅</p>
-                <StationInput
-                  value={prefAreas}
-                  onChange={setPrefAreas}
-                  placeholder="駅名を入力"
-                />
-              </div>
-
               {/* ジャンル — 単一選択 */}
               <div>
                 <p className="mb-2 text-xs font-bold text-stone-600">ジャンル（1つ選ぶ）</p>
                 <div className="flex flex-wrap gap-2">
-                  {['居酒屋', '和食', 'イタリアン・フレンチ', '中華', '焼肉・ホルモン', '韓国料理', 'カフェ・スイーツ', 'なんでもいい'].map(v => (
+                  {['居酒屋', '和食', 'イタリアン・フレンチ', '中華', '焼肉・ホルモン', '焼き鳥', '韓国料理', 'カフェ・スイーツ', 'なんでもいい'].map(v => (
                     <button type="button" key={v}
                       onClick={() => setPrefGenres(prefGenres[0] === v ? [] : [v])}
                       className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition active:scale-95 ${
