@@ -472,7 +472,7 @@ export default function Page() {
   const [finalDates, setFinalDates] = useState<any[]>([])
   const [recommendedStores, setRecommendedStores] = useState<StoreCandidate[]>([])
   const [isLoadingStores, setIsLoadingStores] = useState(false)
-  const [storeFetchError, setStoreFetchError] = useState<string | null>(null)
+  const [storeFetchError, setStoreFetchError] = useState('')
   const [eventDetail, setEventDetail] = useState<any>(null)
   const [copied, setCopied] = useState(false)
 
@@ -600,10 +600,8 @@ useEffect(() => {
   }))
 }, [dbDates, dates])
 
-const selectedStore: StoreCandidate | null = (() => {
-  const pool = recommendedStores.length > 0 ? recommendedStores : MOCK_STORES
-  return pool.find((s: StoreCandidate) => s.id === selectedStoreId) ?? pool[0] ?? null
-})()
+const selectedStore: StoreCandidate | null =
+  recommendedStores.find((s: StoreCandidate) => s.id === selectedStoreId) ?? null
 
 
 
@@ -826,7 +824,7 @@ useEffect(() => {
 // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [recommendedStores])
 
-const storePool = recommendedStores.length > 0 ? recommendedStores : MOCK_STORES
+const storePool = recommendedStores
 
 
 
@@ -1013,10 +1011,11 @@ async function fetchRecommendedStores() {
   }
 
   setIsLoadingStores(true)
-  setStoreFetchError(null)
+  setStoreFetchError('')
 
+
+  
   try {
-    // Try Hot Pepper first
     const hpRes = await fetch('/api/hotpepper/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1029,6 +1028,10 @@ async function fetchRecommendedStores() {
       }),
     })
 
+    if (!hpRes.ok) {
+      throw new Error(`HTTP ${hpRes.status}`)
+    }
+
     const data = await hpRes.json()
     console.log('hotpepper search result:', data)
 
@@ -1039,22 +1042,29 @@ async function fetchRecommendedStores() {
       access: s.access ?? '',
       image: s.image ?? undefined,
       reason: s.reason ?? '条件に合いやすい候補です',
-      link: s.link ?? '#',
+      link: typeof s.link === 'string' ? s.link : '',
       tags: Array.isArray(s.tags) ? s.tags.slice(0, 4) : [],
     }))
 
-    if (stores.length === 0) {
-      throw new Error('候補が返ってきませんでした')
+    setRecommendedStores(stores)
+    setSelectedStoreId(stores[0]?.id ?? '')
+
+    if (data?.fallback) {
+      setStoreFetchError(
+        data?.error ?? '条件に合う店が見つからなかったため、参考候補を表示しています。'
+      )
+    } else {
+      setStoreFetchError('')
     }
 
-    setRecommendedStores(stores)
-    setSelectedStoreId(stores[0].id)
     setStep('storeSuggestion')
   } catch (e: any) {
     console.error(e)
-    setStoreFetchError(e?.message ?? 'unknown error')
+    setStoreFetchError(
+      e?.message ?? 'お店候補の取得に失敗しました。条件を変えてもう一度お試しください。'
+    )
     setRecommendedStores([])
-    setSelectedStoreId(MOCK_STORES[0].id)
+    setSelectedStoreId('')
     setStep('storeSuggestion')
   } finally {
     setIsLoadingStores(false)
@@ -2181,6 +2191,12 @@ return (
       <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 9</p>
       <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">お店を選ぶ</h2>
     </div>
+{storeFetchError && (
+  <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-100">
+    {storeFetchError}
+  </div>
+)}
+
 
     {/* 第一候補 — dark hero */}
     {primaryStore && (
@@ -2258,9 +2274,9 @@ return (
       </div>
     )}
 
-    <PrimaryBtn size="large" onClick={() => setStep('finalConfirm')}>
-      この候補で進む
-    </PrimaryBtn>
+<PrimaryBtn size="large" onClick={loadFinalDecisionView}>
+  この候補で進む
+</PrimaryBtn>
     <GhostBtn onClick={() => setStep('organizerConditions')}>条件を調整する</GhostBtn>
   </div>
 )}

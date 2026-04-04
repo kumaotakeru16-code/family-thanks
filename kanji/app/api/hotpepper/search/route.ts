@@ -8,6 +8,7 @@ const BUDGET_MAP: Record<string, string> = {
   '〜6,000円': 'B008', // 5001〜7000円
   '〜7,000円': 'B008', // 5001〜7000円
   '〜8,000円': 'B009', // 7001〜10000円
+  '指定なし': '',
 }
 
 // Hot Pepper genre codes
@@ -32,8 +33,9 @@ const FALLBACK_STORES = [
     name: '個室和食 紬 渋谷店',
     area: '渋谷',
     access: 'JR渋谷駅 徒歩3分',
-    reason: '渋谷に集まりやすく、会食向きで外しにくい候補です。',
-    link: 'https://www.hotpepper.jp/',
+    reason: '渋谷に集まりやすく、会食向きで外しにくい参考候補です。',
+    link: '',
+    image: undefined,
     tags: ['完全個室', '会食向き', '駅近'],
   },
   {
@@ -41,8 +43,9 @@ const FALLBACK_STORES = [
     name: '美食米門 新宿店',
     area: '新宿',
     access: 'JR新宿駅 徒歩3分',
-    reason: '別エリア候補として比較しやすい店です。',
-    link: 'https://www.hotpepper.jp/',
+    reason: '別エリア候補として比較しやすい参考候補です。',
+    link: '',
+    image: undefined,
     tags: ['駅近', '会食向き'],
   },
   {
@@ -51,58 +54,129 @@ const FALLBACK_STORES = [
     area: '渋谷',
     access: 'JR渋谷駅 徒歩2分',
     reason: '渋谷寄りでジャンル違いの保険候補です。',
-    link: 'https://www.hotpepper.jp/',
+    link: '',
+    image: undefined,
     tags: ['個室', '駅近'],
   },
 ]
 
-function buildReason(shop: any, priceRange?: string, privateRoom?: string): string {
+function normalizeAreas(input: unknown): string[] {
+  if (!Array.isArray(input)) return []
+  return input
+    .map((v) => (typeof v === 'string' ? v.trim() : ''))
+    .filter(Boolean)
+}
+
+function normalizeGenres(input: unknown): string[] {
+  if (!Array.isArray(input)) return []
+  return input
+    .map((v) => (typeof v === 'string' ? v.trim() : ''))
+    .filter(Boolean)
+}
+
+function hasPrivateRoom(shop: any): boolean {
+  return shop?.private_room === 'あり' || shop?.private_room === '1'
+}
+
+function buildReason(shop: any): string {
   const parts: string[] = []
-  if (shop.genre?.name) parts.push(shop.genre.name)
-  if (shop.budget?.average) parts.push(`予算${shop.budget.average}`)
-  if (shop.private_room === 'あり' || shop.private_room === '1') parts.push('個室あり')
-  if (shop.catch) return shop.catch
-  return parts.length > 0 ? parts.join('・') : '条件に合う候補です'
+
+  if (shop?.genre?.name) parts.push(shop.genre.name)
+  if (shop?.budget?.average) parts.push(`予算${shop.budget.average}`)
+  if (hasPrivateRoom(shop)) parts.push('個室あり')
+  if (shop?.access) parts.push('アクセス良好')
+
+  if (shop?.catch) return shop.catch
+  if (parts.length > 0) return parts.join('・')
+  return '条件に合う候補です'
+}
+
+function mapShopToStore(shop: any) {
+  return {
+    id: shop.id,
+    name: shop.name,
+    area: shop.small_area?.name ?? shop.middle_area?.name ?? shop.address ?? '',
+    access: shop.access ?? '',
+    image: shop.photo?.pc?.l ?? shop.photo?.pc?.m ?? undefined,
+    link: shop.urls?.pc ?? '',
+    reason: buildReason(shop),
+    tags: [
+      shop.genre?.name,
+      shop.budget?.average ? `予算${shop.budget.average}` : undefined,
+      hasPrivateRoom(shop) ? '個室あり' : undefined,
+      shop.wifi === 'あり' ? 'WiFiあり' : undefined,
+    ]
+      .filter((t): t is string => Boolean(t))
+      .slice(0, 4),
+  }
 }
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.RECRUIT_API_KEY
+
   if (!apiKey) {
-    return NextResponse.json({ stores: FALLBACK_STORES, fallback: true, error: 'RECRUIT_API_KEY is not set' })
+    return NextResponse.json({
+      stores: FALLBACK_STORES,
+      fallback: true,
+      error: 'RECRUIT_API_KEY is not set',
+    })
   }
 
   try {
     const body = await req.json()
-    const { areas = [], priceRange, genres = [], privateRoom, count = 6 } = body
+
+    const areas = normalizeAreas(body?.areas)
+    const genres = normalizeGenres(body?.genres)
+    const priceRange = typeof body?.priceRange === 'string' ? body.priceRange : ''
+    const privateRoom = typeof body?.privateRoom === 'string' ? body.privateRoom : ''
+    const count =
+      typeof body?.count === 'number'
+        ? Math.min(Math.max(body.count, 1), 10)
+        : 6
 
     const params = new URLSearchParams({
       key: apiKey,
       format: 'json',
-      count: String(Math.min(count, 10)),
-      // Default to Kanto if no area given so results stay Tokyo-metro relevant
-      ...(areas.length === 0 ? { large_service_area: 'SS10' } : {}),
+      count: String(count),
     })
 
-    // Area: join multiple areas as a space-separated keyword query
-    if (areas.length > 0) {
+    // エリア未指定なら関東圏で絞る
+    if (areas.length === 0) {
+      params.set('large_service_area', 'SS10')
+    } else {
       params.set('keyword', areas.join(' '))
     }
 
-    // Budget: map from yen label to Hot Pepper code
-    const budgetCode = priceRange ? BUDGET_MAP[priceRange] : undefined
-    if (budgetCode) params.set('budget', budgetCode)
+    // 予算
+    const budgetCode = priceRange ? BUDGET_MAP[priceRange] : ''
+    if (budgetCode) {
+      params.set('budget', budgetCode)
+    }
 
-    // Genre: use first matching genre
-    const genreCode = genres.map((g: string) => GENRE_MAP[g]).find(Boolean)
-    if (genreCode) params.set('genre', genreCode)
+    // ジャンル（最初に一致したものを採用）
+    const genreCode = genres.map((g) => GENRE_MAP[g]).find(Boolean)
+    if (genreCode) {
+      params.set('genre', genreCode)
+    }
 
-    // Private room
-    if (privateRoom === '必要') params.set('private_room', '1')
+    // 個室
+    if (privateRoom === '必要') {
+      params.set('private_room', '1')
+    }
 
-    const url = `https://webservice.recruit.co.jp/hotpepper/gourmet/v1/?${params}`
+    const url = `https://webservice.recruit.co.jp/hotpepper/gourmet/v1/?${params.toString()}`
+
+    console.log('[hotpepper/search] request:', {
+      areas,
+      genres,
+      priceRange,
+      privateRoom,
+      count,
+      url,
+    })
 
     const res = await fetch(url, {
-      next: { revalidate: 0 }, // always fresh
+      cache: 'no-store',
     })
 
     if (!res.ok) {
@@ -112,6 +186,18 @@ export async function POST(req: NextRequest) {
     const data = await res.json()
     const shops: any[] = data?.results?.shop ?? []
 
+    console.log('[hotpepper/search] response:', {
+      available: data?.results?.available,
+      returned: shops.length,
+      sampleShop: shops[0]
+        ? {
+            id: shops[0].id,
+            name: shops[0].name,
+            url: shops[0]?.urls?.pc,
+          }
+        : null,
+    })
+
     if (shops.length === 0) {
       return NextResponse.json({
         stores: FALLBACK_STORES,
@@ -120,25 +206,15 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const stores = shops.map((shop) => ({
-      id: shop.id,
-      name: shop.name,
-      area: shop.small_area?.name ?? shop.middle_area?.name ?? shop.address ?? '',
-      access: shop.access ?? '',
-      image: shop.photo?.pc?.l ?? shop.photo?.pc?.m ?? undefined,
-      link: shop.urls?.pc ?? 'https://www.hotpepper.jp/',
-      reason: buildReason(shop, priceRange, privateRoom),
-      tags: [
-        shop.genre?.name,
-        shop.budget?.average ? `予算${shop.budget.average}` : undefined,
-        (shop.private_room === 'あり' || shop.private_room === '1') ? '個室あり' : undefined,
-        shop.wifi === 'あり' ? 'WiFiあり' : undefined,
-      ].filter((t): t is string => Boolean(t)).slice(0, 4),
-    }))
+    const stores = shops.map(mapShopToStore)
 
-    return NextResponse.json({ stores, fallback: false })
+    return NextResponse.json({
+      stores,
+      fallback: false,
+    })
   } catch (e: any) {
-    console.error('[hotpepper/search]', e?.message)
+    console.error('[hotpepper/search] error:', e?.message ?? e)
+
     return NextResponse.json({
       stores: FALLBACK_STORES,
       fallback: true,
