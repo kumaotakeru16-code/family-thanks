@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createEvent, loadEventData } from '@/lib/kanji-db'
 import { saveDecision } from '@/lib/kanji-db'
 import { loadDecision } from '@/lib/kanji-db'
+import { StationInput } from '@/app/components/StationInput'
 
 // --- Types ---
 type Step =
@@ -468,7 +469,6 @@ export default function Page() {
 
   
 
-  const [areaInput, setAreaInput] = useState('')
   const [showAltStores, setShowAltStores] = useState(false)
 
   const [orgPrefs, setOrgPrefs] = useState<OrganizerPrefs>({
@@ -2047,35 +2047,11 @@ return (
 
                 {/* エリア */}
                 <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">エリア（駅・地名）</p>
-                  <input
-                    type="text"
-                    value={areaInput}
-                    onChange={e => setAreaInput(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && areaInput.trim()) {
-                        const v = areaInput.trim()
-                        setOrgPrefs(p => ({ ...p, areas: p.areas.includes(v) ? p.areas : [...p.areas, v] }))
-                        setAreaInput('')
-                      }
-                    }}
-                    placeholder="駅名・地名を入力 → Enter"
-                    className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-300 focus:bg-white"
+                  <p className="mb-2 text-xs font-bold text-stone-700">エリア（駅名）</p>
+                  <StationInput
+                    value={orgPrefs.areas}
+                    onChange={(stations) => setOrgPrefs((p) => ({ ...p, areas: stations }))}
                   />
-                  {orgPrefs.areas.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {orgPrefs.areas.map(v => (
-                        <button
-                          type="button"
-                          key={v}
-                          onClick={() => setOrgPrefs(p => ({ ...p, areas: p.areas.filter(x => x !== v) }))}
-                          className="rounded-full bg-stone-900 px-3 py-1 text-xs font-bold text-white transition hover:bg-stone-700 active:scale-95"
-                        >
-                          {v} ×
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 {/* 価格帯 */}

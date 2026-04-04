@@ -141,7 +141,13 @@ function buildBaseParams(args: {
   if (areas.length === 0) {
     params.set('large_service_area', 'SS10')
   } else {
-    params.set('keyword', areas.join(' '))
+    const primaryArea = areas[0]?.trim() ?? ''
+
+    if (primaryArea) {
+      params.set('keyword', primaryArea)
+    } else {
+      params.set('large_service_area', 'SS10')
+    }
   }
 
   const budgetCode = BUDGET_MAP[priceRange] ?? ''
