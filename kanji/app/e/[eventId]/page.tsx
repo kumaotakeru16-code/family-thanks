@@ -289,19 +289,36 @@ export default function EventParticipantPage() {
             </div>
             <div className="space-y-5">
 
-              {/* ジャンル — 単一選択 */}
+              {/* ジャンル — 最大2つ選択 */}
               <div>
-                <p className="mb-2 text-xs font-bold text-stone-600">ジャンル（1つ選ぶ）</p>
+                <p className="mb-2 text-xs font-bold text-stone-600">ジャンル（最大2つ）</p>
                 <div className="flex flex-wrap gap-2">
-                  {['居酒屋', '和食', 'イタリアン・フレンチ', '中華', '焼肉・ホルモン', '焼き鳥', '韓国料理', 'カフェ・スイーツ', 'なんでもいい'].map(v => (
-                    <button type="button" key={v}
-                      onClick={() => setPrefGenres(prefGenres[0] === v ? [] : [v])}
-                      className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition active:scale-95 ${
-                        prefGenres[0] === v ? 'bg-stone-900 text-white ring-stone-900' : 'bg-stone-50 text-stone-500 ring-stone-200 hover:bg-stone-100'
-                      }`}
-                    >{v}</button>
-                  ))}
+                  {['居酒屋', '和食', 'イタリアン・フレンチ', '中華', '焼肉・ホルモン', '焼き鳥', '韓国料理', 'カフェ・スイーツ', 'なんでもいい'].map(v => {
+                    const isSelected = prefGenres.includes(v)
+                    const isDisabled = !isSelected && prefGenres.length >= 2
+                    return (
+                      <button type="button" key={v}
+                        onClick={() => {
+                          if (isSelected) {
+                            setPrefGenres(prefGenres.filter(g => g !== v))
+                          } else if (!isDisabled) {
+                            setPrefGenres([...prefGenres, v])
+                          }
+                        }}
+                        className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition active:scale-95 ${
+                          isSelected
+                            ? 'bg-stone-900 text-white ring-stone-900'
+                            : isDisabled
+                            ? 'bg-stone-50 text-stone-300 ring-stone-100 cursor-not-allowed'
+                            : 'bg-stone-50 text-stone-500 ring-stone-200 hover:bg-stone-100'
+                        }`}
+                      >{v}</button>
+                    )
+                  })}
                 </div>
+                {prefGenres.length >= 2 && (
+                  <p className="mt-1.5 text-xs text-stone-400">2つ選択中。変更するには一度選択を外してください。</p>
+                )}
               </div>
 
             </div>

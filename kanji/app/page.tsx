@@ -783,7 +783,7 @@ const participantMajority = useMemo(() => {
   return {
     genres: [...genreCounts.entries()]
       .sort((a, b) => b[1] - a[1])
-      .filter(([, c]) => c > half)
+      .slice(0, 3)
       .map(([g]) => g),
     atmosphere: [...atmCounts.entries()]
       .sort((a, b) => b[1] - a[1])
@@ -797,6 +797,21 @@ const participantMajority = useMemo(() => {
       .slice(0, 2),
     areas: getTopAreas(activeParticipants).slice(0, 2),
   }
+}, [activeParticipants])
+
+const genreRanking = useMemo(() => {
+  const counts = new Map<string, number>()
+  activeParticipants.forEach(p => {
+    ;(p.genres ?? []).forEach((g: string) => {
+      if (!g.startsWith('atm:') && !g.startsWith('pref:') && !g.startsWith('drink:')) {
+        counts.set(g, (counts.get(g) ?? 0) + 1)
+      }
+    })
+  })
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([genre, count]) => ({ genre, count }))
 }, [activeParticipants])
 
 const organizerConditions = useMemo(() => {
@@ -816,7 +831,7 @@ useEffect(() => {
     orgPrefsInitRef.current = true
     setOrgPrefs(p => ({
       ...p,
-      genres: participantMajority.genres.length ? participantMajority.genres : p.genres,
+      genres: participantMajority.genres.length ? [participantMajority.genres[0]] : p.genres,
       atmosphere: participantMajority.atmosphere.length ? participantMajority.atmosphere : p.atmosphere,
       privateRoom: participantMajority.privateRoom === '必要' ? '個室あり' : p.privateRoom,
       allYouCanDrink: participantMajority.allYouCanDrink === '希望' ? '希望' : p.allYouCanDrink,
@@ -1580,15 +1595,6 @@ return (
       {eventType}
     </span>
   )}
-
-  {effectiveTags.map((tag) => (
-    <span
-      key={tag}
-      className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60"
-    >
-      {tag}
-    </span>
-  ))}
 </div>
 
 <button
@@ -1850,15 +1856,6 @@ return (
       {eventType}
     </span>
   )}
-
-  {effectiveTags.map((tag) => (
-    <span
-      key={tag}
-      className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60"
-    >
-      {tag}
-    </span>
-  ))}
 </div>
 
 <button
@@ -2000,24 +1997,32 @@ return (
               <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">条件を設定</h2>
             </div>
 
-            {participantMajority && (
+            {genreRanking.length > 0 && (
               <div className="rounded-3xl bg-stone-50 px-5 py-4 ring-1 ring-stone-100">
-                <p className="mb-3 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">参加者の多数派</p>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    ...participantMajority.genres,
-                    ...participantMajority.atmosphere,
-                    ...(participantMajority.privateRoom === '必要' ? ['個室希望'] : []),
-                    ...(participantMajority.allYouCanDrink === '希望' ? ['飲み放題希望'] : []),
-                    ...participantMajority.drinks,
-                    ...participantMajority.areas,
-                  ].map(tag => (
-                    <span key={tag} className="rounded-full bg-white px-3 py-1 text-xs font-bold text-stone-700 ring-1 ring-stone-200">{tag}</span>
+                <p className="mb-3 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">ジャンル希望ランキング</p>
+                <div className="space-y-2">
+                  {genreRanking.map(({ genre, count }, i) => (
+                    <div key={genre} className="flex items-center gap-3">
+                      <span className={`shrink-0 text-[11px] font-black w-5 text-right ${i === 0 ? 'text-stone-900' : 'text-stone-400'}`}>
+                        {i + 1}位
+                      </span>
+                      <div className="flex flex-1 items-center gap-2">
+                        <div
+                          className="h-1.5 rounded-full bg-stone-900"
+                          style={{ width: `${Math.round((count / genreRanking[0].count) * 100)}%`, minWidth: '8px', maxWidth: '100%' }}
+                        />
+                      </div>
+                      <span className={`text-xs font-bold ${i === 0 ? 'text-stone-900' : 'text-stone-500'}`}>{genre}</span>
+                      <span className="text-[11px] text-stone-400">{count}人</span>
+                    </div>
                   ))}
-                  {participantMajority.genres.length === 0 && participantMajority.atmosphere.length === 0 && (
-                    <p className="text-sm text-stone-400">まだ希望が集まっていません</p>
-                  )}
                 </div>
+                <p className="mt-3 text-[11px] text-stone-400">1位のジャンルを自動でセットしています</p>
+              </div>
+            )}
+            {genreRanking.length === 0 && activeParticipants.length > 0 && (
+              <div className="rounded-3xl bg-stone-50 px-5 py-4 ring-1 ring-stone-100">
+                <p className="text-sm text-stone-400">ジャンル希望はまだ集まっていません</p>
               </div>
             )}
 
@@ -2144,7 +2149,7 @@ return (
         </div>
 
         {primaryStore.image && (
-          <div className="aspect-[4/3] overflow-hidden">
+          <div className="aspect-[4/3] sm:aspect-[16/9] overflow-hidden">
             <img src={primaryStore.image} alt={primaryStore.name} className="h-full w-full object-cover object-center opacity-90" />
           </div>
         )}
