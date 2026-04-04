@@ -1597,8 +1597,8 @@ return (
         参加予定
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
-        {heroYesParticipants.length > 0 ? (
-          heroYesParticipants.map((p) => (
+{finalYesParticipants.length > 0 ? (
+  finalYesParticipants.map((p) => (
             <span
               key={p.id}
               className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20"
@@ -1904,8 +1904,8 @@ return (
         参加予定
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
-        {heroYesParticipants.length > 0 ? (
-          heroYesParticipants.map((p) => (
+{finalYesParticipants.length > 0 ? (
+  finalYesParticipants.map((p) => (
             <span
               key={p.id}
               className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20"
@@ -2221,16 +2221,18 @@ return (
           <p className="text-sm leading-6 text-white/70">{primaryStore.reason ?? storeReason}</p>
         </div>
 
-        <div className="px-6 py-5">
-          <a
-            href={primaryStore.link}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-4 text-base font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
-          >
-            予約ページを見る
-          </a>
-        </div>
+<div className="px-6 py-5">
+  {primaryStore?.link && (
+    <a
+      href={primaryStore.link}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-4 text-base font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
+    >
+      予約ページを見る
+    </a>
+  )}
+</div>
       </div>
     )}
 
@@ -2299,7 +2301,7 @@ return (
           : null
 
       const finalStore = selectedStore || recommendedStores?.[0] || null
-      const participantCount = dbResponses.length
+
 
 
 const finalShareText =
@@ -2349,8 +2351,8 @@ ${finalStore?.link ?? ''}`
         参加予定
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
-        {heroYesParticipants.length > 0 ? (
-          heroYesParticipants.map((p) => (
+        {finalYesParticipants.length > 0 ? (
+          finalYesParticipants.map((p) => (
             <span
               key={p.id}
               className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20"
@@ -2369,8 +2371,8 @@ ${finalStore?.link ?? ''}`
         調整中
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
-        {heroMaybeParticipants.length > 0 ? (
-          heroMaybeParticipants.map((p) => (
+        {finalMaybeParticipants.length > 0 ? (
+          finalMaybeParticipants.map((p) => (
             <span
               key={p.id}
               className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20"
