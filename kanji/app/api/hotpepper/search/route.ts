@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveAreaForSearch } from '@/app/lib/area-resolver'
 
 // Hot Pepper budget codes
 const BUDGET_MAP: Record<string, string> = {
@@ -138,16 +139,13 @@ function buildBaseParams(args: {
     count: String(Math.min(Math.max(count, 1), 10)),
   })
 
-  if (areas.length === 0) {
-    params.set('large_service_area', 'SS10')
+  // Phase 2: explicit area resolution — swap resolveAreaForSearch impl in Phase 3
+  // to return { type: 'middle_area' | 'small_area', code } without touching this block
+  const resolved = resolveAreaForSearch(areas)
+  if (resolved.type === 'keyword') {
+    params.set('keyword', resolved.value)
   } else {
-    const primaryArea = areas[0]?.trim() ?? ''
-
-    if (primaryArea) {
-      params.set('keyword', primaryArea)
-    } else {
-      params.set('large_service_area', 'SS10')
-    }
+    params.set('large_service_area', 'SS10')
   }
 
   const budgetCode = BUDGET_MAP[priceRange] ?? ''

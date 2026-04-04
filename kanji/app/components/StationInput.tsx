@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+// Matches the shape returned by /api/station-search
+// Phase 3: add hpMiddleAreaCode / hpSmallAreaCode here when the API provides them
 type StationSuggestion = {
   name: string
   prefecture?: string
   line?: string
+  displayLabel?: string  // e.g. "新宿（JR山手線）"
 }
 
 type Props = {

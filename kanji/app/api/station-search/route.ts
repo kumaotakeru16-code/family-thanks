@@ -12,10 +12,14 @@ type RawStation = {
   y?: string
 }
 
+// Matches StationSuggestion in app/components/StationInput.tsx
+// displayLabel: human-readable label for dropdown (e.g. "新宿（JR山手線）")
+// Phase 3 extension: add hpMiddleAreaCode / hpSmallAreaCode here when available
 type StationSuggestion = {
   name: string
   prefecture?: string
   line?: string
+  displayLabel?: string
 }
 
 export async function GET(req: NextRequest) {
@@ -44,10 +48,12 @@ export async function GET(req: NextRequest) {
       if (!s.name) continue
       if (!seen.has(s.name)) {
         seen.add(s.name)
+        const line = s.line || undefined
         stations.push({
           name: s.name,
           prefecture: s.prefecture || undefined,
-          line: s.line || undefined,
+          line,
+          displayLabel: line ? `${s.name}（${line}）` : s.name,
         })
       }
       if (stations.length >= 8) break
