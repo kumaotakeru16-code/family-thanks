@@ -270,19 +270,44 @@ export default function EventParticipantPage() {
           )}
         </div>
 
-        {showPrefs && (
-          <div className="rounded-3xl bg-white px-4 py-4 shadow-sm ring-1 ring-black/5">
-            <p className="mb-4 text-sm font-bold text-stone-900">お店の希望</p>
+        {/* お店希望 — 導線 or フォーム */}
+        {!showPrefs ? (
+          <button
+            type="button"
+            onClick={() => setShowPrefs(true)}
+            className="w-full rounded-3xl bg-white px-5 py-4 text-left shadow-sm ring-1 ring-stone-100 transition hover:shadow-md active:scale-[0.99]"
+          >
+            <p className="text-sm font-bold text-stone-900">お店の希望も伝える</p>
+            <p className="mt-1 text-xs leading-5 text-stone-400">
+              ジャンルや個室希望など、あれば入力できます
+            </p>
+            <p className="mt-3 text-xs font-bold text-stone-500">
+              希望を入力する →
+            </p>
+          </button>
+        ) : (
+          <div className="rounded-3xl bg-white px-4 py-5 shadow-sm ring-1 ring-black/5">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-sm font-bold text-stone-900">お店の希望</p>
+              <button
+                type="button"
+                onClick={() => setShowPrefs(false)}
+                className="text-xs text-stone-400 underline underline-offset-2"
+              >
+                閉じる
+              </button>
+            </div>
             <div className="space-y-5">
 
+              {/* ジャンル — 単一選択 */}
               <div>
-                <p className="mb-2 text-xs font-bold text-stone-600">ジャンル</p>
+                <p className="mb-2 text-xs font-bold text-stone-600">ジャンル（1つ選ぶ）</p>
                 <div className="flex flex-wrap gap-2">
                   {['居酒屋', '和食', 'イタリアン・フレンチ', '中華', '焼肉・ホルモン', '韓国料理', 'カフェ・スイーツ', 'なんでもいい'].map(v => (
                     <button type="button" key={v}
-                      onClick={() => setPrefGenres(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])}
+                      onClick={() => setPrefGenres(prefGenres[0] === v ? [] : [v])}
                       className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition active:scale-95 ${
-                        prefGenres.includes(v) ? 'bg-stone-900 text-white ring-stone-900' : 'bg-stone-50 text-stone-500 ring-stone-200 hover:bg-stone-100'
+                        prefGenres[0] === v ? 'bg-stone-900 text-white ring-stone-900' : 'bg-stone-50 text-stone-500 ring-stone-200 hover:bg-stone-100'
                       }`}
                     >{v}</button>
                   ))}
@@ -364,16 +389,6 @@ export default function EventParticipantPage() {
         >
           {submitting ? '送信中…' : '回答を送信'}
         </button>
-
-        {!showPrefs && (
-          <button
-            type="button"
-            onClick={() => setShowPrefs(true)}
-            className="w-full text-center text-xs text-stone-400 underline underline-offset-2"
-          >
-            お店の希望を追加する（任意）
-          </button>
-        )}
       </div>
     </div>
   )
