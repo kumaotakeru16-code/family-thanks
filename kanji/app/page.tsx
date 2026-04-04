@@ -325,58 +325,68 @@ function buildStoreReason(params: {
   eventType?: string
   mainGuestCount?: number
 }) {
-  const {
-    store,
-    organizerConditions,
-    orgPrefs,
-    eventType = '',
-    mainGuestCount = 0,
-  } = params
+  const { store, organizerConditions, orgPrefs, eventType = '', mainGuestCount = 0 } = params
 
-  const parts: string[] = []
   const storeTags = store.tags ?? []
-
-  // エリア — 検索条件として反映済みなので設定されていれば必ず言及
   const area = orgPrefs?.areas[0]
-  if (area) parts.push(`${area}エリア`)
-
-  // ジャンル
-  const genre = orgPrefs?.genres[0]
-  if (genre && genre !== 'なんでもいい') parts.push(genre)
-
-  // 価格帯
-  const priceRange = orgPrefs?.priceRange
-  if (priceRange && priceRange !== '指定なし') parts.push(priceRange)
-
-  // 個室（条件として設定 かつ 店が実際に対応）
-  if (orgPrefs?.privateRoom === '個室あり' && storeTags.includes('個室あり')) {
-    parts.push('個室あり')
-  }
-
-  // 飲み放題（条件として設定 かつ 店が実際に対応）
-  if (orgPrefs?.allYouCanDrink === '希望' && storeTags.some(t => t.includes('飲み放題'))) {
-    parts.push('飲み放題あり')
-  }
-
-  // 会の種類が特定の場合は追記
+  const genre = orgPrefs?.genres?.find(g => g !== 'なんでもいい')
+  const priceRange = orgPrefs?.priceRange && orgPrefs.priceRange !== '指定なし' ? orgPrefs.priceRange : null
+  const hasPrivateRoom = orgPrefs?.privateRoom === '個室あり' && storeTags.includes('個室あり')
+  const hasFreeDrink = orgPrefs?.allYouCanDrink === '希望' && storeTags.some(t => t.includes('飲み放題'))
   const formalTypes = ['会食', '歓迎会', '送別会']
-  if (eventType && formalTypes.includes(eventType)) {
-    parts.push(`${eventType}向き`)
+  const isFormal = eventType && formalTypes.includes(eventType)
+  const hasVip = mainGuestCount > 0
+
+  // Natural sentence templates — most specific first
+  if (hasVip && hasPrivateRoom && area) {
+    return `${area}周辺にあり、個室で主賓を囲んでゆっくり話しやすい候補です`
   }
-
-  // 主賓優先
-  if (mainGuestCount > 0) parts.push('主賓の都合を優先')
-
-  if (parts.length === 0) {
-    // 条件が何も設定されていない場合はfallback
-    if (organizerConditions.length > 0) {
-      return `${organizerConditions.slice(0, 2).join('・')}の条件に合う候補です`
-    }
-    return '条件のバランスがよいため優先'
+  if (hasVip && area && genre) {
+    return `${area}周辺の${genre}で、主賓の都合を優先して選んだ候補です`
   }
-
-  const condStr = parts.slice(0, 4).join('・')
-  return `${condStr}を考慮して選びました`
+  if (hasVip && area) {
+    return `${area}周辺で集まりやすく、主賓の都合を考慮した候補です`
+  }
+  if (hasPrivateRoom && hasFreeDrink && area) {
+    return `${area}周辺で、個室ありかつ飲み放題で過ごしやすい候補です`
+  }
+  if (hasPrivateRoom && area && genre) {
+    return `${area}周辺の${genre}で、個室ありで落ち着いて話せる候補です`
+  }
+  if (hasPrivateRoom && area) {
+    return `${area}周辺にあり、個室でゆっくり過ごしやすい候補です`
+  }
+  if (hasFreeDrink && area && genre) {
+    return `${area}周辺の${genre}で、飲み放題ありで会費もまとめやすい候補です`
+  }
+  if (hasFreeDrink && area) {
+    return `${area}周辺にあり、飲み放題ありで会費を合わせやすい候補です`
+  }
+  if (isFormal && hasPrivateRoom) {
+    return `個室ありで、${eventType}の席として落ち着いて使いやすい候補です`
+  }
+  if (isFormal && area) {
+    return `${area}周辺にあり、${eventType}の席として使いやすい候補です`
+  }
+  if (genre && area && priceRange) {
+    return `${area}周辺の${genre}で、${priceRange}の価格帯にも合わせやすい候補です`
+  }
+  if (genre && area) {
+    return `${area}周辺で${genre}が楽しめる、参加者の希望に寄せた候補です`
+  }
+  if (area && priceRange) {
+    return `${area}周辺にあり、${priceRange}の価格帯で会費をまとめやすい候補です`
+  }
+  if (area) {
+    return `${area}周辺で集まりやすく、条件のバランスがよい候補です`
+  }
+  if (genre) {
+    return `参加者希望の${genre}ジャンルに合わせた候補です`
+  }
+  if (organizerConditions.length > 0) {
+    return `${organizerConditions.slice(0, 2).join('・')}の条件に合う候補です`
+  }
+  return '条件のバランスがよい候補です'
 }
 
 function cx(...c: (string | false | null | undefined)[]) {
@@ -805,7 +815,7 @@ const genreRanking = useMemo(() => {
   const counts = new Map<string, number>()
   activeParticipants.forEach(p => {
     ;(p.genres ?? []).forEach((g: string) => {
-      if (!g.startsWith('atm:') && !g.startsWith('pref:') && !g.startsWith('drink:')) {
+      if (!g.startsWith('atm:') && !g.startsWith('pref:') && !g.startsWith('drink:') && g !== 'なんでもいい') {
         counts.set(g, (counts.get(g) ?? 0) + 1)
       }
     })
@@ -833,7 +843,9 @@ useEffect(() => {
     orgPrefsInitRef.current = true
     setOrgPrefs(p => ({
       ...p,
-      genres: participantMajority.genres.length ? [participantMajority.genres[0]] : p.genres,
+      genres: participantMajority.genres.length
+        ? [participantMajority.genres.find(g => g !== 'なんでもいい') ?? participantMajority.genres[0]]
+        : p.genres,
       atmosphere: participantMajority.atmosphere.length ? participantMajority.atmosphere : p.atmosphere,
       privateRoom: participantMajority.privateRoom === '必要' ? '個室あり' : p.privateRoom,
       allYouCanDrink: participantMajority.allYouCanDrink === '希望' ? '希望' : p.allYouCanDrink,
@@ -1081,7 +1093,7 @@ async function fetchRecommendedStores() {
         genreCodes,
         privateRoom: orgPrefs.privateRoom,
         allYouCanDrink: orgPrefs.allYouCanDrink,
-        count: 6,
+        count: 10,
       }),
     })
 
@@ -1103,8 +1115,14 @@ async function fetchRecommendedStores() {
       tags: Array.isArray(s.tags) ? s.tags.slice(0, 4) : [],
     }))
 
-    setRecommendedStores(stores)
-    setSelectedStoreId(stores[0]?.id ?? '')
+    // Keep top 2 stable (best area match); lightly shuffle the rest so
+    // re-searching the same conditions feels fresh
+    const [first, second, ...rest] = stores
+    const shuffled = [...rest].sort(() => Math.random() - 0.5)
+    const finalStores = [first, second, ...shuffled].filter((s): s is StoreCandidate => !!s)
+
+    setRecommendedStores(finalStores)
+    setSelectedStoreId(finalStores[0]?.id ?? '')
 
     if (data?.fallback) {
       setStoreFetchError(

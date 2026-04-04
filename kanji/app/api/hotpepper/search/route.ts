@@ -26,38 +26,98 @@ const GENRE_MAP: Record<string, string> = {
   'アジア・エスニック': 'G009',
 }
 
-const FALLBACK_STORES = [
+const FALLBACK_STORE_POOL = [
   {
-    id: 'fallback-1',
+    id: 'fb-a1',
     name: '個室和食 紬 渋谷店',
     area: '渋谷',
     access: 'JR渋谷駅 徒歩3分',
-    reason: '渋谷に集まりやすく、会食向きで外しにくい参考候補です。',
+    reason: '渋谷周辺で集まりやすく、個室ありで落ち着いて過ごせる参考候補です。',
     link: '',
     image: undefined,
-    tags: ['完全個室', '会食向き', '駅近'],
+    tags: ['完全個室', '和食', '駅近'],
   },
   {
-    id: 'fallback-2',
+    id: 'fb-a2',
     name: '美食米門 新宿店',
     area: '新宿',
     access: 'JR新宿駅 徒歩3分',
-    reason: '別エリア候補として比較しやすい参考候補です。',
+    reason: '新宿周辺で集まりやすく、多人数にも対応しやすい参考候補です。',
     link: '',
     image: undefined,
-    tags: ['駅近', '会食向き'],
+    tags: ['駅近', '居酒屋'],
   },
   {
-    id: 'fallback-3',
+    id: 'fb-a3',
     name: '個室 焼肉 ごぶとん 渋谷本店',
     area: '渋谷',
     access: 'JR渋谷駅 徒歩2分',
-    reason: '渋谷寄りでジャンル違いの保険候補です。',
+    reason: '渋谷周辺で焼肉系を楽しみたい場合の参考候補です。',
     link: '',
     image: undefined,
-    tags: ['個室', '駅近'],
+    tags: ['個室', '焼肉', '駅近'],
+  },
+  {
+    id: 'fb-b1',
+    name: '和食個室 いぶき 池袋店',
+    area: '池袋',
+    access: 'JR池袋駅 徒歩4分',
+    reason: '池袋周辺で集まりやすく、落ち着いた個室で会食にも使いやすい参考候補です。',
+    link: '',
+    image: undefined,
+    tags: ['完全個室', '和食', '会食向き'],
+  },
+  {
+    id: 'fb-b2',
+    name: '海鮮居酒屋 漁火 品川店',
+    area: '品川',
+    access: 'JR品川駅 徒歩5分',
+    reason: '品川周辺でアクセスよく、海鮮系で外しにくい参考候補です。',
+    link: '',
+    image: undefined,
+    tags: ['居酒屋', '海鮮', '駅近'],
+  },
+  {
+    id: 'fb-b3',
+    name: '炭火焼鳥 串蔵 恵比寿店',
+    area: '恵比寿',
+    access: 'JR恵比寿駅 徒歩4分',
+    reason: '恵比寿周辺の焼き鳥系で、少人数から利用しやすい参考候補です。',
+    link: '',
+    image: undefined,
+    tags: ['焼き鳥', '個室', '駅近'],
+  },
+  {
+    id: 'fb-c1',
+    name: '個室ダイニング 颯 銀座店',
+    area: '銀座',
+    access: '東京メトロ銀座駅 徒歩3分',
+    reason: '銀座エリアで会食向きの個室ダイニング、特別な席にも使いやすい参考候補です。',
+    link: '',
+    image: undefined,
+    tags: ['会食向き', '個室', '駅近'],
+  },
+  {
+    id: 'fb-c2',
+    name: '韓国料理 ハル 新大久保店',
+    area: '新大久保',
+    access: 'JR新大久保駅 徒歩2分',
+    reason: '新大久保の本格韓国料理で、飲み放題も選べる参考候補です。',
+    link: '',
+    image: undefined,
+    tags: ['韓国料理', '飲み放題', '駅近'],
   },
 ]
+
+function pickFallbackStores(n = 3) {
+  const pool = [...FALLBACK_STORE_POOL]
+  const picked = []
+  while (picked.length < n && pool.length > 0) {
+    const idx = Math.floor(Math.random() * pool.length)
+    picked.push(pool.splice(idx, 1)[0])
+  }
+  return picked
+}
 
 function normalizeStringArray(input: unknown): string[] {
   if (!Array.isArray(input)) return []
@@ -219,15 +279,24 @@ function sortShopsByPrimaryArea(shops: any[], areas: string[]) {
 
   if (!primaryArea) return shops
 
-  return [...shops].sort((a, b) => {
-    const scoreDiff =
-      scoreStoreForArea(b, primaryArea) - scoreStoreForArea(a, primaryArea)
+  const scored = shops.map(s => ({
+    shop: s,
+    baseScore: scoreStoreForArea(s, primaryArea),
+  }))
+  scored.sort((a, b) => b.baseScore - a.baseScore)
 
-    if (scoreDiff !== 0) return scoreDiff
+  if (scored.length <= 1) return scored.map(s => s.shop)
 
-    // Stable-ish tie breaker: keep original API order as much as possible
-    return 0
-  })
+  // Keep the clear best at position 0; add light jitter to the rest
+  // so the 2nd–5th positions vary between calls (fresh feel on re-search)
+  const [top, ...rest] = scored
+  const jittered = rest.map(s => ({
+    shop: s.shop,
+    score: s.baseScore + Math.random() * 2,
+  }))
+  jittered.sort((a, b) => b.score - a.score)
+
+  return [top.shop, ...jittered.map(s => s.shop)]
 }
 
 export async function POST(req: NextRequest) {
@@ -235,7 +304,7 @@ export async function POST(req: NextRequest) {
 
   if (!apiKey) {
     return NextResponse.json({
-      stores: FALLBACK_STORES,
+      stores: pickFallbackStores(),
       fallback: true,
       error: 'RECRUIT_API_KEY is not set',
     })
@@ -353,7 +422,7 @@ export async function POST(req: NextRequest) {
 
     if (shops.length === 0) {
       return NextResponse.json({
-        stores: FALLBACK_STORES,
+        stores: pickFallbackStores(),
         fallback: true,
         error: '条件にぴったり一致する店が少なかったため、参考候補を表示しています',
         searchMode: mode,
@@ -372,7 +441,7 @@ export async function POST(req: NextRequest) {
     console.error('[hotpepper/search] error:', e?.message ?? e)
 
     return NextResponse.json({
-      stores: FALLBACK_STORES,
+      stores: pickFallbackStores(),
       fallback: true,
       error: e?.message ?? 'unknown error',
     })
