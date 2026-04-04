@@ -278,7 +278,7 @@ export default function EventParticipantPage() {
               <div>
                 <p className="mb-2 text-xs font-bold text-stone-600">ジャンル</p>
                 <div className="flex flex-wrap gap-2">
-                  {['居酒屋', '焼肉', 'イタリアン', '和食', 'カフェ・バル'].map(v => (
+                  {['居酒屋', '和食', 'イタリアン・フレンチ', '中華', '焼肉・ホルモン', '韓国料理', 'カフェ・スイーツ', 'なんでもいい'].map(v => (
                     <button type="button" key={v}
                       onClick={() => setPrefGenres(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])}
                       className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition active:scale-95 ${
