@@ -128,6 +128,7 @@ function buildBaseParams(args: {
   apiKey: string
   areas: string[]
   priceRange: string
+  /** Pre-resolved HP genre codes (e.g. 'G001') OR legacy label strings — codes take priority */
   genres: string[]
   privateRoom: string
   count: number
@@ -153,7 +154,11 @@ function buildBaseParams(args: {
     params.set('budget', budgetCode)
   }
 
-  const genreCode = genres.map((g) => GENRE_MAP[g]).find(Boolean)
+  // genres may be pre-resolved HP codes (e.g. 'G001') or legacy label strings
+  // Try each as a code directly first, then fall back to GENRE_MAP lookup
+  const genreCode = genres
+    .map(g => (g.startsWith('G') && g.length <= 4 ? g : GENRE_MAP[g]))
+    .find(Boolean)
   if (genreCode) {
     params.set('genre', genreCode)
   }
@@ -236,7 +241,10 @@ export async function POST(req: NextRequest) {
     const prefs = body?.orgPrefs ?? body ?? {}
 
     const areas = normalizeStringArray(prefs?.areas)
-    const genres = normalizeStringArray(prefs?.genres)
+    // Prefer pre-resolved genreCodes (sent by client) over raw label strings (legacy)
+    const genreCodes = normalizeStringArray(body?.genreCodes ?? prefs?.genreCodes)
+    const genreLabels = normalizeStringArray(prefs?.genres)
+    const genres = genreCodes.length > 0 ? genreCodes : genreLabels
     const priceRange =
       typeof prefs?.priceRange === 'string' ? prefs.priceRange : '指定なし'
     const privateRoom =
@@ -257,7 +265,9 @@ export async function POST(req: NextRequest) {
     console.log('[hotpepper/search] request:', {
       areas,
       resolvedArea,
-      genres,
+      genreCodes,
+      genreLabels,
+      resolvedGenre: strictParams.get('genre') ?? '(なし)',
       priceRange,
       privateRoom,
       count,
@@ -282,6 +292,8 @@ export async function POST(req: NextRequest) {
 
     // 2. ジャンル条件を外す
     if (shops.length === 0 && finalParams.get('genre')) {
+      const droppedGenre = finalParams.get('genre')
+      console.log('[hotpepper/search] relaxing: dropping genre', droppedGenre)
       const relaxed = new URLSearchParams(finalParams)
       relaxed.delete('genre')
 

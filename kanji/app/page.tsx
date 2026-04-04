@@ -78,7 +78,7 @@ type SavedEvent = {
 const EVENT_TYPES: EventType[] = ['歓迎会', '送別会', '普通の飲み会', '少人数ごはん', '会食']
 const AREA_OPTIONS = ['渋谷', '新宿', '池袋', '東京', '品川', '横浜']
 
-// Hot Pepper ジャンル準拠のラベル — route GENRE_MAP と1対1対応
+// Hot Pepper ジャンル準拠のラベル（UI表示用）
 const HP_GENRE_OPTIONS = [
   '居酒屋',
   '和食',
@@ -92,6 +92,21 @@ const HP_GENRE_OPTIONS = [
   'バー・ダイニングバー',
   'アジア・エスニック',
 ]
+
+// UIラベル → Hot Pepper ジャンルコードの変換マップ（クライアント側で解決し、ラベル変更に引きずられないようにする）
+const GENRE_CODE_MAP: Record<string, string> = {
+  '居酒屋': 'G001',
+  '和食': 'G004',
+  '洋食': 'G005',
+  'イタリアン・フレンチ': 'G006',
+  '中華': 'G007',
+  '焼肉・ホルモン': 'G008',
+  '焼き鳥': 'G001',
+  '韓国料理': 'G017',
+  'カフェ・スイーツ': 'G014',
+  'バー・ダイニングバー': 'G012',
+  'アジア・エスニック': 'G009',
+}
 
 // Hot Pepper budget code に対応する予算帯
 const HP_BUDGET_OPTIONS = [
@@ -396,7 +411,6 @@ function cx(...c: (string | false | null | undefined)[]) {
 
 const FLOW_STEPS: Step[] = [
   'create',
-  'dates',
   'shareLink',
   'dashboard',
   'dateConfirmed',
@@ -589,7 +603,7 @@ useEffect(() => {
 }, [step])
 
 useEffect(() => {
-  if (step === 'dates' && generatedDates.length === 0) {
+  if (step === 'create' && generatedDates.length === 0) {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const cutoff = new Date(today)
@@ -1040,13 +1054,27 @@ async function fetchRecommendedStores() {
 
   
   try {
+    // クライアント側でUIラベル → HPコードに変換してから送る
+    // これによりラベル文言を変えても検索が壊れない
+    const genreCodes = orgPrefs.genres
+      .map(g => GENRE_CODE_MAP[g])
+      .filter((c): c is string => Boolean(c))
+
+    console.log('[fetchRecommendedStores]', {
+      genres: orgPrefs.genres,
+      genreCodes,
+      areas: orgPrefs.areas,
+      priceRange: orgPrefs.priceRange,
+      privateRoom: orgPrefs.privateRoom,
+    })
+
     const hpRes = await fetch('/api/hotpepper/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         areas: orgPrefs.areas,
         priceRange: orgPrefs.priceRange,
-        genres: orgPrefs.genres,
+        genreCodes,
         privateRoom: orgPrefs.privateRoom,
         count: 6,
       }),
@@ -1189,23 +1217,10 @@ return (
         {step === 'home' && (
           <div className="space-y-5">
 
-            {/* Hero CTA */}
-            <button type="button"
-              onClick={() => setStep('create')}
-              className="group relative w-full overflow-hidden rounded-3xl bg-stone-900 px-7 py-7 text-left transition hover:bg-stone-800 active:scale-[0.99]"
-            >
-              <p className="text-[10px] font-black tracking-[0.25em] text-white/40 uppercase">新しく始める</p>
-              <p className="mt-1.5 text-2xl font-black text-white tracking-tight">会を作る</p>
-              <p className="mt-1 text-sm text-white/50">日程調整から店決めまで、約5分で完結</p>
-              <div className="absolute right-6 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white text-xl transition group-hover:bg-white/20">
-                →
-              </div>
-            </button>
-
-            {/* 進行中の会 */}
-            {savedEvents.length > 0 && (
-              <section>
-                <SectionLabel>進行中の会</SectionLabel>
+            {/* 進行中の会 — リスト or 空状態 */}
+            <section>
+              <SectionLabel>進行中の会</SectionLabel>
+              {savedEvents.length > 0 ? (
                 <div className="mt-2.5 space-y-2">
                   {savedEvents.map(ev => (
                     <button
@@ -1227,60 +1242,32 @@ return (
                     </button>
                   ))}
                 </div>
-              </section>
-            )}
-
-            {/* 過去のお店 — "また使えそうなお店"として見せる */}
-            {/*<section>
-              <div className="flex items-baseline justify-between">
-                <SectionLabel>また使えそうなお店</SectionLabel>
-                <button type="button" onClick={() => setStep('pastStores')} className="text-[11px] font-semibold text-stone-400 hover:text-stone-600">
-                  すべて見る
-                </button>
-              </div>
-              <div className="mt-2.5 space-y-2">
-                {sortedPastStores.slice(0, 2).map(store => (
-                  <button type="button"
-                    key={store.id}
-                    onClick={() => goToStoreDetail(store.id, 'home')}
-                    className="flex w-full items-center justify-between rounded-2xl bg-white px-4 py-3.5 text-left shadow-sm ring-1 ring-stone-100 transition hover:shadow-md active:scale-[0.99]"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <p className="text-sm font-bold text-stone-800 truncate">{store.name}</p>
-                        {store.rating === '◎' && (
-                          <span className="shrink-0 text-[10px] font-black text-emerald-600">また使いたい</span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-stone-400">{store.area} · {store.eventType}</p>
-                    </div>
-                    <span className={cx('ml-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-black ring-1', ratingStyle(store.rating))}>
-                      {store.rating}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>*/}
+              ) : (
+                <div className="mt-2.5 rounded-3xl bg-white px-6 py-10 text-center shadow-sm ring-1 ring-stone-100">
+                  <p className="text-sm font-bold text-stone-400">進行中の会がまだありません</p>
+                  <p className="mt-1.5 text-xs leading-5 text-stone-400">
+                    右下の ＋ ボタンから、新しい会を作れます
+                  </p>
+                </div>
+              )}
+            </section>
 
           </div>
         )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            ② イベント作成
+            ② 会を作る（会の基本情報 + 候補日選択 を1画面に統合）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        {step === 'create' && (
+        {(step === 'create' || step === 'dates') && (
           <Card>
             <StepLabel n={1} />
-            <CardTitle>イベントを作成</CardTitle>
+            <CardTitle>会を作る</CardTitle>
 
+            {/* 会の基本情報 */}
             <FieldLabel>会の種類</FieldLabel>
             <div className="mt-2.5 flex flex-wrap gap-2">
               {EVENT_TYPES.map(t => (
-                <Chip
-                  key={t}
-                  active={eventType === t}
-                  onClick={() => { setEventType(t); setEventName(t) }}
-                >
+                <Chip key={t} active={eventType === t} onClick={() => { setEventType(t); setEventName(t) }}>
                   {t}
                 </Chip>
               ))}
@@ -1296,174 +1283,130 @@ return (
               />
             </div>
 
-            <ButtonRow>
-              <GhostBtn onClick={() => setStep('home')}>戻る</GhostBtn>
-              <PrimaryBtn onClick={() => setStep('dates')}>次へ</PrimaryBtn>
-            </ButtonRow>
+            {/* 候補日選択 */}
+            <div className="mt-6 border-t border-stone-100 pt-5">
+              <FieldLabel>候補日を選ぶ</FieldLabel>
+
+              <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
+                <p className="text-xs font-bold text-stone-600">開始時間</p>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <label className="block">
+                    <span className="mb-1.5 block text-[11px] font-bold text-stone-400">時</span>
+                    <select
+                      value={selectedHour}
+                      onChange={(e) => setSelectedHour(e.target.value)}
+                      className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none transition focus:border-stone-400"
+                    >
+                      {['17', '18', '19', '20', '21', '22', '23'].map((hour) => (
+                        <option key={hour} value={hour}>{hour}時</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="mb-1.5 block text-[11px] font-bold text-stone-400">分</span>
+                    <select
+                      value={selectedMinute}
+                      onChange={(e) => setSelectedMinute(e.target.value)}
+                      className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none transition focus:border-stone-400"
+                    >
+                      {['00', '15', '30', '45'].map((minute) => (
+                        <option key={minute} value={minute}>{minute}分</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-stone-500">カレンダーから候補日を選ぶ</p>
+                  <button type="button" onClick={() => setSelectedDateIds([])}
+                    className="text-xs font-bold text-stone-500 underline underline-offset-2">
+                    すべて外す
+                  </button>
+                </div>
+
+                <CalendarPicker
+                  viewMonth={calViewMonth}
+                  onChangeMonth={setCalViewMonth}
+                  selectedIds={selectedDateIds}
+                  disabledBefore={(() => {
+                    const t = new Date()
+                    t.setHours(0, 0, 0, 0)
+                    const c = new Date(t)
+                    c.setDate(t.getDate() + 3)
+                    return dateKey(c)
+                  })()}
+                  onDayClick={(key) => {
+                    const id = `wd-${key}`
+                    const existing = generatedDates.find((d) => d.id === id)
+                    if (existing) {
+                      setSelectedDateIds((prev) =>
+                        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+                      )
+                    } else {
+                      const [y, mo, dy] = key.split('-').map(Number)
+                      const d = new Date(y, mo - 1, dy)
+                      const newDate = { id, label: weekdayLabel(d, selectedTime) }
+                      setGeneratedDates((prev) => [...prev, newDate].sort((a, b) => (a.id < b.id ? -1 : 1)))
+                      setSelectedDateIds((prev) => [...prev, id])
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="mt-4 rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
+                <p className="text-xs font-bold text-stone-500">選択中 {selectedDateIds.length}件</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {generatedDates
+                    .filter((d) => selectedDateIds.includes(d.id))
+                    .sort((a, b) => (a.id < b.id ? -1 : 1))
+                    .map((d) => (
+                      <span key={d.id} className="rounded-full bg-stone-900 px-3 py-1.5 text-xs font-bold text-white">
+                        {d.label}
+                      </span>
+                    ))}
+                  {selectedDateIds.length === 0 && (
+                    <span className="text-sm text-stone-400">候補日がまだ選ばれていません</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              <PrimaryBtn
+                size="large"
+                disabled={selectedDateIds.length === 0}
+                onClick={async () => {
+                  const selectedDates = generatedDates
+                    .filter((d) => selectedDateIds.includes(d.id))
+                    .map((d) => {
+                      const base = d.id.replace('wd-', '')
+                      const [y, mo, dy] = base.split('-').map(Number)
+                      const date = new Date(y, mo - 1, dy)
+                      return { ...d, label: weekdayLabel(date, selectedTime) }
+                    })
+                    .sort((a, b) => (a.id < b.id ? -1 : 1))
+
+                  setDates(selectedDates)
+                  setGeneratedDates(selectedDates)
+
+                  const eventId = await createEvent(
+                    eventName,
+                    eventType,
+                    selectedDates.map((d) => d.label)
+                  )
+                  setCreatedEventId(eventId)
+                  persistEvent(eventId, eventName, eventType)
+                  setStep('shareLink')
+                }}
+              >
+                {selectedDateIds.length === 0 ? '候補日を選んでください' : `この${selectedDateIds.length}件で作成`}
+              </PrimaryBtn>
+              <GhostBtn onClick={() => setStep('home')}>← 戻る</GhostBtn>
+            </div>
           </Card>
         )}
-
-        
-
-        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            ③ 候補日選択
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-{step === 'dates' && (
-  <Card>
-    <StepLabel n={2} />
-    <CardTitle>候補日を選ぶ</CardTitle>
-
-    <div className="space-y-4">
-      <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
-        <p className="text-xs font-bold text-stone-600">開始時間</p>
-
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="mb-1.5 block text-[11px] font-bold text-stone-400">時</span>
-            <select
-              value={selectedHour}
-              onChange={(e) => setSelectedHour(e.target.value)}
-              className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none transition focus:border-stone-400"
-            >
-              {['17', '18', '19', '20', '21', '22', '23'].map((hour) => (
-                <option key={hour} value={hour}>
-                  {hour}時
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="mb-1.5 block text-[11px] font-bold text-stone-400">分</span>
-            <select
-              value={selectedMinute}
-              onChange={(e) => setSelectedMinute(e.target.value)}
-              className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none transition focus:border-stone-400"
-            >
-              {['00', '15', '30', '45'].map((minute) => (
-                <option key={minute} value={minute}>
-                  {minute}分
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-bold text-stone-500">
-            カレンダーから候補日を選ぶ
-          </p>
-
-          <button
-            type="button"
-            onClick={() => setSelectedDateIds([])}
-            className="text-xs font-bold text-stone-500 underline underline-offset-2"
-          >
-            すべて外す
-          </button>
-        </div>
-
-        <CalendarPicker
-          viewMonth={calViewMonth}
-          onChangeMonth={setCalViewMonth}
-          selectedIds={selectedDateIds}
-          disabledBefore={(() => {
-            const t = new Date()
-            t.setHours(0, 0, 0, 0)
-            const c = new Date(t)
-            c.setDate(t.getDate() + 3)
-            return dateKey(c)
-          })()}
-          onDayClick={(key) => {
-            const id = `wd-${key}`
-            const existing = generatedDates.find((d) => d.id === id)
-
-            if (existing) {
-              setSelectedDateIds((prev) =>
-                prev.includes(id)
-                  ? prev.filter((x) => x !== id)
-                  : [...prev, id]
-              )
-            } else {
-              const [y, mo, dy] = key.split('-').map(Number)
-              const d = new Date(y, mo - 1, dy)
-              const newDate = { id, label: weekdayLabel(d, selectedTime) }
-
-              setGeneratedDates((prev) =>
-                [...prev, newDate].sort((a, b) => (a.id < b.id ? -1 : 1))
-              )
-              setSelectedDateIds((prev) => [...prev, id])
-            }
-          }}
-        />
-      </div>
-
-      <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
-        <p className="text-xs font-bold text-stone-500">
-          選択中 {selectedDateIds.length}件
-        </p>
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          {generatedDates
-            .filter((d) => selectedDateIds.includes(d.id))
-            .sort((a, b) => (a.id < b.id ? -1 : 1))
-            .map((d) => (
-              <span
-                key={d.id}
-                className="rounded-full bg-stone-900 px-3 py-1.5 text-xs font-bold text-white"
-              >
-                {d.label}
-              </span>
-            ))}
-
-          {selectedDateIds.length === 0 && (
-            <span className="text-sm text-stone-400">候補日がまだ選ばれていません</span>
-          )}
-        </div>
-      </div>
-
-      <PrimaryBtn
-        size="large"
-        disabled={selectedDateIds.length === 0}
-        onClick={async () => {
-          const selectedDates = generatedDates
-            .filter((d) => selectedDateIds.includes(d.id))
-            .map((d) => {
-              const base = d.id.replace('wd-', '')
-              const [y, mo, dy] = base.split('-').map(Number)
-              const date = new Date(y, mo - 1, dy)
-
-              return {
-                ...d,
-                label: weekdayLabel(date, selectedTime),
-              }
-            })
-            .sort((a, b) => (a.id < b.id ? -1 : 1))
-
-          setDates(selectedDates)
-          setGeneratedDates(selectedDates)
-
-          const eventId = await createEvent(
-            eventName,
-            eventType,
-            selectedDates.map((d) => d.label)
-          )
-          setCreatedEventId(eventId)
-          persistEvent(eventId, eventName, eventType)
-          setStep('shareLink')
-        }}
-      >
-        {selectedDateIds.length === 0
-          ? '候補日を選んでください'
-          : `この${selectedDateIds.length}件で作成`}
-      </PrimaryBtn>
-
-      <GhostBtn onClick={() => setStep('create')}>← 戻る</GhostBtn>
-    </div>
-  </Card>
-)}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             参加者に送る
@@ -2554,6 +2497,21 @@ ${finalStore?.link ?? ''}`
         )}
 
       </div>
+
+      {/* FAB — 新規作成ボタン（ホームのみ表示） */}
+      {step === 'home' && (
+        <button
+          type="button"
+          onClick={() => setStep('create')}
+          aria-label="新しい会を作る"
+          className="fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-stone-900 text-white shadow-xl transition hover:bg-stone-800 active:scale-95"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
+      )}
     </main>
   )
 }
