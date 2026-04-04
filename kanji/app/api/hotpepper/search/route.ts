@@ -131,9 +131,10 @@ function buildBaseParams(args: {
   /** Pre-resolved HP genre codes (e.g. 'G001') OR legacy label strings — codes take priority */
   genres: string[]
   privateRoom: string
+  allYouCanDrink: string
   count: number
 }) {
-  const { apiKey, areas, priceRange, genres, privateRoom, count } = args
+  const { apiKey, areas, priceRange, genres, privateRoom, allYouCanDrink, count } = args
 
   const params = new URLSearchParams({
     key: apiKey,
@@ -141,21 +142,15 @@ function buildBaseParams(args: {
     count: String(Math.min(Math.max(count, 1), 10)),
   })
 
+  // エリア（最優先 — 緩和しない）
   const resolvedArea = resolveAreaForSearch(areas)
-
   if (resolvedArea.type === 'keyword') {
     params.set('keyword', resolvedArea.value)
   } else {
     params.set('large_service_area', 'SS10')
   }
 
-  const budgetCode = BUDGET_MAP[priceRange] ?? ''
-  if (budgetCode) {
-    params.set('budget', budgetCode)
-  }
-
-  // genres may be pre-resolved HP codes (e.g. 'G001') or legacy label strings
-  // Try each as a code directly first, then fall back to GENRE_MAP lookup
+  // ジャンル（第2優先）
   const genreCode = genres
     .map(g => (g.startsWith('G') && g.length <= 4 ? g : GENRE_MAP[g]))
     .find(Boolean)
@@ -163,8 +158,20 @@ function buildBaseParams(args: {
     params.set('genre', genreCode)
   }
 
+  // 価格帯（第3優先）
+  const budgetCode = BUDGET_MAP[priceRange] ?? ''
+  if (budgetCode) {
+    params.set('budget', budgetCode)
+  }
+
+  // 個室（第5優先）
   if (privateRoom === '個室あり') {
     params.set('private_room', '1')
+  }
+
+  // 飲み放題（第6優先 — 最初に緩和）
+  if (allYouCanDrink === '希望') {
+    params.set('free_drink', '1')
   }
 
   return params
@@ -251,12 +258,15 @@ export async function POST(req: NextRequest) {
       typeof prefs?.privateRoom === 'string' ? prefs.privateRoom : 'こだわらない'
     const count = typeof body?.count === 'number' ? body.count : 6
 
+    const allYouCanDrink = typeof body?.allYouCanDrink === 'string' ? body.allYouCanDrink : ''
+
     const strictParams = buildBaseParams({
       apiKey,
       areas,
       priceRange,
       genres,
       privateRoom,
+      allYouCanDrink,
       count,
     })
 
@@ -279,36 +289,48 @@ export async function POST(req: NextRequest) {
     let shops = result.shops
     let finalParams = strictParams
 
-    // 1. 個室条件を外す
+    // 緩和順: 飲み放題 → 個室 → 予算 → ジャンル（エリアは緩和しない）
+
+    // 1. 飲み放題を外す（最も弱い条件）
+    if (shops.length === 0 && finalParams.get('free_drink') === '1') {
+      console.log('[hotpepper/search] relaxing: dropping free_drink')
+      const relaxed = new URLSearchParams(finalParams)
+      relaxed.delete('free_drink')
+      mode = 'relaxed-no-free-drink'
+      result = await fetchHotpepper(relaxed)
+      shops = result.shops
+      finalParams = relaxed
+    }
+
+    // 2. 個室を外す
     if (shops.length === 0 && finalParams.get('private_room') === '1') {
+      console.log('[hotpepper/search] relaxing: dropping private_room')
       const relaxed = new URLSearchParams(finalParams)
       relaxed.delete('private_room')
-
       mode = 'relaxed-no-private-room'
       result = await fetchHotpepper(relaxed)
       shops = result.shops
       finalParams = relaxed
     }
 
-    // 2. ジャンル条件を外す
-    if (shops.length === 0 && finalParams.get('genre')) {
-      const droppedGenre = finalParams.get('genre')
-      console.log('[hotpepper/search] relaxing: dropping genre', droppedGenre)
+    // 3. 予算を外す
+    if (shops.length === 0 && finalParams.get('budget')) {
+      console.log('[hotpepper/search] relaxing: dropping budget', finalParams.get('budget'))
       const relaxed = new URLSearchParams(finalParams)
-      relaxed.delete('genre')
-
-      mode = 'relaxed-no-genre'
+      relaxed.delete('budget')
+      mode = 'relaxed-no-budget'
       result = await fetchHotpepper(relaxed)
       shops = result.shops
       finalParams = relaxed
     }
 
-    // 3. 予算条件を外す
-    if (shops.length === 0 && finalParams.get('budget')) {
+    // 4. ジャンルを外す（エリアは残す）
+    if (shops.length === 0 && finalParams.get('genre')) {
+      const droppedGenre = finalParams.get('genre')
+      console.log('[hotpepper/search] relaxing: dropping genre', droppedGenre)
       const relaxed = new URLSearchParams(finalParams)
-      relaxed.delete('budget')
-
-      mode = 'relaxed-no-budget'
+      relaxed.delete('genre')
+      mode = 'relaxed-no-genre'
       result = await fetchHotpepper(relaxed)
       shops = result.shops
       finalParams = relaxed

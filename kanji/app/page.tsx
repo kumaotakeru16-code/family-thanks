@@ -1076,6 +1076,7 @@ async function fetchRecommendedStores() {
         priceRange: orgPrefs.priceRange,
         genreCodes,
         privateRoom: orgPrefs.privateRoom,
+        allYouCanDrink: orgPrefs.allYouCanDrink,
         count: 6,
       }),
     })
@@ -1989,7 +1990,7 @@ return (
               <p className="mb-5 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">幹事条件（修正可）</p>
               <div className="space-y-5">
 
-                {/* エリア — 単一選択 */}
+                {/* ① エリア — 単一選択 */}
                 <div>
                   <p className="mb-2 text-xs font-bold text-stone-700">エリア（駅名）</p>
                   <StationInput
@@ -1999,7 +2000,20 @@ return (
                   />
                 </div>
 
-                {/* 価格帯 */}
+                {/* ② ジャンル — 単一選択 */}
+                <div>
+                  <p className="mb-2 text-xs font-bold text-stone-700">ジャンル</p>
+                  <div className="flex flex-wrap gap-2">
+                    {HP_GENRE_OPTIONS.map(v => (
+                      <Chip key={v} active={orgPrefs.genres[0] === v}
+                        onClick={() => setOrgPrefs(p => ({ ...p, genres: p.genres[0] === v ? [] : [v] }))}>
+                        {v}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ③ 価格帯 */}
                 <div>
                   <p className="mb-2 text-xs font-bold text-stone-700">価格帯</p>
                   <select
@@ -2013,31 +2027,31 @@ return (
                   </select>
                 </div>
 
-                {/* 個室 */}
+                {/* ④ ドリンクの好み — 単一選択 */}
                 <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">個室</p>
+                  <p className="mb-2 text-xs font-bold text-stone-700">ドリンクの好み</p>
                   <div className="flex flex-wrap gap-2">
-                  <Chip active={orgPrefs.privateRoom === '個室あり'}
-                    onClick={() => setOrgPrefs(p => ({ ...p, privateRoom: p.privateRoom === '個室あり' ? '' : '個室あり' }))}>
-                    個室あり
-                  </Chip>
-                  </div>
-                </div>
-
-                {/* ジャンル */}
-                <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">ジャンル</p>
-                  <div className="flex flex-wrap gap-2">
-                    {HP_GENRE_OPTIONS.map(v => (
-                      <Chip key={v} active={orgPrefs.genres.includes(v)}
-                        onClick={() => setOrgPrefs(p => ({ ...p, genres: p.genres.includes(v) ? p.genres.filter(x => x !== v) : [...p.genres, v] }))}>
+                    {['ワイン', '日本酒', '焼酎'].map(v => (
+                      <Chip key={v} active={orgPrefs.drinks[0] === v}
+                        onClick={() => setOrgPrefs(p => ({ ...p, drinks: p.drinks[0] === v ? [] : [v] }))}>
                         {v}
                       </Chip>
                     ))}
                   </div>
                 </div>
 
-                {/* 飲み放題 */}
+                {/* ⑤ 個室 */}
+                <div>
+                  <p className="mb-2 text-xs font-bold text-stone-700">個室</p>
+                  <div className="flex gap-2">
+                    <Chip active={orgPrefs.privateRoom === '個室あり'}
+                      onClick={() => setOrgPrefs(p => ({ ...p, privateRoom: p.privateRoom === '個室あり' ? '' : '個室あり' }))}>
+                      個室あり
+                    </Chip>
+                  </div>
+                </div>
+
+                {/* ⑥ 飲み放題 */}
                 <div>
                   <p className="mb-2 text-xs font-bold text-stone-700">飲み放題</p>
                   <div className="flex gap-2">
@@ -2045,19 +2059,6 @@ return (
                       onClick={() => setOrgPrefs(p => ({ ...p, allYouCanDrink: p.allYouCanDrink === '希望' ? '' : '希望' }))}>
                       希望する
                     </Chip>
-                  </div>
-                </div>
-
-                {/* ドリンク希望 */}
-                <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">ドリンクの好み</p>
-                  <div className="flex flex-wrap gap-2">
-                    {['ワイン', '日本酒', '焼酎'].map(v => (
-                      <Chip key={v} active={orgPrefs.drinks.includes(v)}
-                        onClick={() => setOrgPrefs(p => ({ ...p, drinks: p.drinks.includes(v) ? p.drinks.filter(x => x !== v) : [...p.drinks, v] }))}>
-                        {v}
-                      </Chip>
-                    ))}
                   </div>
                 </div>
 
