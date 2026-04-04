@@ -1584,55 +1584,55 @@ return (
 
 <button
   type="button"
-  onClick={() => setShowFinalParticipants((v) => !v)}
+  onClick={() => setShowHeroParticipants((v) => !v)}
   className="mt-3 text-xs font-bold text-white/70 underline"
 >
-  {showFinalParticipants ? '参加者を閉じる' : '参加者を見る'}
+  {showHeroParticipants ? '参加者を閉じる' : '参加者を見る'}
 </button>
 
-            {showHeroParticipants && (
-              <div className="mt-4 space-y-3">
-                <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/80">
-                    参加予定
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {heroYesParticipants.length > 0 ? (
-                      heroYesParticipants.map((p) => (
-                        <span
-                          key={p.id}
-                          className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20"
-                        >
-                          {p.name}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-white/40">まだいません</span>
-                    )}
-                  </div>
-                </div>
+{showHeroParticipants && (
+  <div className="mt-4 space-y-3">
+    <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/80">
+        参加予定
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {heroYesParticipants.length > 0 ? (
+          heroYesParticipants.map((p) => (
+            <span
+              key={p.id}
+              className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20"
+            >
+              {p.name}
+            </span>
+          ))
+        ) : (
+          <span className="text-xs text-white/40">まだいません</span>
+        )}
+      </div>
+    </div>
 
-                <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300/80">
-                    調整中
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {heroMaybeParticipants.length > 0 ? (
-                      heroMaybeParticipants.map((p) => (
-                        <span
-                          key={p.id}
-                          className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20"
-                        >
-                          {p.name}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-white/40">まだいません</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+    <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300/80">
+        調整中
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {heroMaybeParticipants.length > 0 ? (
+          heroMaybeParticipants.map((p) => (
+            <span
+              key={p.id}
+              className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20"
+            >
+              {p.name}
+            </span>
+          ))
+        ) : (
+          <span className="text-xs text-white/40">まだいません</span>
+        )}
+      </div>
+    </div>
+  </div>
+)}
           </div>
 
           <div className="px-6 pb-5">
@@ -1891,29 +1891,51 @@ return (
 
 <button
   type="button"
-  onClick={() => setShowFinalParticipants((v) => !v)}
+  onClick={() => setShowHeroParticipants((v) => !v)}
   className="mt-3 text-xs font-bold text-white/70 underline"
 >
-  {showFinalParticipants ? '参加者を閉じる' : '参加者を見る'}
+  {showHeroParticipants ? '参加者を閉じる' : '参加者を見る'}
 </button>
 
-{showFinalParticipants && (
-  <div className="mt-3 space-y-2">
-    <div>
-      <p className="text-xs text-emerald-400 font-bold">参加予定</p>
-      <div className="flex flex-wrap gap-2 mt-1">
-        {finalYesParticipants.map(p => (
-          <span key={p.id} className="chip-green">{p.name}</span>
-        ))}
+{showHeroParticipants && (
+  <div className="mt-4 space-y-3">
+    <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/80">
+        参加予定
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {heroYesParticipants.length > 0 ? (
+          heroYesParticipants.map((p) => (
+            <span
+              key={p.id}
+              className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20"
+            >
+              {p.name}
+            </span>
+          ))
+        ) : (
+          <span className="text-xs text-white/40">まだいません</span>
+        )}
       </div>
     </div>
 
-    <div>
-      <p className="text-xs text-amber-400 font-bold">調整中</p>
-      <div className="flex flex-wrap gap-2 mt-1">
-        {finalMaybeParticipants.map(p => (
-          <span key={p.id} className="chip-amber">{p.name}</span>
-        ))}
+    <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300/80">
+        調整中
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {heroMaybeParticipants.length > 0 ? (
+          heroMaybeParticipants.map((p) => (
+            <span
+              key={p.id}
+              className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20"
+            >
+              {p.name}
+            </span>
+          ))
+        ) : (
+          <span className="text-xs text-white/40">まだいません</span>
+        )}
       </div>
     </div>
   </div>
@@ -2307,40 +2329,56 @@ ${finalStore?.link ?? ''}`
                 </div>
               </div>
               <button
-                type="button"
-                onClick={() => setShowFinalParticipants((v) => !v)}
-                className="mt-4 text-xs font-bold text-white/60 underline underline-offset-2"
-              >
-                {showFinalParticipants ? '参加者を閉じる' : '参加者を見る'}
-              </button>
-              {showFinalParticipants && (
-                <div className="mt-3 space-y-2">
-                  <div>
-                    <p className="text-xs font-bold text-emerald-400">参加予定</p>
-                    <div className="mt-1 flex flex-wrap gap-2">
-                      {finalYesParticipants.length > 0 ? (
-                        finalYesParticipants.map((p) => (
-                          <span key={p.id} className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300">{p.name}</span>
-                        ))
-                      ) : (
-                        <span className="text-xs text-white/40">まだいません</span>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-amber-400">調整中</p>
-                    <div className="mt-1 flex flex-wrap gap-2">
-                      {finalMaybeParticipants.length > 0 ? (
-                        finalMaybeParticipants.map((p) => (
-                          <span key={p.id} className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300">{p.name}</span>
-                        ))
-                      ) : (
-                        <span className="text-xs text-white/40">いません</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+  type="button"
+  onClick={() => setShowHeroParticipants((v) => !v)}
+  className="mt-3 text-xs font-bold text-white/70 underline"
+>
+  {showHeroParticipants ? '参加者を閉じる' : '参加者を見る'}
+</button>
+
+{showHeroParticipants && (
+  <div className="mt-4 space-y-3">
+    <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/80">
+        参加予定
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {heroYesParticipants.length > 0 ? (
+          heroYesParticipants.map((p) => (
+            <span
+              key={p.id}
+              className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20"
+            >
+              {p.name}
+            </span>
+          ))
+        ) : (
+          <span className="text-xs text-white/40">まだいません</span>
+        )}
+      </div>
+    </div>
+
+    <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300/80">
+        調整中
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {heroMaybeParticipants.length > 0 ? (
+          heroMaybeParticipants.map((p) => (
+            <span
+              key={p.id}
+              className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20"
+            >
+              {p.name}
+            </span>
+          ))
+        ) : (
+          <span className="text-xs text-white/40">まだいません</span>
+        )}
+      </div>
+    </div>
+  </div>
+)}
             </div>
             <div className="flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
               <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
