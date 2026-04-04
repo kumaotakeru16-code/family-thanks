@@ -499,6 +499,8 @@ export default function Page() {
   const [reminderCopied, setReminderCopied] = useState(false)
   const [urlOnly, setUrlOnly] = useState(false)
   const [urlOnlyInvite, setUrlOnlyInvite] = useState(false)
+  const [urlOnlyReminder, setUrlOnlyReminder] = useState(false)
+  const [dateShareTab, setDateShareTab] = useState<'yes' | 'maybe'>('yes')
   const [stationCommitted, setStationCommitted] = useState(true)
   const [stationError, setStationError] = useState('')
   const [savedEvents, setSavedEvents] = useState<SavedEvent[]>([])
@@ -810,7 +812,7 @@ const genreRanking = useMemo(() => {
   })
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
+    .slice(0, 3)
     .map(([genre, count]) => ({ genre, count }))
 }, [activeParticipants])
 
@@ -1170,22 +1172,19 @@ const shareMessage = `${eventName || '会'}の日程調整をお願いします�
 
 ${shareUrl}`
 
-const reminderText = `日程調整の回答をお願いします！
-1分で終わります🙏
+const reminderText = `まだの方だけ、回答お願いします🙏
+1分くらいで終わります！
 
 ${shareUrl}`
 
 const dateConfirmedShareText =
   heroDate
-    ? `日程はこちらに決まりました！\nお店の詳細は追って連絡します。\n\n日程：${heroDate.label}`
+    ? `日程はこちらで決まりました！\n詳細はまた連絡します🙏\n\n日程：${heroDate.label}`
     : ''
 
 const maybeConfirmText =
   heroDate && maybeNames.length > 0
-    ? `この日で進めようと思っています！
-ご都合が問題なさそうか、確認お願いします🙏
-
-日程：${heroDate.label}`
+    ? `この日で進めようと思っています！\n問題なさそうなら、この日程で確定したいです🙏\n\n日程：${heroDate.label}`
     : ''
 
 
@@ -1721,13 +1720,24 @@ return (
               ))}
             </div>
             <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-4">
-              <p className="whitespace-pre-line text-sm leading-6 text-stone-700">{reminderText}</p>
+              <p className="whitespace-pre-line text-sm leading-6 text-stone-700">
+                {urlOnlyReminder ? shareUrl : reminderText}
+              </p>
             </div>
+            <label className="mt-3 flex cursor-pointer items-center gap-2 self-start">
+              <input
+                type="checkbox"
+                checked={urlOnlyReminder}
+                onChange={(e) => setUrlOnlyReminder(e.target.checked)}
+                className="h-4 w-4 rounded accent-stone-900"
+              />
+              <span className="text-xs font-bold text-stone-500">URLのみ</span>
+            </label>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={async () => {
-                  await navigator.clipboard.writeText(reminderText)
+                  await navigator.clipboard.writeText(urlOnlyReminder ? shareUrl : reminderText)
                   setReminderCopied(true)
                   setTimeout(() => setReminderCopied(false), 1600)
                 }}
@@ -1737,7 +1747,7 @@ return (
               </button>
               <button
                 type="button"
-                onClick={() => openLineShare(reminderText)}
+                onClick={() => openLineShare(urlOnlyReminder ? shareUrl : reminderText)}
                 className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
               >
                 LINEで送る
@@ -1915,70 +1925,102 @@ return (
       </div>
     </div>
 
-    {/* 参加者への連絡 */}
+    {/* 参加者への連絡 — タブ切り替え */}
     <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
       <p className="mb-3 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">参加者への連絡</p>
-      <div className="rounded-2xl bg-stone-50 px-4 py-4">
-        <p className="whitespace-pre-line text-sm leading-6 text-stone-700">{dateConfirmedShareText}</p>
-      </div>
-      <div className="mt-3 space-y-2">
-        <button
-          type="button"
-          onClick={async () => {
-            await navigator.clipboard.writeText(dateConfirmedShareText)
-            setDateCopied(true)
-            setTimeout(() => setDateCopied(false), 1600)
-          }}
-          className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-3.5 text-sm font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
-        >
-          {dateCopied ? 'コピーしました ✓' : 'コピー'}
-        </button>
-        <button
-          type="button"
-          onClick={() => openLineShare(dateConfirmedShareText)}
-          className="inline-flex w-full items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
-        >
-          LINEで送る
-        </button>
-      </div>
-    </div>
 
-    {/* △フォロー — △がいる場合のみ */}
-    {maybeCount > 0 && (
-      <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-amber-100">
-        <p className="mb-3 text-[10px] font-black tracking-[0.2em] text-amber-500 uppercase">調整中の方へ</p>
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {maybeNames.map(name => (
-            <span key={name} className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 ring-1 ring-amber-200">
-              {name}さん
+      {/* タブ */}
+      <div className="flex gap-1 rounded-2xl bg-stone-100 p-1">
+        <button
+          type="button"
+          onClick={() => setDateShareTab('yes')}
+          className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold transition ${dateShareTab === 'yes' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500'}`}
+        >
+          参加予定の方へ
+        </button>
+        <button
+          type="button"
+          onClick={() => setDateShareTab('maybe')}
+          className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold transition ${dateShareTab === 'maybe' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500'}`}
+        >
+          調整中の方へ
+          {maybeCount > 0 && (
+            <span className="ml-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-white">
+              {maybeCount}
             </span>
-          ))}
-        </div>
-        <div className="rounded-2xl bg-stone-50 px-4 py-4">
-          <p className="whitespace-pre-line text-sm leading-6 text-stone-700">{maybeConfirmText}</p>
-        </div>
-        <div className="mt-3 space-y-2">
-          <button
-            type="button"
-            onClick={async () => {
-              await navigator.clipboard.writeText(maybeConfirmText)
-              setMaybeCopied(true)
-              setTimeout(() => setMaybeCopied(false), 1600)
-            }}
-            className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-3.5 text-sm font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
-          >
-            {maybeCopied ? 'コピーしました ✓' : 'コピー'}
-          </button>
-          <button
-            type="button"
-            onClick={() => openLineShare(maybeConfirmText)}
-            className="inline-flex w-full items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
-          >
-            LINEで送る
-          </button>
-        </div>
+          )}
+        </button>
       </div>
-    )}
+
+      {dateShareTab === 'yes' && (
+        <div className="mt-4">
+          <div className="rounded-2xl bg-stone-50 px-4 py-4">
+            <p className="whitespace-pre-line text-sm leading-6 text-stone-700">{dateConfirmedShareText}</p>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                await navigator.clipboard.writeText(dateConfirmedShareText)
+                setDateCopied(true)
+                setTimeout(() => setDateCopied(false), 1600)
+              }}
+              className="inline-flex items-center justify-center rounded-2xl bg-stone-900 px-4 py-3 text-sm font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
+            >
+              {dateCopied ? 'コピーしました ✓' : 'コピー'}
+            </button>
+            <button
+              type="button"
+              onClick={() => openLineShare(dateConfirmedShareText)}
+              className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+            >
+              LINEで送る
+            </button>
+          </div>
+        </div>
+      )}
+
+      {dateShareTab === 'maybe' && (
+        <div className="mt-4">
+          {maybeCount > 0 ? (
+            <>
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {maybeNames.map(name => (
+                  <span key={name} className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 ring-1 ring-amber-200">
+                    {name}さん
+                  </span>
+                ))}
+              </div>
+              <div className="rounded-2xl bg-stone-50 px-4 py-4">
+                <p className="whitespace-pre-line text-sm leading-6 text-stone-700">{maybeConfirmText}</p>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(maybeConfirmText)
+                    setMaybeCopied(true)
+                    setTimeout(() => setMaybeCopied(false), 1600)
+                  }}
+                  className="inline-flex items-center justify-center rounded-2xl bg-stone-900 px-4 py-3 text-sm font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
+                >
+                  {maybeCopied ? 'コピーしました ✓' : 'コピー'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openLineShare(maybeConfirmText)}
+                  className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+                >
+                  LINEで送る
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-stone-400">△（調整中）の方はいません</p>
+          )}
+        </div>
+      )}
+    </div>
 
     <PrimaryBtn size="large" onClick={() => setStep('organizerConditions')}>
       お店を決める
