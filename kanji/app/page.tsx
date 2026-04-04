@@ -1016,38 +1016,28 @@ async function fetchRecommendedStores() {
   setStoreFetchError(null)
 
   try {
-    const res = await fetch('/api/store-recommend', {
+    // Try Hot Pepper first
+    const hpRes = await fetch('/api/hotpepper/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        eventType,
-        date: heroDate.label,
-        participantCount: activeParticipants.length,
-        participants: activeParticipants.map((p) => ({
-          name: p.name,
-          areas: p.area ?? [],
-          genres: (p.genres ?? []).filter((g: string) => !g.startsWith('atm:') && !g.startsWith('pref:') && !g.startsWith('drink:')),
-        })),
-        organizerConditions,
-        orgPrefs,
+        areas: orgPrefs.areas,
+        priceRange: orgPrefs.priceRange,
+        genres: orgPrefs.genres,
+        privateRoom: orgPrefs.privateRoom,
+        count: 6,
       }),
     })
 
-    const data = await res.json()
-
-
-    
-    console.log('store recommend result:', data)
-
-    if (!res.ok) {
-      throw new Error(data?.error ?? `HTTP ${res.status}`)
-    }
+    const data = await hpRes.json()
+    console.log('hotpepper search result:', data)
 
     const stores: StoreCandidate[] = (data.stores ?? []).map((s: any, index: number) => ({
-      id: s.id ?? `gemini-store-${index + 1}`,
+      id: s.id ?? `hp-store-${index + 1}`,
       name: s.name ?? `候補${index + 1}`,
       area: s.area ?? '未設定',
       access: s.access ?? '',
+      image: s.image ?? undefined,
       reason: s.reason ?? '条件に合いやすい候補です',
       link: s.link ?? '#',
       tags: Array.isArray(s.tags) ? s.tags.slice(0, 4) : [],
