@@ -321,88 +321,62 @@ function buildStoreReason(params: {
   store: StoreCandidate
   participants: Participant[]
   organizerConditions: string[]
+  orgPrefs?: OrganizerPrefs
+  eventType?: string
+  mainGuestCount?: number
 }) {
-  const { store, participants, organizerConditions } = params
+  const {
+    store,
+    organizerConditions,
+    orgPrefs,
+    eventType = '',
+    mainGuestCount = 0,
+  } = params
 
-  const genreCounts = new Map<string, number>()
-  const areaCounts = new Map<string, number>()
+  const parts: string[] = []
+  const storeTags = store.tags ?? []
 
-  participants.forEach((p) => {
-    ;(p.genres ?? []).forEach((genre) => {
-      genreCounts.set(genre, (genreCounts.get(genre) ?? 0) + 1)
-    })
+  // エリア — 検索条件として反映済みなので設定されていれば必ず言及
+  const area = orgPrefs?.areas[0]
+  if (area) parts.push(`${area}エリア`)
 
-    ;(p.area ?? []).forEach((area) => {
-      
-        areaCounts.set(area, (areaCounts.get(area) ?? 0) + 1)
-      
-    })
-  })
+  // ジャンル
+  const genre = orgPrefs?.genres[0]
+  if (genre && genre !== 'なんでもいい') parts.push(genre)
 
-  const topGenreEntry =
-    [...genreCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? null
-  const topAreaEntry =
-    [...areaCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? null
+  // 価格帯
+  const priceRange = orgPrefs?.priceRange
+  if (priceRange && priceRange !== '指定なし') parts.push(priceRange)
 
-  const topGenre = topGenreEntry?.[0] ?? null
-  const topGenreCount = topGenreEntry?.[1] ?? 0
-  const topArea = topAreaEntry?.[0] ?? null
-
-  const genreText = [
-    store.genre ?? '',
-    store.name ?? '',
-    store.reason ?? '',
-    ...(store.tags ?? []),
-  ].join(' ')
-
-  const areaText = [
-    store.area ?? '',
-    store.access ?? '',
-    store.reason ?? '',
-  ].join(' ')
-
-  const genreHit =
-    !!topGenre &&
-    topGenreCount >= 2 &&
-    genreText.includes(topGenre)
-
-  const areaHit =
-    !!topArea &&
-    areaText.includes(topArea)
-
-  const privateRoomHit =
-    organizerConditions.includes('個室あり') &&
-    (store.tags ?? []).includes('個室あり')
-
-  const quietHit =
-    organizerConditions.includes('静かめ') &&
-    (store.tags ?? []).includes('静かめ')
-
-  const businessHit =
-    organizerConditions.includes('会食向き') &&
-    (store.tags ?? []).includes('会食向き')
-
-  if (genreHit) {
-    return `${topGenre}希望が多かったため優先`
+  // 個室（条件として設定 かつ 店が実際に対応）
+  if (orgPrefs?.privateRoom === '個室あり' && storeTags.includes('個室あり')) {
+    parts.push('個室あり')
   }
 
-  if (areaHit) {
-    return `${topArea}に集まりやすいため優先`
+  // 飲み放題（条件として設定 かつ 店が実際に対応）
+  if (orgPrefs?.allYouCanDrink === '希望' && storeTags.some(t => t.includes('飲み放題'))) {
+    parts.push('飲み放題あり')
   }
 
-  if (privateRoomHit) {
-    return '個室条件を満たしやすいため優先'
+  // 会の種類が特定の場合は追記
+  const formalTypes = ['会食', '歓迎会', '送別会']
+  if (eventType && formalTypes.includes(eventType)) {
+    parts.push(`${eventType}向き`)
   }
 
-  if (quietHit) {
-    return '落ち着いて話しやすいため優先'
+  // 主賓優先
+  if (mainGuestCount > 0) parts.push('主賓の都合を優先')
+
+  if (parts.length === 0) {
+    // 条件が何も設定されていない場合はfallback
+    if (organizerConditions.length > 0) {
+      return `${organizerConditions.slice(0, 2).join('・')}の条件に合う候補です`
+    }
+    return '条件のバランスがよいため優先'
   }
 
-  if (businessHit) {
-    return '会の目的に合いやすいため優先'
-  }
-
-  return '条件のバランスがよいため優先'
+  const condStr = parts.slice(0, 4).join('・')
+  return `${condStr}を考慮して選びました`
 }
 
 function cx(...c: (string | false | null | undefined)[]) {
@@ -523,6 +497,10 @@ export default function Page() {
   }
 
   const [reminderCopied, setReminderCopied] = useState(false)
+  const [urlOnly, setUrlOnly] = useState(false)
+  const [urlOnlyInvite, setUrlOnlyInvite] = useState(false)
+  const [stationCommitted, setStationCommitted] = useState(true)
+  const [stationError, setStationError] = useState('')
   const [savedEvents, setSavedEvents] = useState<SavedEvent[]>([])
   const [dateCopied, setDateCopied] = useState(false)
   const [maybeCopied, setMaybeCopied] = useState(false)
@@ -904,6 +882,9 @@ const storeReason = selectedStore
       store: selectedStore,
       participants: activeParticipants,
       organizerConditions,
+      orgPrefs,
+      eventType,
+      mainGuestCount: mainGuestIds.length,
     })
   : '条件のバランスがよいため優先'
 
@@ -1047,6 +1028,12 @@ async function fetchRecommendedStores() {
     alert('先に日程を確定してください')
     return
   }
+
+  if (!stationCommitted) {
+    setStationError('駅名は候補から選択してください')
+    return
+  }
+  setStationError('')
 
   setIsLoadingStores(true)
   setStoreFetchError('')
@@ -1422,12 +1409,23 @@ return (
 
     <div className="space-y-4">
       <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
-        <p className="text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase mb-2">
-          この内容を送ります
-        </p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">
+            この内容を送ります
+          </p>
+          <label className="flex cursor-pointer items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={urlOnlyInvite}
+              onChange={e => setUrlOnlyInvite(e.target.checked)}
+              className="h-3.5 w-3.5 accent-stone-900"
+            />
+            <span className="text-[11px] font-bold text-stone-500">URLのみ</span>
+          </label>
+        </div>
         <div className="rounded-2xl bg-white px-4 py-4 ring-1 ring-stone-100">
           <p className="whitespace-pre-wrap text-sm leading-6 text-stone-700">
-            {shareMessage}
+            {urlOnlyInvite ? shareUrl : shareMessage}
           </p>
         </div>
       </div>
@@ -1436,7 +1434,7 @@ return (
         <button
           type="button"
           onClick={async () => {
-            await navigator.clipboard.writeText(shareMessage)
+            await navigator.clipboard.writeText(urlOnlyInvite ? shareUrl : shareMessage)
             setCopied(true)
             setTimeout(() => setCopied(false), 1600)
           }}
@@ -1447,7 +1445,7 @@ return (
 
         <button
           type="button"
-          onClick={() => openLineShare(shareMessage)}
+          onClick={() => openLineShare(urlOnlyInvite ? shareUrl : shareMessage)}
           className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-[0.98]"
         >
           LINEで送る
@@ -1704,6 +1702,43 @@ return (
           </div>
         )}
 
+
+        {/* 未回答者へのリマインド */}
+        {unanswered.length > 0 && (
+          <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">未回答者へのリマインド</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {unanswered.map(name => (
+                <span key={name} className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-600">
+                  {name}さん
+                </span>
+              ))}
+            </div>
+            <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-4">
+              <p className="whitespace-pre-line text-sm leading-6 text-stone-700">{reminderText}</p>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(reminderText)
+                  setReminderCopied(true)
+                  setTimeout(() => setReminderCopied(false), 1600)
+                }}
+                className="inline-flex items-center justify-center rounded-2xl bg-stone-900 px-4 py-3 text-sm font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
+              >
+                {reminderCopied ? 'コピーしました ✓' : 'コピー'}
+              </button>
+              <button
+                type="button"
+                onClick={() => openLineShare(reminderText)}
+                className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+              >
+                LINEで送る
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
@@ -1996,8 +2031,15 @@ return (
                   <StationInput
                     single
                     value={orgPrefs.areas}
-                    onChange={(stations) => setOrgPrefs((p) => ({ ...p, areas: stations }))}
+                    onChange={(stations) => {
+                      setOrgPrefs((p) => ({ ...p, areas: stations }))
+                      setStationError('')
+                    }}
+                    onCommittedChange={setStationCommitted}
                   />
+                  {stationError && (
+                    <p className="mt-1.5 text-xs font-bold text-red-600">{stationError}</p>
+                  )}
                 </div>
 
                 {/* ② ジャンル — 単一選択 */}
@@ -2108,7 +2150,8 @@ return (
         )}
 
         <div className="bg-white/[0.06] px-6 py-5">
-          <p className="text-sm leading-6 text-white/70">{primaryStore.reason ?? storeReason}</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-1.5">この会に合う理由</p>
+          <p className="text-sm leading-6 text-white/70">{storeReason || primaryStore.reason}</p>
         </div>
 
 <div className="px-6 py-5">
@@ -2299,24 +2342,37 @@ ${finalStore?.link ?? ''}`
           </div>
 
           {/* 理由 */}
-          {finalStore?.reason && (
+          {(storeReason || finalStore?.reason) && (
             <div className="rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-100">
-              <p className="text-sm font-bold text-amber-900">この候補にした理由</p>
-              <p className="mt-1 text-sm leading-6 text-amber-800">{finalStore.reason}</p>
+              <p className="text-sm font-bold text-amber-900">この会に合う理由</p>
+              <p className="mt-1 text-sm leading-6 text-amber-800">{storeReason || finalStore?.reason}</p>
             </div>
           )}
 
           {/* 共有文 + CTA */}
           <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-            <p className="mb-3 text-sm font-bold text-stone-900">共有文</p>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-bold text-stone-900">共有文</p>
+              <label className="flex cursor-pointer items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={urlOnly}
+                  onChange={e => setUrlOnly(e.target.checked)}
+                  className="h-3.5 w-3.5 accent-stone-900"
+                />
+                <span className="text-[11px] font-bold text-stone-500">URLのみ</span>
+              </label>
+            </div>
             <div className="rounded-2xl bg-stone-50 p-4">
-              <p className="whitespace-pre-line text-sm leading-6 text-stone-700">{finalShareText}</p>
+              <p className="whitespace-pre-line text-sm leading-6 text-stone-700">
+                {urlOnly ? (finalStore?.link ?? '') : finalShareText}
+              </p>
             </div>
             <div className="mt-3 space-y-2">
               <button
                 type="button"
                 onClick={async () => {
-                  await navigator.clipboard.writeText(finalShareText)
+                  await navigator.clipboard.writeText(urlOnly ? (finalStore?.link ?? '') : finalShareText)
                   setCopied(true)
                   setTimeout(() => setCopied(false), 1600)
                 }}
@@ -2326,7 +2382,7 @@ ${finalStore?.link ?? ''}`
               </button>
               <button
                 type="button"
-                onClick={() => openLineShare(finalShareText)}
+                onClick={() => openLineShare(urlOnly ? (finalStore?.link ?? '') : finalShareText)}
                 className="inline-flex w-full items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
               >
                 LINEで送る
@@ -2363,13 +2419,30 @@ ${finalStore?.link ?? ''}`
             </div>
 
             <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-              <p className="whitespace-pre-line text-sm leading-7 text-stone-700">{shareText}</p>
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm font-bold text-stone-900">共有文</p>
+                <label className="flex cursor-pointer items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={urlOnly}
+                    onChange={e => setUrlOnly(e.target.checked)}
+                    className="h-3.5 w-3.5 accent-stone-900"
+                  />
+                  <span className="text-[11px] font-bold text-stone-500">URLのみ</span>
+                </label>
+              </div>
+              <p className="whitespace-pre-line text-sm leading-7 text-stone-700">
+                {urlOnly ? (selectedStore?.link ?? '') : shareText}
+              </p>
             </div>
 
             <div className="space-y-2.5">
-              <PrimaryBtn onClick={copyShareText}>コピー</PrimaryBtn>
+              <PrimaryBtn onClick={async () => {
+                try { await navigator.clipboard.writeText(urlOnly ? (selectedStore?.link ?? '') : shareText) }
+                catch { alert('コピーに失敗しました') }
+              }}>コピー</PrimaryBtn>
               <a
-                href={`https://line.me/R/msg/text/?${encodeURIComponent(shareText)}`}
+                href={`https://line.me/R/msg/text/?${encodeURIComponent(urlOnly ? (selectedStore?.link ?? '') : shareText)}`}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex w-full items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"

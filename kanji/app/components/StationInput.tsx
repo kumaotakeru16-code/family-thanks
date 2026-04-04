@@ -21,6 +21,12 @@ type Props = {
    * Clearing the input calls onChange([]).
    */
   single?: boolean
+  /**
+   * Called when committed state changes in single mode.
+   * committed=true: current value was confirmed via dropdown selection (or is empty).
+   * committed=false: user typed text that has not been confirmed via dropdown.
+   */
+  onCommittedChange?: (committed: boolean) => void
 }
 
 export function StationInput({
@@ -28,11 +34,14 @@ export function StationInput({
   onChange,
   placeholder = '駅名を入力',
   single = false,
+  onCommittedChange,
 }: Props) {
   const [query, setQuery] = useState(() => (single ? (value[0] ?? '') : ''))
   const [suggestions, setSuggestions] = useState<StationSuggestion[]>([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
+  // committed: true when current query was confirmed via dropdown selection (or is empty)
+  const [committed, setCommitted] = useState(() => !single || !value[0])
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -45,6 +54,8 @@ export function StationInput({
     if (v0 !== prevValue0Ref.current) {
       prevValue0Ref.current = v0
       setQuery(v0)
+      setCommitted(true)
+      onCommittedChange?.(true)
       setSuggestions([])
       setOpen(false)
     }
@@ -101,6 +112,8 @@ export function StationInput({
     if (single) {
       setQuery(name)
       onChange([name])
+      setCommitted(true)
+      onCommittedChange?.(true)
     } else {
       if (!value.includes(name)) {
         onChange([...value, name])
@@ -118,8 +131,22 @@ export function StationInput({
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value
     setQuery(v)
-    if (single && v.trim() === '') {
-      onChange([])
+    if (single) {
+      if (v.trim() === '') {
+        onChange([])
+        setCommitted(true)
+        onCommittedChange?.(true)
+      } else {
+        setCommitted(false)
+        onCommittedChange?.(false)
+      }
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (single && e.key === 'Enter' && suggestions.length > 0) {
+      e.preventDefault()
+      addStation(suggestions[0].name)
     }
   }
 
@@ -130,10 +157,14 @@ export function StationInput({
           type="text"
           value={query}
           onChange={handleQueryChange}
+          onKeyDown={handleKeyDown}
           placeholder={placeholder}
           autoComplete="off"
           className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-300 focus:bg-white"
         />
+        {single && !committed && query.length > 0 && (
+          <p className="mt-1.5 text-xs text-stone-400">候補から選んでください（Enterで先頭候補を確定）</p>
+        )}
         {loading && (
           <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
             <div className="h-4 w-4 animate-spin rounded-full border-2 border-stone-300 border-t-stone-600" />
