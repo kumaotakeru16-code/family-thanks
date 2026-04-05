@@ -1129,7 +1129,7 @@ async function fetchRecommendedStores() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          stores: stores.map(s => ({ id: s.id, name: s.name, area: s.area })),
+          stores: stores.map(s => ({ id: s.id, name: s.name, area: s.area, access: s.access })),
         }),
       })
       if (enrichRes.ok) {

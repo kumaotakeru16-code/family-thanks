@@ -4,6 +4,7 @@ type StoreInput = {
   id: string
   name: string
   area?: string
+  access?: string
 }
 
 type EnrichedStore = {
@@ -48,8 +49,8 @@ async function lookupPlaces(
     const data = await res.json()
     const place = data?.places?.[0]
 
-    // Require a meaningful rating (>= 5 reviews) to avoid noise
-    if (!place?.rating || !place?.userRatingCount || place.userRatingCount < 5) return null
+    // Require at least 3 reviews to filter obvious noise
+    if (!place?.rating || !place?.userRatingCount || place.userRatingCount < 3) return null
 
     return {
       rating: place.rating as number,
@@ -61,7 +62,7 @@ async function lookupPlaces(
 }
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY
 
   // No key → return empty enrichment (callers treat missing ratings as neutral)
   if (!apiKey) {
@@ -79,8 +80,10 @@ export async function POST(req: NextRequest) {
   // Parallel lookup — all failures are handled gracefully via allSettled
   const results = await Promise.allSettled(
     stores.map(async (s): Promise<EnrichedStore | null> => {
-      // "個室和食 紬 渋谷店 渋谷" — name + area gives best match precision
-      const query = [s.name, s.area].filter(Boolean).join(' ')
+      // "個室和食 紬 渋谷店 横浜 JR横浜駅" — name + area + station from access gives best precision
+      // Extract only the station part from access (e.g. "JR横浜駅 徒歩3分" → "JR横浜駅")
+      const stationHint = s.access?.match(/[^\s]+駅/)?.[0] ?? ''
+      const query = [s.name, s.area, stationHint].filter(Boolean).join(' ')
       const result = await lookupPlaces(query, apiKey)
       if (!result) return null
       return { id: s.id, ...result }

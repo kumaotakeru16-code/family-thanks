@@ -244,14 +244,41 @@ function parseWalkMinutes(access: string): number | null {
 }
 
 /**
+ * Check if `stationName + '駅'` appears in access as a standalone station,
+ * NOT as a suffix of a longer station name (e.g. 新横浜駅 must not match 横浜).
+ *
+ * Rule: the character immediately before the station name must NOT be a CJK
+ * ideograph (U+4E00–U+9FFF). This distinguishes:
+ *   "JR横浜駅"   → char before '横' is 'R' (latin) → match ✓
+ *   "JR新横浜駅" → char before '横' is '浜' (CJK)  → no match ✓
+ *   " 横浜駅"    → char before '横' is ' ' (space)  → match ✓
+ */
+function stationInAccess(access: string, stationName: string): boolean {
+  const target = stationName + '駅'
+  let from = 0
+  while (true) {
+    const idx = access.indexOf(target, from)
+    if (idx < 0) return false
+    if (idx === 0) return true
+    const prevCode = access.charCodeAt(idx - 1)
+    // CJK Unified Ideographs: 0x4E00–0x9FFF
+    const isCJKBefore = prevCode >= 0x4e00 && prevCode <= 0x9fff
+    if (!isCJKBefore) return true
+    from = idx + 1
+  }
+}
+
+/**
  * Score a shop for how well it matches the chosen area + walk time.
  *
- * Station proximity (駅名一致) is the primary signal.
- * Walk time adds a strong secondary boost when the user specified a limit:
+ * Uses strict station matching to avoid false positives like
+ * 新横浜駅 matching when the user specified 横浜.
+ *
+ * Walk time:
  *   - within limit        → +10
- *   - up to 5 min over    → +3 (partial credit, avoids hard cutoff)
- *   - more than 5 min over → 0 (sinks in ranking)
- *   - no walk info found   → neutral (no bonus/penalty)
+ *   - up to 5 min over    → +3
+ *   - more than 5 min over → -8 (hard penalty; sinks the shop)
+ *   - no walk info found   → neutral
  */
 function scoreStoreForArea(shop: any, primaryArea: string, maxWalk: number | null): number {
   if (!primaryArea) return 0
@@ -265,26 +292,26 @@ function scoreStoreForArea(shop: any, primaryArea: string, maxWalk: number | nul
       ''
   )
   const access = String(shop?.access ?? '')
-  const name = String(shop?.name ?? '')
 
-  // Station proximity signals
-  if (access.includes(`${primaryArea}駅`)) score += 8
-  if (access.includes(primaryArea)) score += 6
-  if (area.includes(primaryArea)) score += 4
-  if (name.includes(primaryArea)) score += 2
+  // Precise station match — avoids 新横浜駅 matching when looking for 横浜
+  if (stationInAccess(access, primaryArea)) score += 12
 
-  // Walk time scoring — only when user specified a limit
+  // Area name: startsWith avoids 新横浜 matching 横浜
+  if (area.startsWith(primaryArea)) score += 4
+
+  // Walk time — only when user specified a limit
   if (maxWalk !== null) {
     const walkMins = parseWalkMinutes(access)
     if (walkMins !== null) {
       if (walkMins <= maxWalk) {
-        score += 10        // Meets condition: strong bonus
+        score += 10        // Within limit: strong bonus
       } else if (walkMins <= maxWalk + 5) {
         score += 3         // Slightly over: partial credit
+      } else {
+        score -= 8         // Clearly over limit: hard penalty
       }
-      // More than maxWalk + 5: no bonus — sinks naturally
     }
-    // Walk time not parseable: neutral (access string doesn't contain 徒歩X分)
+    // Walk time not parseable: neutral
   }
 
   return score
