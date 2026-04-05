@@ -75,6 +75,10 @@ type SavedEvent = {
   name: string
   eventType: string
   createdAt: number
+  /** Phase reached by this event */
+  status?: 'date_pending' | 'store_pending' | 'store_confirmed'
+  /** Date ID confirmed by the organizer (set when status becomes store_pending) */
+  confirmedDateId?: string
 }
 
 // --- Constants ---
@@ -985,7 +989,7 @@ const genreHit = activeParticipants.some((p) =>
   }
 
 function persistEvent(id: string, name: string, type: string) {
-  const item: SavedEvent = { id, name, eventType: type, createdAt: Date.now() }
+  const item: SavedEvent = { id, name, eventType: type, createdAt: Date.now(), status: 'date_pending' }
 
   setSavedEvents((prev) => {
     const filtered = prev.filter((e) => e.id !== id)
@@ -999,6 +1003,22 @@ function persistEvent(id: string, name: string, type: string) {
   })
 }
 
+function updateEventStatus(
+  id: string,
+  status: NonNullable<SavedEvent['status']>,
+  confirmedDateId?: string
+) {
+  setSavedEvents(prev => {
+    const updated = prev.map(e =>
+      e.id === id
+        ? { ...e, status, ...(confirmedDateId ? { confirmedDateId } : {}) }
+        : e
+    )
+    try { localStorage.setItem('kanji_events', JSON.stringify(updated)) } catch {}
+    return updated
+  })
+}
+
 async function openSavedEvent(id: string, name: string, type: string) {
   setCreatedEventId(id)
   setEventName(name)
@@ -1006,14 +1026,47 @@ async function openSavedEvent(id: string, name: string, type: string) {
   setHeroBestDateId(null)
   setRecommendedStores([])
   setFinalDecision(null)
-setMainGuestIds([])
-setShowHeroParticipants(false)
-setShowAltDates(false)
+  setMainGuestIds([])
+  setShowHeroParticipants(false)
+  setShowAltDates(false)
+
+  // Read persisted status from localStorage (set as the event progresses)
+  const savedEv = savedEvents.find(e => e.id === id)
+  const status = savedEv?.status ?? 'date_pending'
+  const confirmedDateId = savedEv?.confirmedDateId ?? null
+
   try {
     const result = await loadEventData(id)
     setDbDates(result.dates ?? [])
     setDbResponses(result.responses ?? [])
-    setStep('dashboard')
+
+    if (status === 'store_pending' && confirmedDateId) {
+      // Date confirmed, store not yet selected
+      // → resume at dateConfirmed so the organizer sees the confirmed date and can proceed
+      setHeroBestDateId(confirmedDateId)
+      setStep('dateConfirmed')
+
+    } else if (status === 'store_confirmed') {
+      // Store was already selected in a previous session
+      // → resume at finalConfirm with full decision state restored
+      try {
+        const dr = await loadDecision(id)
+        const decision = dr?.decision ?? null
+        setFinalDecision(decision)
+        setFinalDates(dr?.dates ?? result.dates ?? [])
+        setFinalEvent(dr?.event ?? null)
+        if (decision?.selected_date_id) setHeroBestDateId(decision.selected_date_id)
+        setStep('finalConfirm')
+      } catch {
+        // loadDecision failed → fall back to dateConfirmed
+        if (confirmedDateId) setHeroBestDateId(confirmedDateId)
+        setStep('dateConfirmed')
+      }
+
+    } else {
+      // date_pending or unknown → show dashboard (collect responses)
+      setStep('dashboard')
+    }
   } catch {
     setStep('dashboard')
   }
@@ -1052,6 +1105,8 @@ const data = await saveDecision({
 
     setFinalDecision(data)
     setStep('dateConfirmed')
+    // Persist status so openSavedEvent can resume at the right position
+    updateEventStatus(currentEventId, 'store_pending', heroDate.id)
   } catch (e: any) {
     alert(`決定保存に失敗しました: ${e?.message ?? 'unknown error'}`)
   }
@@ -1217,6 +1272,8 @@ async function loadFinalDecisionView() {
     setFinalDecision(decisionResult?.decision ?? decisionResult ?? null)
 
     setStep('finalConfirm')
+    // Persist status so openSavedEvent can resume at finalConfirm next time
+    updateEventStatus(currentEventId, 'store_confirmed')
   } catch (e: any) {
     alert(`最終確認データの取得に失敗しました: ${e?.message ?? 'unknown error'}`)
   }
@@ -1307,9 +1364,20 @@ return (
                         <p className="mt-0.5 text-xs text-stone-400">{ev.eventType}</p>
                       </div>
                       <div className="ml-3 flex shrink-0 items-center gap-2">
-                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-600 ring-1 ring-amber-200">
-                          進行中
-                        </span>
+                        {(() => {
+                          const s = ev.status ?? 'date_pending'
+                          const cfg =
+                            s === 'store_confirmed'
+                              ? { label: 'お店決定済み', cls: 'bg-emerald-50 text-emerald-600 ring-emerald-200' }
+                              : s === 'store_pending'
+                              ? { label: 'お店未確定', cls: 'bg-sky-50 text-sky-600 ring-sky-200' }
+                              : { label: '日程未確定', cls: 'bg-amber-50 text-amber-600 ring-amber-200' }
+                          return (
+                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${cfg.cls}`}>
+                              {cfg.label}
+                            </span>
+                          )
+                        })()}
                         <span className="text-xs font-bold text-stone-400">開く →</span>
                       </div>
                     </button>
