@@ -275,15 +275,21 @@ function shopMatchesStation(shop: any, primaryArea: string): boolean {
 }
 
 /**
- * Score a shop for how well it matches the selected station + walk limit.
- * General logic — works identically for any station, no station-specific cases.
+ * Score a shop for how well it matches the selected station + walk limit + budget.
+ * General logic — works identically for any station/budget, no special cases.
  *
  * Priority order:
  *   1. Station match via HP station_name field (+12)
  *   2. Walk within limit (+10) / slightly over (+3) / clearly over (−8)
  *   3. Area name starts with station name (+4)
+ *   4. Budget code match (+6) — rewards price match within the pool
  */
-function scoreStoreForArea(shop: any, primaryArea: string, maxWalk: number | null): number {
+function scoreStoreForArea(
+  shop: any,
+  primaryArea: string,
+  maxWalk: number | null,
+  budgetCode: string | null
+): number {
   if (!primaryArea) return 0
 
   let score = 0
@@ -308,6 +314,9 @@ function scoreStoreForArea(shop: any, primaryArea: string, maxWalk: number | nul
     }
   }
 
+  // Budget match bonus — rewards price-range-correct shops within the pool
+  if (budgetCode && shop?.budget?.code === budgetCode) score += 6
+
   return score
 }
 
@@ -330,7 +339,12 @@ function scoreStoreForArea(shop: any, primaryArea: string, maxWalk: number | nul
  * Within each pool, position 0 is kept fixed; positions 1+ get light jitter
  * for variety across re-searches.
  */
-function sortShopsByPrimaryArea(shops: any[], areas: string[], maxWalk: number | null) {
+function sortShopsByPrimaryArea(
+  shops: any[],
+  areas: string[],
+  maxWalk: number | null,
+  budgetCode: string | null
+) {
   const resolvedArea = resolveAreaForSearch(areas)
   const primaryArea = resolvedArea.type === 'keyword' ? resolvedArea.value : ''
 
@@ -344,10 +358,13 @@ function sortShopsByPrimaryArea(shops: any[], areas: string[], maxWalk: number |
     const stationMatch = shopMatchesStation(s, primaryArea)
     const walkMins = parseWalkMinutes(access)
     const withinWalk = maxWalk === null || walkMins === null || walkMins <= maxWalk
+    // Price match: if no budget requested, or shop has no budget info, treat as match
+    const shopBudgetCode = typeof s?.budget?.code === 'string' ? s.budget.code : ''
+    const priceMatch = !budgetCode || !shopBudgetCode || shopBudgetCode === budgetCode
     return {
       shop: s,
-      baseScore: scoreStoreForArea(s, primaryArea, maxWalk),
-      isPriority: stationMatch && withinWalk,
+      baseScore: scoreStoreForArea(s, primaryArea, maxWalk, budgetCode),
+      isPriority: stationMatch && withinWalk && priceMatch,
     }
   })
 
@@ -411,6 +428,9 @@ export async function POST(req: NextRequest) {
       walkMinutesStr === '指定なし' || !walkMinutesStr
         ? null
         : parseInt(walkMinutesStr.replace('分以内', ''), 10) || null
+
+    // Keep the originally-requested budget code for priority filtering even after relaxation
+    const budgetCode = BUDGET_MAP[priceRange] || null
 
     const strictParams = buildBaseParams({
       apiKey,
@@ -512,7 +532,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const sortedShops = sortShopsByPrimaryArea(shops, areas, maxWalk)
+    const sortedShops = sortShopsByPrimaryArea(shops, areas, maxWalk, budgetCode)
     const stores = sortedShops.map(mapShopToStore)
 
     return NextResponse.json({
