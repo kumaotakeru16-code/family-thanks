@@ -353,22 +353,25 @@ function sortShopsByPrimaryArea(
   budgetCode: string | null
 ): { shops: any[]; budgetRelaxedForBest: boolean } {
   const resolvedArea = resolveAreaForSearch(areas)
-  // stationName is present on both 'service_area' and 'keyword' variants
   const primaryArea = 'stationName' in resolvedArea ? resolvedArea.stationName : ''
 
   if (!primaryArea) return { shops, budgetRelaxedForBest: false }
 
-  // Minimum priority shops needed before we drop the supplementary pool entirely
   const PRIORITY_MIN = 3
 
-  const scored = shops.map(s => {
+  const scored = shops.map((s) => {
     const access = String(s?.access ?? '')
     const stationMatch = shopMatchesStation(s, primaryArea)
     const walkMins = parseWalkMinutes(access)
     const withinWalk = maxWalk === null || walkMins === null || walkMins <= maxWalk
-    // Price match: if no budget requested, or shop has no budget info, treat as match
-    const shopBudgetCode = typeof s?.budget?.code === 'string' ? s.budget.code : ''
-    const priceMatch = !budgetCode || !shopBudgetCode || shopBudgetCode === budgetCode
+
+    const shopBudgetCode =
+      typeof s?.budget?.code === 'string' ? s.budget.code : ''
+
+    // 重要:
+    // 価格指定ありのとき、budget不明は一致扱いしない
+    const priceMatch = !budgetCode ? true : shopBudgetCode === budgetCode
+
     return {
       shop: s,
       baseScore: scoreStoreForArea(s, primaryArea, maxWalk, budgetCode),
@@ -378,36 +381,45 @@ function sortShopsByPrimaryArea(
     }
   })
 
-  const priority     = scored.filter(s => s.stationMatch && s.withinWalk && s.priceMatch)
-  const nearPriority = scored.filter(s => s.stationMatch && s.withinWalk && !s.priceMatch)
-  const supplementary = scored.filter(s => !(s.stationMatch && s.withinWalk))
+  const priority = scored.filter(
+    (s) => s.stationMatch && s.withinWalk && s.priceMatch
+  )
+  const nearPriority = scored.filter(
+    (s) => s.stationMatch && s.withinWalk && !s.priceMatch
+  )
+  const supplementary = scored.filter(
+    (s) => !(s.stationMatch && s.withinWalk)
+  )
 
-  // Sort a pool: position 0 fixed, positions 1+ lightly jittered for variety
   const sortPool = (pool: typeof scored): any[] => {
-    pool.sort((a, b) => b.baseScore - a.baseScore)
-    if (pool.length <= 1) return pool.map(s => s.shop)
-    const [top, ...rest] = pool
-    const jittered = rest.map(s => ({ shop: s.shop, score: s.baseScore + Math.random() * 2 }))
+    const sorted = [...pool].sort((a, b) => b.baseScore - a.baseScore)
+    if (sorted.length <= 1) return sorted.map((s) => s.shop)
+
+    const [top, ...rest] = sorted
+    const jittered = rest.map((s) => ({
+      shop: s.shop,
+      score: s.baseScore + Math.random() * 2,
+    }))
     jittered.sort((a, b) => b.score - a.score)
-    return [top.shop, ...jittered.map(s => s.shop)]
+
+    return [top.shop, ...jittered.map((s) => s.shop)]
   }
 
-  // Enough price-correct shops: show only priority
+  // 価格一致候補が十分ある → それだけ返す
   if (priority.length >= PRIORITY_MIN) {
     return { shops: sortPool(priority), budgetRelaxedForBest: false }
   }
 
-  // Some price-correct shops: priority first, then nearPriority, then cap-2 supplementary
+  // 価格一致候補が1件以上ある → 価格一致だけ返す
+  // 今回は「Best 1件 + 他3〜4件」でも、価格帯一致を優先する方針
   if (priority.length > 0) {
-    const sortedNear = sortPool(nearPriority)
-    const sortedSupp = sortPool(supplementary).slice(0, 2)
     return {
-      shops: [...sortPool(priority), ...sortedNear, ...sortedSupp],
+      shops: sortPool(priority),
       budgetRelaxedForBest: false,
     }
   }
 
-  // No price-correct shops: Best comes from nearPriority → flag budget relaxation
+  // 価格一致が0件 → ここで初めて価格緩和
   if (nearPriority.length > 0) {
     const sortedNear = sortPool(nearPriority)
     const sortedSupp = sortPool(supplementary).slice(0, 2)
@@ -417,7 +429,6 @@ function sortShopsByPrimaryArea(
     }
   }
 
-  // No station+walk match at all: return supplementary as-is
   return { shops: sortPool(supplementary), budgetRelaxedForBest: false }
 }
 
@@ -589,8 +600,8 @@ export async function POST(req: NextRequest) {
           const stationMatch = shopMatchesStation(s, diagStation)
           const walkMins = parseWalkMinutes(access)
           const withinWalk = maxWalk === null || walkMins === null || walkMins <= maxWalk
-          const shopBudgetCode = typeof s?.budget?.code === 'string' ? s.budget.code : ''
-          const priceMatch = !budgetCode || !shopBudgetCode || shopBudgetCode === budgetCode
+const shopBudgetCode = typeof s?.budget?.code === 'string' ? s.budget.code : ''
+const priceMatch = !budgetCode ? true : shopBudgetCode === budgetCode
           const shopGenreCode = typeof s?.genre?.code === 'string' ? s.genre.code : ''
           const genreMatch = !requestedGenreCode || shopGenreCode === requestedGenreCode
           return {
@@ -625,6 +636,28 @@ export async function POST(req: NextRequest) {
           total: shops.length,
           rate: `${Math.round(matchRate * 100)}%`,
         })
+    // ── 価格帯の厳格フィルタ（価格一致候補があるなら、それ以外を混ぜない） ─────────
+    if (budgetCode) {
+      const strictBudgetShops = shops.filter(
+        (s) => typeof s?.budget?.code === 'string' && s.budget.code === budgetCode
+      )
+
+      console.log('[hotpepper/search] budget strict filter:', {
+        requestedBudget: budgetCode,
+        before: shops.length,
+        strictBudgetCount: strictBudgetShops.length,
+        kept: strictBudgetShops.map((s) => ({
+          name: s.name,
+          budget_code: s?.budget?.code ?? '(なし)',
+          access: s?.access ?? '',
+        })),
+      })
+
+      if (strictBudgetShops.length > 0) {
+        shops = strictBudgetShops
+      }
+    }
+
         if (matchCount === 0 && shops.length > 0) {
           console.warn('[hotpepper/search] 全候補が駅不一致 — keyword 検索が別エリアを取った可能性')
           return NextResponse.json({
