@@ -42,6 +42,7 @@ type OrganizerPrefs = {
   smoking: string
   areas: string[]
   atmosphere: string[]
+  walkMinutes: string
 }
 
 type StoreCandidate = {
@@ -55,6 +56,8 @@ type StoreCandidate = {
   reason?: string
   description?: string
   tags?: string[]
+  googleRating?: number
+  googleRatingCount?: number
 }
 type PastStore = {
   id: string
@@ -479,7 +482,9 @@ export default function Page() {
     smoking: '',
     areas: [],
     atmosphere: [],
+    walkMinutes: '15分以内',
   })
+  const [showAdvancedPrefs, setShowAdvancedPrefs] = useState(false)
 
   const orgPrefsInitRef = useRef(false)
   const [selectedStoreId, setSelectedStoreId] = useState('s1')
@@ -1093,6 +1098,7 @@ async function fetchRecommendedStores() {
         genreCodes,
         privateRoom: orgPrefs.privateRoom,
         allYouCanDrink: orgPrefs.allYouCanDrink,
+        walkMinutes: orgPrefs.walkMinutes,
         count: 10,
       }),
     })
@@ -1115,9 +1121,53 @@ async function fetchRecommendedStores() {
       tags: Array.isArray(s.tags) ? s.tags.slice(0, 4) : [],
     }))
 
-    // Keep top 2 stable (best area match); lightly shuffle the rest so
-    // re-searching the same conditions feels fresh
-    const [first, second, ...rest] = stores
+    // --- Google Places enrichment (non-blocking) ---
+    // Fetch ratings in parallel; failures are silently ignored → stores keep their HP order
+    let enrichedMap = new Map<string, { rating: number; userRatingCount: number }>()
+    try {
+      const enrichRes = await fetch('/api/places/enrich', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stores: stores.map(s => ({ id: s.id, name: s.name, area: s.area })),
+        }),
+      })
+      if (enrichRes.ok) {
+        const enrichData = await enrichRes.json()
+        ;(enrichData.enriched ?? []).forEach((e: any) => {
+          if (e.id && e.rating) enrichedMap.set(e.id, { rating: e.rating, userRatingCount: e.userRatingCount ?? 0 })
+        })
+      }
+    } catch {
+      // Places enrichment failed → proceed without ratings
+    }
+
+    // Merge Google ratings into store objects
+    const enrichedStores: StoreCandidate[] = stores.map(s => ({
+      ...s,
+      googleRating: enrichedMap.get(s.id)?.rating,
+      googleRatingCount: enrichedMap.get(s.id)?.userRatingCount,
+    }))
+
+    // Re-rank: HP position bonus (preserves area+walk ordering) + Google score
+    // Google score rewards rating×log(count), capped at 10 to match walk bonus scale
+    function googleScore(s: StoreCandidate): number {
+      if (!s.googleRating || !s.googleRatingCount) return 0
+      return Math.min(s.googleRating * Math.log10(Math.max(s.googleRatingCount, 1)) * 1.5, 10)
+    }
+
+    const n = enrichedStores.length
+    const ranked = [...enrichedStores]
+      .map((s, i) => ({
+        store: s,
+        // Position bonus: first HP result = n, last = 1 (reflects area+walk quality)
+        score: (n - i) * 2 + googleScore(s),
+      }))
+      .sort((a, b) => b.score - a.score)
+      .map(({ store }) => store)
+
+    // Keep #1 stable; lightly shuffle positions 2+ for freshness on re-search
+    const [first, second, ...rest] = ranked
     const shuffled = [...rest].sort(() => Math.random() - 0.5)
     const finalStores = [first, second, ...shuffled].filter((s): s is StoreCandidate => !!s)
 
@@ -1729,53 +1779,40 @@ return (
         {/* 未回答者へのリマインド */}
         <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">未回答者へのリマインド</p>
-          {unanswered.length > 0 ? (
-            <>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {unanswered.map(name => (
-                  <span key={name} className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-600">
-                    {name}さん
-                  </span>
-                ))}
-              </div>
-              <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-4">
-                <p className="whitespace-pre-line text-sm leading-6 text-stone-700">
-                  {urlOnlyReminder ? shareUrl : reminderText}
-                </p>
-              </div>
-              <label className="mt-3 flex cursor-pointer items-center gap-2 self-start">
-                <input
-                  type="checkbox"
-                  checked={urlOnlyReminder}
-                  onChange={(e) => setUrlOnlyReminder(e.target.checked)}
-                  className="h-4 w-4 rounded accent-stone-900"
-                />
-                <span className="text-xs font-bold text-stone-500">URLのみ</span>
-              </label>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(urlOnlyReminder ? shareUrl : reminderText)
-                    setReminderCopied(true)
-                    setTimeout(() => setReminderCopied(false), 1600)
-                  }}
-                  className="inline-flex items-center justify-center rounded-2xl bg-stone-900 px-4 py-3 text-sm font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
-                >
-                  {reminderCopied ? 'コピーしました ✓' : 'コピー'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openLineShare(urlOnlyReminder ? shareUrl : reminderText)}
-                  className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
-                >
-                  LINEで送る
-                </button>
-              </div>
-            </>
-          ) : (
-            <p className="mt-2 text-sm text-stone-400">全員回答済みです</p>
-          )}
+          <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-4">
+            <p className="whitespace-pre-line text-sm leading-6 text-stone-700">
+              {urlOnlyReminder ? shareUrl : reminderText}
+            </p>
+          </div>
+          <label className="mt-3 flex cursor-pointer items-center gap-2 self-start">
+            <input
+              type="checkbox"
+              checked={urlOnlyReminder}
+              onChange={(e) => setUrlOnlyReminder(e.target.checked)}
+              className="h-4 w-4 rounded accent-stone-900"
+            />
+            <span className="text-xs font-bold text-stone-500">URLのみ</span>
+          </label>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                await navigator.clipboard.writeText(urlOnlyReminder ? shareUrl : reminderText)
+                setReminderCopied(true)
+                setTimeout(() => setReminderCopied(false), 1600)
+              }}
+              className="inline-flex items-center justify-center rounded-2xl bg-stone-900 px-4 py-3 text-sm font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
+            >
+              {reminderCopied ? 'コピーしました ✓' : 'コピー'}
+            </button>
+            <button
+              type="button"
+              onClick={() => openLineShare(urlOnlyReminder ? shareUrl : reminderText)}
+              className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+            >
+              LINEで送る
+            </button>
+          </div>
         </div>
 
         <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
@@ -2068,7 +2105,7 @@ return (
               <p className="mb-5 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">幹事条件（修正可）</p>
               <div className="space-y-5">
 
-                {/* ① エリア — 単一選択 */}
+                {/* ① エリア（駅名） */}
                 <div>
                   <p className="mb-2 text-xs font-bold text-stone-700">エリア（駅名）</p>
                   <StationInput
@@ -2085,7 +2122,20 @@ return (
                   )}
                 </div>
 
-                {/* ② ジャンル — 単一選択 */}
+                {/* ② 徒歩何分以内 */}
+                <div>
+                  <p className="mb-2 text-xs font-bold text-stone-700">駅から徒歩</p>
+                  <div className="flex flex-wrap gap-2">
+                    {['5分以内', '10分以内', '15分以内', '20分以内', '指定なし'].map(v => (
+                      <Chip key={v} active={orgPrefs.walkMinutes === v}
+                        onClick={() => setOrgPrefs(p => ({ ...p, walkMinutes: v }))}>
+                        {v}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ③ ジャンル */}
                 <div>
                   <p className="mb-2 text-xs font-bold text-stone-700">ジャンル</p>
                   <div className="flex flex-wrap gap-2">
@@ -2098,7 +2148,7 @@ return (
                   </div>
                 </div>
 
-                {/* ③ 価格帯 */}
+                {/* ④ 価格帯 */}
                 <div>
                   <p className="mb-2 text-xs font-bold text-stone-700">価格帯</p>
                   <select
@@ -2112,39 +2162,88 @@ return (
                   </select>
                 </div>
 
-                {/* ④ ドリンクの好み — 単一選択 */}
-                <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">ドリンクの好み</p>
-                  <div className="flex flex-wrap gap-2">
-                    {['ワイン', '日本酒', '焼酎'].map(v => (
-                      <Chip key={v} active={orgPrefs.drinks[0] === v}
-                        onClick={() => setOrgPrefs(p => ({ ...p, drinks: p.drinks[0] === v ? [] : [v] }))}>
-                        {v}
-                      </Chip>
-                    ))}
-                  </div>
-                </div>
+                {/* さらにこだわる */}
+                <div className="border-t border-stone-100 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvancedPrefs(v => !v)}
+                    className="flex w-full items-center justify-between text-xs font-bold text-stone-500 transition hover:text-stone-700"
+                  >
+                    <span>{showAdvancedPrefs ? 'こだわり条件を閉じる' : 'さらにこだわる'}</span>
+                    <span className="text-[10px] text-stone-300">{showAdvancedPrefs ? '▲' : '▼'}</span>
+                  </button>
 
-                {/* ⑤ 個室 */}
-                <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">個室</p>
-                  <div className="flex gap-2">
-                    <Chip active={orgPrefs.privateRoom === '個室あり'}
-                      onClick={() => setOrgPrefs(p => ({ ...p, privateRoom: p.privateRoom === '個室あり' ? '' : '個室あり' }))}>
-                      個室あり
-                    </Chip>
-                  </div>
-                </div>
+                  {showAdvancedPrefs && (
+                    <div className="mt-4 space-y-5">
 
-                {/* ⑥ 飲み放題 */}
-                <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">飲み放題</p>
-                  <div className="flex gap-2">
-                    <Chip active={orgPrefs.allYouCanDrink === '希望'}
-                      onClick={() => setOrgPrefs(p => ({ ...p, allYouCanDrink: p.allYouCanDrink === '希望' ? '' : '希望' }))}>
-                      希望する
-                    </Chip>
-                  </div>
+                      {/* 飲み放題 */}
+                      <div>
+                        <p className="mb-2 text-xs font-bold text-stone-700">飲み放題</p>
+                        <div className="flex gap-2">
+                          <Chip active={orgPrefs.allYouCanDrink === '希望'}
+                            onClick={() => setOrgPrefs(p => ({ ...p, allYouCanDrink: p.allYouCanDrink === '希望' ? '' : '希望' }))}>
+                            希望する
+                          </Chip>
+                        </div>
+                      </div>
+
+                      {/* 個室 */}
+                      <div>
+                        <p className="mb-2 text-xs font-bold text-stone-700">個室</p>
+                        <div className="flex gap-2">
+                          <Chip active={orgPrefs.privateRoom === '個室あり'}
+                            onClick={() => setOrgPrefs(p => ({ ...p, privateRoom: p.privateRoom === '個室あり' ? '' : '個室あり' }))}>
+                            個室あり
+                          </Chip>
+                        </div>
+                      </div>
+
+                      {/* 禁煙 / 喫煙 */}
+                      <div>
+                        <p className="mb-2 text-xs font-bold text-stone-700">禁煙 / 喫煙</p>
+                        <div className="flex flex-wrap gap-2">
+                          {['禁煙希望', '喫煙可'].map(v => (
+                            <Chip key={v} active={orgPrefs.smoking === v}
+                              onClick={() => setOrgPrefs(p => ({ ...p, smoking: p.smoking === v ? '' : v }))}>
+                              {v}
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* ドリンクの好み */}
+                      <div>
+                        <p className="mb-2 text-xs font-bold text-stone-700">ドリンクの好み</p>
+                        <div className="flex flex-wrap gap-2">
+                          {['ワイン', '日本酒', '焼酎'].map(v => (
+                            <Chip key={v} active={orgPrefs.drinks[0] === v}
+                              onClick={() => setOrgPrefs(p => ({ ...p, drinks: p.drinks[0] === v ? [] : [v] }))}>
+                              {v}
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 雰囲気 */}
+                      <div>
+                        <p className="mb-2 text-xs font-bold text-stone-700">雰囲気</p>
+                        <div className="flex flex-wrap gap-2">
+                          {['落ち着き', 'にぎやか', 'おしゃれ'].map(v => (
+                            <Chip key={v} active={orgPrefs.atmosphere.includes(v)}
+                              onClick={() => setOrgPrefs(p => ({
+                                ...p,
+                                atmosphere: p.atmosphere.includes(v)
+                                  ? p.atmosphere.filter(a => a !== v)
+                                  : [...p.atmosphere, v],
+                              }))}>
+                              {v}
+                            </Chip>
+                          ))}
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
                 </div>
 
               </div>
@@ -2195,6 +2294,13 @@ return (
         <div className="bg-white/[0.06] px-6 py-5">
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-1.5">この会に合う理由</p>
           <p className="text-sm leading-6 text-white/70">{storeReason || primaryStore.reason}</p>
+          {primaryStore.googleRating && (
+            <p className="mt-3 text-xs text-white/40">
+              <span className="text-white/60">Google</span>
+              {' '}★ {primaryStore.googleRating.toFixed(1)}
+              {primaryStore.googleRatingCount ? `（${primaryStore.googleRatingCount.toLocaleString()}件）` : ''}
+            </p>
+          )}
         </div>
 
 <div className="px-6 py-5">
@@ -2241,6 +2347,11 @@ return (
                   {store.area && (
                     <p className={cx('mt-0.5 text-xs', selectedStoreId === store.id ? 'text-white/60' : 'text-stone-400')}>
                       {store.area}{store.access ? ` · ${store.access}` : ''}
+                    </p>
+                  )}
+                  {store.googleRating && (
+                    <p className={cx('mt-0.5 text-xs', selectedStoreId === store.id ? 'text-white/50' : 'text-stone-400')}>
+                      Google ★ {store.googleRating.toFixed(1)}{store.googleRatingCount ? `（${store.googleRatingCount.toLocaleString()}件）` : ''}
                     </p>
                   )}
                 </div>

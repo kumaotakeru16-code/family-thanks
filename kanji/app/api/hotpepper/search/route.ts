@@ -237,14 +237,23 @@ function buildBaseParams(args: {
   return params
 }
 
+/** Extract walk minutes from an access string like "JR横浜駅 徒歩3分" → 3 */
+function parseWalkMinutes(access: string): number | null {
+  const m = access.match(/徒歩(\d+)分/)
+  return m ? parseInt(m[1], 10) : null
+}
+
 /**
- * Sort stores so the selected station feels more "station-near" in the UI.
+ * Score a shop for how well it matches the chosen area + walk time.
  *
- * Why:
- * Hot Pepper keyword search is broad, so "横浜" can return 関内 etc.
- * This scorer boosts stores that look closer to the chosen station.
+ * Station proximity (駅名一致) is the primary signal.
+ * Walk time adds a strong secondary boost when the user specified a limit:
+ *   - within limit        → +10
+ *   - up to 5 min over    → +3 (partial credit, avoids hard cutoff)
+ *   - more than 5 min over → 0 (sinks in ranking)
+ *   - no walk info found   → neutral (no bonus/penalty)
  */
-function scoreStoreForArea(shop: any, primaryArea: string): number {
+function scoreStoreForArea(shop: any, primaryArea: string, maxWalk: number | null): number {
   if (!primaryArea) return 0
 
   let score = 0
@@ -258,22 +267,30 @@ function scoreStoreForArea(shop: any, primaryArea: string): number {
   const access = String(shop?.access ?? '')
   const name = String(shop?.name ?? '')
 
-  // Strongest: exact station mention in access
+  // Station proximity signals
   if (access.includes(`${primaryArea}駅`)) score += 8
-
-  // General station/area mention in access
   if (access.includes(primaryArea)) score += 6
-
-  // Area label match
   if (area.includes(primaryArea)) score += 4
-
-  // Store name match
   if (name.includes(primaryArea)) score += 2
+
+  // Walk time scoring — only when user specified a limit
+  if (maxWalk !== null) {
+    const walkMins = parseWalkMinutes(access)
+    if (walkMins !== null) {
+      if (walkMins <= maxWalk) {
+        score += 10        // Meets condition: strong bonus
+      } else if (walkMins <= maxWalk + 5) {
+        score += 3         // Slightly over: partial credit
+      }
+      // More than maxWalk + 5: no bonus — sinks naturally
+    }
+    // Walk time not parseable: neutral (access string doesn't contain 徒歩X分)
+  }
 
   return score
 }
 
-function sortShopsByPrimaryArea(shops: any[], areas: string[]) {
+function sortShopsByPrimaryArea(shops: any[], areas: string[], maxWalk: number | null) {
   const resolvedArea = resolveAreaForSearch(areas)
   const primaryArea = resolvedArea.type === 'keyword' ? resolvedArea.value : ''
 
@@ -281,7 +298,7 @@ function sortShopsByPrimaryArea(shops: any[], areas: string[]) {
 
   const scored = shops.map(s => ({
     shop: s,
-    baseScore: scoreStoreForArea(s, primaryArea),
+    baseScore: scoreStoreForArea(s, primaryArea, maxWalk),
   }))
   scored.sort((a, b) => b.baseScore - a.baseScore)
 
@@ -328,6 +345,12 @@ export async function POST(req: NextRequest) {
     const count = typeof body?.count === 'number' ? body.count : 6
 
     const allYouCanDrink = typeof body?.allYouCanDrink === 'string' ? body.allYouCanDrink : ''
+
+    const walkMinutesStr = typeof body?.walkMinutes === 'string' ? body.walkMinutes : '指定なし'
+    const maxWalk: number | null =
+      walkMinutesStr === '指定なし' || !walkMinutesStr
+        ? null
+        : parseInt(walkMinutesStr.replace('分以内', ''), 10) || null
 
     const strictParams = buildBaseParams({
       apiKey,
@@ -429,7 +452,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const sortedShops = sortShopsByPrimaryArea(shops, areas)
+    const sortedShops = sortShopsByPrimaryArea(shops, areas, maxWalk)
     const stores = sortedShops.map(mapShopToStore)
 
     return NextResponse.json({
