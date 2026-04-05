@@ -164,6 +164,7 @@ function mapShopToStore(shop: any) {
     stationName: typeof shop.station_name === 'string' ? shop.station_name : '',
     budgetCode: typeof shop.budget?.code === 'string' ? shop.budget.code : '',
     genre: shop.genre?.name ?? '',
+    walkMinutes: parseWalkMinutes(shop.access ?? ''),
   }
 }
 

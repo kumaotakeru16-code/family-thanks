@@ -61,6 +61,7 @@ type StoreCandidate = {
   // Passed to Gemini for station/price selection logic; not rendered directly
   stationName?: string
   budgetCode?: string
+  walkMinutes?: number | null
 }
 type PastStore = {
   id: string
@@ -1188,6 +1189,7 @@ async function fetchRecommendedStores() {
       stationName: s.stationName ?? '',
       budgetCode: s.budgetCode ?? '',
       genre: s.genre ?? '',
+      walkMinutes: s.walkMinutes ?? null,
     }))
 
     // ── Step 2: Gemini で選定・順位付け・理由生成 ──────────────────────────
@@ -1251,16 +1253,26 @@ async function fetchRecommendedStores() {
     // stationName が空文字（HP が駅情報を返さなかった店）は除外しない。
     const targetStation = orgPrefs.areas[0] ?? ''
     if (targetStation) {
-      const stationFiltered = rankedStores.filter(
-        s => s.stationName === targetStation || s.stationName === ''
-      )
+      // Pass: exact station match
+      // Pass: stationName empty AND access contains "${targetStation}駅" (HP sometimes omits station_name)
+      // Fail: stationName non-empty but != targetStation (confirmed different station)
+      // Fail: stationName empty AND access doesn't mention targetStation (unknown provenance)
+      const stationFiltered = rankedStores.filter(s => {
+        if (s.stationName === targetStation) return true
+        if (s.stationName && s.stationName !== targetStation) return false
+        return (s.access ?? '').includes(`${targetStation}駅`)
+      })
       console.log('[fetchRecommendedStores] station filter:', {
         target: targetStation,
         before: rankedStores.length,
         after: stationFiltered.length,
         excluded: rankedStores
-          .filter(s => s.stationName && s.stationName !== targetStation)
-          .map(s => ({ name: s.name, stationName: s.stationName })),
+          .filter(s => {
+            if (s.stationName === targetStation) return false
+            if (s.stationName && s.stationName !== targetStation) return true
+            return !(s.access ?? '').includes(`${targetStation}駅`)
+          })
+          .map(s => ({ name: s.name, stationName: s.stationName, access: s.access?.slice(0, 40) })),
       })
       if (stationFiltered.length === 0) {
         // 駅一致候補が0件 → 別駅候補を出さない
@@ -2429,7 +2441,7 @@ return (
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑨ 店提案（決断UI）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-{step === 'storeSuggestion' && heroDate && storePool.length > 0 && (
+{step === 'storeSuggestion' && heroDate && (
   <div className="space-y-4">
     <div className="px-1">
       <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 9</p>
@@ -2447,6 +2459,13 @@ return (
 ))}
 {placesFallback && (
   <p className="text-center text-xs text-stone-400">現在は評価補完なしで候補を表示しています</p>
+)}
+{storePool.length === 0 && (
+  <div className="rounded-3xl bg-stone-50 px-6 py-8 text-center ring-1 ring-stone-100">
+    <p className="text-base font-bold text-stone-700">候補が見つかりませんでした</p>
+    <p className="mt-2 text-sm text-stone-400">条件を変えてもう一度お試しください。</p>
+    <div className="mt-4"><GhostBtn onClick={() => setStep('organizerConditions')}>条件を調整する</GhostBtn></div>
+  </div>
 )}
 
     {/* 第一候補 — dark hero */}
