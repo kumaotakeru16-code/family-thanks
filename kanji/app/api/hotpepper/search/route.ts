@@ -552,6 +552,44 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // ── Per-shop diagnostic log ──────────────────────────────────────────────
+    // Visible in Next.js server logs. Shows exactly why each shop is / isn't
+    // priority so you can spot stationMatch / priceMatch / walkMins failures.
+    {
+      const requestedGenreCode = finalParams.get('genre') ?? null
+      const diagArea = resolveAreaForSearch(areas)
+      const diagStation = diagArea.type === 'keyword' ? diagArea.value : ''
+      console.log('[hotpepper/search] shop diagnostics:', {
+        station: diagStation || '(未設定)',
+        maxWalk,
+        budgetCode: budgetCode ?? '(指定なし)',
+        requestedGenreCode: requestedGenreCode ?? '(指定なし)',
+        shops: shops.map(s => {
+          const access = String(s?.access ?? '')
+          const stationMatch = shopMatchesStation(s, diagStation)
+          const walkMins = parseWalkMinutes(access)
+          const withinWalk = maxWalk === null || walkMins === null || walkMins <= maxWalk
+          const shopBudgetCode = typeof s?.budget?.code === 'string' ? s.budget.code : ''
+          const priceMatch = !budgetCode || !shopBudgetCode || shopBudgetCode === budgetCode
+          const shopGenreCode = typeof s?.genre?.code === 'string' ? s.genre.code : ''
+          const genreMatch = !requestedGenreCode || shopGenreCode === requestedGenreCode
+          return {
+            name: s.name,
+            station_name: s.station_name ?? '(なし)',
+            budget_code: shopBudgetCode || '(なし)',
+            genre_code: shopGenreCode || '(なし)',
+            walkMins: walkMins ?? '不明',
+            stationMatch,
+            withinWalk,
+            priceMatch,
+            genreMatch,
+            isPriority: stationMatch && withinWalk && priceMatch,
+          }
+        }),
+      })
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     const { shops: sortedShops, budgetRelaxedForBest } = sortShopsByPrimaryArea(shops, areas, maxWalk, budgetCode)
     const stores = sortedShops.map(mapShopToStore)
 
