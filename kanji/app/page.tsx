@@ -525,6 +525,8 @@ export default function Page() {
   const [storeFetchError, setStoreFetchError] = useState('')
   /** Condition-relaxation notes from Gemini (e.g. walk expanded, price widened) */
   const [storeSelectNotes, setStoreSelectNotes] = useState<string[]>([])
+  /** True when Google Places returned fallback (quota / unavailable). Ratings are hidden; candidates still shown. */
+  const [placesFallback, setPlacesFallback] = useState(false)
   const [eventDetail, setEventDetail] = useState<any>(null)
   const [copied, setCopied] = useState(false)
 
@@ -1148,6 +1150,7 @@ async function fetchRecommendedStores() {
   setIsLoadingStores(true)
   setStoreFetchError('')
   setStoreSelectNotes([])
+  setPlacesFallback(false)
 
   try {
     // ── Step 1: Hot Pepper で候補取得 ────────────────────────────────────────
@@ -1246,8 +1249,12 @@ async function fetchRecommendedStores() {
     // ── Step 3: 表示件数を絞る（Best + 他 4件 = 最大 5件）────────────────
     const displayStores = rankedStores.slice(0, PLACES_ENRICH_LIMIT)
 
-    // ── Step 4: Google Places enrich（上位 PLACES_ENRICH_LIMIT 件のみ）────
-    // 1 回の候補生成で 1 回だけ。失敗・quota 超過時はそのまま続行。
+    // ── Step 4: Google Places enrich（最終表示候補のみ / 上限 PLACES_ENRICH_LIMIT 件）
+    // ルール:
+    //   displayStores.length <= PLACES_ENRICH_LIMIT → 全件 enrich
+    //   displayStores.length >  PLACES_ENRICH_LIMIT → 上位 PLACES_ENRICH_LIMIT 件のみ
+    // displayStores は既に slice(0, PLACES_ENRICH_LIMIT) 済みなので常に上限内に収まる。
+    // 1 フローで 1 回のみ呼び出し。失敗・quota 超過時は評価なしで続行（アプリは止めない）。
     let enrichedMap = new Map<string, { rating: number; userRatingCount: number }>()
     try {
       const enrichRes = await fetch('/api/places/enrich', {
@@ -1259,12 +1266,17 @@ async function fetchRecommendedStores() {
       })
       if (enrichRes.ok) {
         const enrichData = await enrichRes.json()
+        // fallback: true = quota 到達 / API 不可 → 評価ラベルを非表示にする
+        if (enrichData.fallback) {
+          setPlacesFallback(true)
+          console.warn('[fetchRecommendedStores] Places fallback:', enrichData.reason)
+        }
         ;(enrichData.enriched ?? []).forEach((e: any) => {
           if (e.id && e.rating) enrichedMap.set(e.id, { rating: e.rating, userRatingCount: e.userRatingCount ?? 0 })
         })
       }
     } catch {
-      // Places 失敗 → 評価なしで続行（アプリは止めない）
+      // ネットワーク例外 → 評価なしで続行（再試行しない）
     }
 
     // ── Step 5: Google 評価を反映して最終並び替え ─────────────────────────
@@ -2405,6 +2417,9 @@ return (
     {note}
   </div>
 ))}
+{placesFallback && (
+  <p className="text-center text-xs text-stone-400">現在は評価補完なしで候補を表示しています</p>
+)}
 
     {/* 第一候補 — dark hero */}
     {primaryStore && (
