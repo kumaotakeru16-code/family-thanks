@@ -928,7 +928,7 @@ const effectiveTags = useMemo(() => {
 }, [selectedStore, organizerConditions])
 
   const primaryStore = selectedStore
-const secondaryStores = alternativeStores.slice(0, 2)
+const secondaryStores = alternativeStores.slice(0, 4)
 
 
 
@@ -1727,52 +1727,56 @@ return (
 
 
         {/* 未回答者へのリマインド */}
-        {unanswered.length > 0 && (
-          <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">未回答者へのリマインド</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {unanswered.map(name => (
-                <span key={name} className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-600">
-                  {name}さん
-                </span>
-              ))}
-            </div>
-            <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-4">
-              <p className="whitespace-pre-line text-sm leading-6 text-stone-700">
-                {urlOnlyReminder ? shareUrl : reminderText}
-              </p>
-            </div>
-            <label className="mt-3 flex cursor-pointer items-center gap-2 self-start">
-              <input
-                type="checkbox"
-                checked={urlOnlyReminder}
-                onChange={(e) => setUrlOnlyReminder(e.target.checked)}
-                className="h-4 w-4 rounded accent-stone-900"
-              />
-              <span className="text-xs font-bold text-stone-500">URLのみ</span>
-            </label>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={async () => {
-                  await navigator.clipboard.writeText(urlOnlyReminder ? shareUrl : reminderText)
-                  setReminderCopied(true)
-                  setTimeout(() => setReminderCopied(false), 1600)
-                }}
-                className="inline-flex items-center justify-center rounded-2xl bg-stone-900 px-4 py-3 text-sm font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
-              >
-                {reminderCopied ? 'コピーしました ✓' : 'コピー'}
-              </button>
-              <button
-                type="button"
-                onClick={() => openLineShare(urlOnlyReminder ? shareUrl : reminderText)}
-                className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
-              >
-                LINEで送る
-              </button>
-            </div>
-          </div>
-        )}
+        <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">未回答者へのリマインド</p>
+          {unanswered.length > 0 ? (
+            <>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {unanswered.map(name => (
+                  <span key={name} className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-600">
+                    {name}さん
+                  </span>
+                ))}
+              </div>
+              <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-4">
+                <p className="whitespace-pre-line text-sm leading-6 text-stone-700">
+                  {urlOnlyReminder ? shareUrl : reminderText}
+                </p>
+              </div>
+              <label className="mt-3 flex cursor-pointer items-center gap-2 self-start">
+                <input
+                  type="checkbox"
+                  checked={urlOnlyReminder}
+                  onChange={(e) => setUrlOnlyReminder(e.target.checked)}
+                  className="h-4 w-4 rounded accent-stone-900"
+                />
+                <span className="text-xs font-bold text-stone-500">URLのみ</span>
+              </label>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(urlOnlyReminder ? shareUrl : reminderText)
+                    setReminderCopied(true)
+                    setTimeout(() => setReminderCopied(false), 1600)
+                  }}
+                  className="inline-flex items-center justify-center rounded-2xl bg-stone-900 px-4 py-3 text-sm font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
+                >
+                  {reminderCopied ? 'コピーしました ✓' : 'コピー'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openLineShare(urlOnlyReminder ? shareUrl : reminderText)}
+                  className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+                >
+                  LINEで送る
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-stone-400">全員回答済みです</p>
+          )}
+        </div>
 
         <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
@@ -1859,87 +1863,61 @@ return (
     {/* 確定日程 ヒーロー */}
     <div className="overflow-hidden rounded-3xl bg-stone-900">
       <div className="px-6 py-6">
- <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">
-  確定日程
-</p>
-<p className="mt-1 text-3xl font-black text-white">
-    {heroDate?.label}
-</p>
-
-<p className="mt-2 text-sm font-bold text-white/70">
-  最大参加人数 {yesCount + maybeCount}人
-</p>
-
-<div className="mt-3 flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
-  <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
-    参加予定 {yesCount}人
-  </span>
-
-  <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
-    調整中 {maybeCount}人
-  </span>
-
-  {eventType && (
-    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
-      {eventType}
-    </span>
-  )}
-</div>
-
-<button
-  type="button"
-  onClick={() => setShowHeroParticipants((v) => !v)}
-  className="mt-3 text-xs font-bold text-white/70 underline"
->
-  {showHeroParticipants ? '参加者を閉じる' : '参加者を見る'}
-</button>
-
-{showHeroParticipants && (
-  <div className="mt-4 space-y-3">
-    <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/80">
-        参加予定
-      </p>
-      <div className="mt-2 flex flex-wrap gap-2">
-{finalYesParticipants.length > 0 ? (
-  finalYesParticipants.map((p) => (
-            <span
-              key={p.id}
-              className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20"
-            >
-              {p.name}
-            </span>
-          ))
-        ) : (
-          <span className="text-xs text-white/40">まだいません</span>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">確定日程</p>
+        <p className="mt-1 text-3xl font-black text-white">{heroDate?.label}</p>
+        <p className="mt-2 text-sm font-bold text-white/70">最大参加人数 {yesCount + maybeCount}人</p>
+        <button
+          type="button"
+          onClick={() => setShowHeroParticipants((v) => !v)}
+          className="mt-3 text-xs font-bold text-white/70 underline"
+        >
+          {showHeroParticipants ? '参加者を閉じる' : '参加者を見る'}
+        </button>
+        {showHeroParticipants && (
+          <div className="mt-4 space-y-3">
+            <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/80">参加予定</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {finalYesParticipants.length > 0 ? (
+                  finalYesParticipants.map((p) => (
+                    <span key={p.id} className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+                      {p.name}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-white/40">まだいません</span>
+                )}
+              </div>
+            </div>
+            <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300/80">調整中</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {heroMaybeParticipants.length > 0 ? (
+                  heroMaybeParticipants.map((p) => (
+                    <span key={p.id} className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
+                      {p.name}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-white/40">まだいません</span>
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </div>
-    </div>
-
-    <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300/80">
-        調整中
-      </p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {heroMaybeParticipants.length > 0 ? (
-          heroMaybeParticipants.map((p) => (
-            <span
-              key={p.id}
-              className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20"
-            >
-              {p.name}
-            </span>
-          ))
-        ) : (
-          <span className="text-xs text-white/40">まだいません</span>
+      <div className="flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
+        <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+          参加予定 {yesCount}人
+        </span>
+        <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
+          調整中 {maybeCount}人
+        </span>
+        {eventType && (
+          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
+            {eventType}
+          </span>
         )}
-      </div>
-    </div>
-  </div>
-)}
-
-
-
       </div>
     </div>
 
@@ -2209,7 +2187,7 @@ return (
         </div>
 
         {primaryStore.image && (
-          <div className="aspect-[4/3] sm:aspect-[16/9] overflow-hidden">
+          <div className="overflow-hidden h-52 sm:h-64">
             <img src={primaryStore.image} alt={primaryStore.name} className="h-full w-full object-cover object-center opacity-90" />
           </div>
         )}
@@ -2441,7 +2419,7 @@ ${finalStore?.link ?? ''}`
                   setCopied(true)
                   setTimeout(() => setCopied(false), 1600)
                 }}
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-4 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
               >
                 {copied ? 'コピーしました ✓' : '共有文をコピーする'}
               </button>
@@ -2502,10 +2480,19 @@ ${finalStore?.link ?? ''}`
             </div>
 
             <div className="space-y-2.5">
-              <PrimaryBtn onClick={async () => {
-                try { await navigator.clipboard.writeText(urlOnly ? (selectedStore?.link ?? '') : shareText) }
-                catch { alert('コピーに失敗しました') }
-              }}>コピー</PrimaryBtn>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(urlOnly ? (selectedStore?.link ?? '') : shareText)
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 1600)
+                  } catch { alert('コピーに失敗しました') }
+                }}
+                className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+              >
+                {copied ? 'コピーしました ✓' : 'コピー'}
+              </button>
               <a
                 href={`https://line.me/R/msg/text/?${encodeURIComponent(urlOnly ? (selectedStore?.link ?? '') : shareText)}`}
                 target="_blank"
