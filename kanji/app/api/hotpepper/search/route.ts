@@ -199,7 +199,7 @@ function buildBaseParams(args: {
   const params = new URLSearchParams({
     key: apiKey,
     format: 'json',
-    count: String(Math.min(Math.max(count, 1), 20)),
+    count: String(Math.min(Math.max(count, 1), 30)),
   })
 
   // エリア（最優先 — 緩和しない）
