@@ -1234,7 +1234,9 @@ async function fetchRecommendedStores() {
     setRecommendedStores(finalStores)
     setSelectedStoreId(finalStores[0]?.id ?? '')
 
-    setBudgetRelaxed(!!data?.budgetRelaxedForBest)
+    const isRelaxed = !!data?.budgetRelaxedForBest
+    setBudgetRelaxed(isRelaxed)
+    if (isRelaxed) setShowAltStores(true)
 
     if (data?.fallback) {
       setStoreFetchError(
@@ -2351,8 +2353,8 @@ return (
   </div>
 )}
 
-    {/* 第一候補 — dark hero */}
-    {primaryStore && (
+    {/* 第一候補 — dark hero（価格帯緩和時は非表示） */}
+    {primaryStore && !budgetRelaxed && (
       <div className="overflow-hidden rounded-3xl bg-stone-900">
         <div className="px-6 py-6">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">Best Choice</p>
@@ -2398,22 +2400,25 @@ return (
     )}
 
     {/* 他候補: 折りたたみ + 選択可能 */}
-    {secondaryStores.length > 0 && (
+    {/* 補欠モード（budgetRelaxed）時は全候補をリスト表示、折りたたみなし */}
+    {(budgetRelaxed ? storePool : secondaryStores).length > 0 && (
       <div>
-        <button
-          type="button"
-          onClick={() => setShowAltStores(v => !v)}
-          className="w-full text-center text-xs font-bold text-stone-400 underline underline-offset-2 transition hover:text-stone-600"
-        >
-          {showAltStores ? 'ほかの候補を閉じる' : `ほかの候補を見る（${secondaryStores.length}件）`}
-        </button>
-        {showAltStores && (
+        {!budgetRelaxed && (
+          <button
+            type="button"
+            onClick={() => setShowAltStores(v => !v)}
+            className="w-full text-center text-xs font-bold text-stone-400 underline underline-offset-2 transition hover:text-stone-600"
+          >
+            {showAltStores ? 'ほかの候補を閉じる' : `ほかの候補を見る（${secondaryStores.length}件）`}
+          </button>
+        )}
+        {(budgetRelaxed || showAltStores) && (
           <div className="mt-3 space-y-1.5">
-            {secondaryStores.map((store: StoreCandidate) => (
+            {(budgetRelaxed ? storePool : secondaryStores).map((store: StoreCandidate) => (
               <button
                 type="button"
                 key={store.id}
-                onClick={() => { setSelectedStoreId(store.id); setShowAltStores(false) }}
+                onClick={() => { setSelectedStoreId(store.id); if (!budgetRelaxed) setShowAltStores(false) }}
                 className={cx(
                   'flex w-full items-center justify-between rounded-2xl px-4 py-3 ring-1 transition hover:bg-stone-50 active:scale-[0.99]',
                   selectedStoreId === store.id

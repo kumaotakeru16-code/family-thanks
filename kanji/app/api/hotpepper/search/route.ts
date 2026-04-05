@@ -203,8 +203,12 @@ function buildBaseParams(args: {
   })
 
   // エリア（最優先 — 緩和しない）
+  // service_area: HP サイトのエリア選択と同等 → 店名に駅名がなくてもヒットする
+  // keyword: 未知駅名のフォールバック（name/catch/address/access の全文検索）
   const resolvedArea = resolveAreaForSearch(areas)
-  if (resolvedArea.type === 'keyword') {
+  if (resolvedArea.type === 'service_area') {
+    params.set('service_area', resolvedArea.code)
+  } else if (resolvedArea.type === 'keyword') {
     params.set('keyword', resolvedArea.value)
   } else {
     params.set('large_service_area', 'SS10')
@@ -346,7 +350,8 @@ function sortShopsByPrimaryArea(
   budgetCode: string | null
 ): { shops: any[]; budgetRelaxedForBest: boolean } {
   const resolvedArea = resolveAreaForSearch(areas)
-  const primaryArea = resolvedArea.type === 'keyword' ? resolvedArea.value : ''
+  // stationName is present on both 'service_area' and 'keyword' variants
+  const primaryArea = 'stationName' in resolvedArea ? resolvedArea.stationName : ''
 
   if (!primaryArea) return { shops, budgetRelaxedForBest: false }
 
@@ -481,6 +486,18 @@ export async function POST(req: NextRequest) {
     let shops = result.shops
     let finalParams = strictParams
 
+    console.log('[hotpepper/search] strict query:', {
+      service_area: strictParams.get('service_area') ?? '(なし)',
+      keyword:      strictParams.get('keyword')      ?? '(なし)',
+      genre:        strictParams.get('genre')        ?? '(なし)',
+      budget:       strictParams.get('budget')       ?? '(なし)',
+      private_room: strictParams.get('private_room') ?? '(なし)',
+      free_drink:   strictParams.get('free_drink')   ?? '(なし)',
+      count:        strictParams.get('count'),
+      url: result.url,
+      resultCount: shops.length,
+    })
+
     // 緩和順: 飲み放題 → 個室 → 予算 → ジャンル（エリアは緩和しない）
 
     // 1. 飲み放題を外す（最も弱い条件）
@@ -558,7 +575,7 @@ export async function POST(req: NextRequest) {
     {
       const requestedGenreCode = finalParams.get('genre') ?? null
       const diagArea = resolveAreaForSearch(areas)
-      const diagStation = diagArea.type === 'keyword' ? diagArea.value : ''
+      const diagStation = 'stationName' in diagArea ? diagArea.stationName : ''
       console.log('[hotpepper/search] shop diagnostics:', {
         station: diagStation || '(未設定)',
         maxWalk,
@@ -590,7 +607,10 @@ export async function POST(req: NextRequest) {
     }
     // ────────────────────────────────────────────────────────────────────────
 
-    const { shops: sortedShops, budgetRelaxedForBest } = sortShopsByPrimaryArea(shops, areas, maxWalk, budgetCode)
+    const { shops: sortedShops, budgetRelaxedForBest: tierFlag } = sortShopsByPrimaryArea(shops, areas, maxWalk, budgetCode)
+    // mode が relaxed-no-budget の場合、三段判定に関わらず常に予算緩和フラグを立てる
+    // （primaryArea 未設定でも抜け穴が生じないよう、ここで上書き）
+    const budgetRelaxedForBest = tierFlag || mode === 'relaxed-no-budget'
     const stores = sortedShops.map(mapShopToStore)
 
     return NextResponse.json({
