@@ -321,30 +321,66 @@ function scoreStoreForArea(shop: any, primaryArea: string, maxWalk: number | nul
   return score
 }
 
+/**
+ * Build the final shop list with two-tier filtering (general — any station).
+ *
+ * Priority pool:
+ *   station match in access (standalone) AND within walk limit
+ *   (when no walk limit is set, station match alone qualifies)
+ *
+ * Supplementary pool:
+ *   everything else (nearby areas, other stations, etc.)
+ *
+ * Rule:
+ *   If priority.length >= PRIORITY_MIN → return ONLY priority shops.
+ *     The "meaning of choosing this station" holds across the whole list.
+ *   If priority.length < PRIORITY_MIN  → pad with supplementary to avoid an
+ *     empty list, but priority shops still come first.
+ *
+ * Within each pool, position 0 is kept fixed; positions 1+ get light jitter
+ * for variety across re-searches.
+ */
 function sortShopsByPrimaryArea(shops: any[], areas: string[], maxWalk: number | null) {
   const resolvedArea = resolveAreaForSearch(areas)
   const primaryArea = resolvedArea.type === 'keyword' ? resolvedArea.value : ''
 
   if (!primaryArea) return shops
 
-  const scored = shops.map(s => ({
-    shop: s,
-    baseScore: scoreStoreForArea(s, primaryArea, maxWalk),
-  }))
-  scored.sort((a, b) => b.baseScore - a.baseScore)
+  // Minimum priority shops needed before we drop the supplementary pool entirely
+  const PRIORITY_MIN = 3
 
-  if (scored.length <= 1) return scored.map(s => s.shop)
+  const scored = shops.map(s => {
+    const access = String(s?.access ?? '')
+    const stationMatch = stationInAccess(access, primaryArea)
+    const walkMins = parseWalkMinutes(access)
+    const withinWalk = maxWalk === null || walkMins === null || walkMins <= maxWalk
+    return {
+      shop: s,
+      baseScore: scoreStoreForArea(s, primaryArea, maxWalk),
+      isPriority: stationMatch && withinWalk,
+    }
+  })
 
-  // Keep the clear best at position 0; add light jitter to the rest
-  // so the 2nd–5th positions vary between calls (fresh feel on re-search)
-  const [top, ...rest] = scored
-  const jittered = rest.map(s => ({
-    shop: s.shop,
-    score: s.baseScore + Math.random() * 2,
-  }))
-  jittered.sort((a, b) => b.score - a.score)
+  const priority     = scored.filter(s => s.isPriority)
+  const supplementary = scored.filter(s => !s.isPriority)
 
-  return [top.shop, ...jittered.map(s => s.shop)]
+  // Sort a pool: position 0 fixed, positions 1+ lightly jittered for variety
+  const sortPool = (pool: typeof scored): any[] => {
+    pool.sort((a, b) => b.baseScore - a.baseScore)
+    if (pool.length <= 1) return pool.map(s => s.shop)
+    const [top, ...rest] = pool
+    const jittered = rest.map(s => ({ shop: s.shop, score: s.baseScore + Math.random() * 2 }))
+    jittered.sort((a, b) => b.score - a.score)
+    return [top.shop, ...jittered.map(s => s.shop)]
+  }
+
+  if (priority.length >= PRIORITY_MIN) {
+    // Enough on-station + on-walk shops: drop nearby-area candidates entirely
+    return sortPool(priority)
+  }
+
+  // Too few priority shops: pad with supplementary to avoid an empty list
+  return [...sortPool(priority), ...sortPool(supplementary)]
 }
 
 export async function POST(req: NextRequest) {
