@@ -208,15 +208,13 @@ function buildBaseParams(args: {
   })
 
   // エリア（最優先 — 緩和しない）
-  // service_area: HP サイトのエリア選択と同等 → 店名に駅名がなくてもヒットする
-  // keyword: 未知駅名のフォールバック（name/catch/address/access の全文検索）
+  // keyword="${stationName}駅": HP の access フィールドも検索対象のため
+  //   "JR横浜駅 徒歩3分" のような文字列にマッチし、指定駅周辺店を確実に絞れる。
+  // large_service_area=SS10: 関東圏に固定してノイズを防ぐ（keyword と併用可）
   const resolvedArea = resolveAreaForSearch(areas)
-  if (resolvedArea.type === 'service_area') {
-    params.set('service_area', resolvedArea.code)
-  } else if (resolvedArea.type === 'keyword') {
+  params.set('large_service_area', 'SS10')
+  if (resolvedArea.type === 'keyword') {
     params.set('keyword', resolvedArea.value)
-  } else {
-    params.set('large_service_area', 'SS10')
   }
 
   // ジャンル（第2優先）
@@ -609,6 +607,34 @@ export async function POST(req: NextRequest) {
           }
         }),
       })
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
+    // ── 候補母集団の健全性チェック ─────────────────────────────────────────
+    // stationMatch が全件 0 の場合、keyword 検索が意図しないエリアを取っている可能性が高い。
+    // Gemini に渡さず、フォールバックとして扱う。
+    {
+      const diagArea = resolveAreaForSearch(areas)
+      const diagStation = 'stationName' in diagArea ? diagArea.stationName : ''
+      if (diagStation) {
+        const matchCount = shops.filter(s => shopMatchesStation(s, diagStation)).length
+        const matchRate = shops.length > 0 ? matchCount / shops.length : 0
+        console.log('[hotpepper/search] station match rate:', {
+          station: diagStation,
+          matchCount,
+          total: shops.length,
+          rate: `${Math.round(matchRate * 100)}%`,
+        })
+        if (matchCount === 0 && shops.length > 0) {
+          console.warn('[hotpepper/search] 全候補が駅不一致 — keyword 検索が別エリアを取った可能性')
+          return NextResponse.json({
+            stores: pickFallbackStores(),
+            fallback: true,
+            error: `「${diagStation}駅」周辺の候補が見つかりませんでした。条件を変えてお試しください。`,
+            searchMode: mode,
+          })
+        }
+      }
     }
     // ────────────────────────────────────────────────────────────────────────
 
