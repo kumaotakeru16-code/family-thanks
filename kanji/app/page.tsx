@@ -2447,26 +2447,33 @@ return (
       <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 9</p>
       <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">お店を選ぶ</h2>
     </div>
-{storeFetchError && (
-  <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-100">
-    {storeFetchError}
+{storePool.length === 0 ? (
+  /* ── 空状態: 候補なし ───────────────────────────────────────── */
+  <div className="rounded-3xl bg-stone-50 px-6 py-10 text-center ring-1 ring-stone-100">
+    <p className="text-base font-bold text-stone-700">指定駅・徒歩条件に合う候補が見つかりませんでした</p>
+    <p className="mt-2 text-sm leading-6 text-stone-500">
+      {storeFetchError || '徒歩条件を広げるか、価格帯やジャンル条件を見直してください。'}
+    </p>
+    <div className="mt-5">
+      <GhostBtn onClick={() => setStep('organizerConditions')}>条件を調整する</GhostBtn>
+    </div>
   </div>
-)}
-{storeSelectNotes.map((note, i) => (
-  <div key={i} className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700 ring-1 ring-sky-100">
-    {note}
-  </div>
-))}
-{placesFallback && (
-  <p className="text-center text-xs text-stone-400">現在は評価補完なしで候補を表示しています</p>
-)}
-{storePool.length === 0 && (
-  <div className="rounded-3xl bg-stone-50 px-6 py-8 text-center ring-1 ring-stone-100">
-    <p className="text-base font-bold text-stone-700">候補が見つかりませんでした</p>
-    <p className="mt-2 text-sm text-stone-400">条件を変えてもう一度お試しください。</p>
-    <div className="mt-4"><GhostBtn onClick={() => setStep('organizerConditions')}>条件を調整する</GhostBtn></div>
-  </div>
-)}
+) : (
+  /* ── 候補あり ────────────────────────────────────────────────── */
+  <>
+    {storeFetchError && (
+      <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-100">
+        {storeFetchError}
+      </div>
+    )}
+    {storeSelectNotes.map((note, i) => (
+      <div key={i} className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700 ring-1 ring-sky-100">
+        {note}
+      </div>
+    ))}
+    {placesFallback && (
+      <p className="text-center text-xs text-stone-400">現在は評価補完なしで候補を表示しています</p>
+    )}
 
     {/* 第一候補 — dark hero */}
     {primaryStore && (
@@ -2499,18 +2506,18 @@ return (
           )}
         </div>
 
-<div className="px-6 py-5">
-  {primaryStore?.link && (
-    <a
-      href={primaryStore.link}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-4 text-base font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
-    >
-      予約ページを見る
-    </a>
-  )}
-</div>
+        <div className="px-6 py-5">
+          {primaryStore.link && (
+            <a
+              href={primaryStore.link}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-4 text-base font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
+            >
+              予約ページを見る
+            </a>
+          )}
+        </div>
       </div>
     )}
 
@@ -2559,10 +2566,12 @@ return (
       </div>
     )}
 
-<PrimaryBtn size="large" onClick={loadFinalDecisionView}>
-  この候補で進む
-</PrimaryBtn>
+    <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
+      この候補で進む
+    </PrimaryBtn>
     <GhostBtn onClick={() => setStep('organizerConditions')}>条件を調整する</GhostBtn>
+  </>
+)}
   </div>
 )}
 
