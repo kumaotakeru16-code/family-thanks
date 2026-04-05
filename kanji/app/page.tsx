@@ -1246,6 +1246,34 @@ async function fetchRecommendedStores() {
       }
     }
 
+    // ── Step 2.5: クライアント側で駅フィルタを再適用 ─────────────────────
+    // Gemini が駅条件を守り損ねた場合や leftover に別駅店が混ざる場合の保険。
+    // stationName が空文字（HP が駅情報を返さなかった店）は除外しない。
+    const targetStation = orgPrefs.areas[0] ?? ''
+    if (targetStation) {
+      const stationFiltered = rankedStores.filter(
+        s => s.stationName === targetStation || s.stationName === ''
+      )
+      console.log('[fetchRecommendedStores] station filter:', {
+        target: targetStation,
+        before: rankedStores.length,
+        after: stationFiltered.length,
+        excluded: rankedStores
+          .filter(s => s.stationName && s.stationName !== targetStation)
+          .map(s => ({ name: s.name, stationName: s.stationName })),
+      })
+      if (stationFiltered.length === 0) {
+        // 駅一致候補が0件 → 別駅候補を出さない
+        setStoreFetchError('指定駅に近い候補が見つかりませんでした。条件を変えてお試しください。')
+        setRecommendedStores([])
+        setSelectedStoreId('')
+        setStoreSelectNotes([])
+        setStep('storeSuggestion')
+        return
+      }
+      rankedStores = stationFiltered
+    }
+
     // ── Step 3: 表示件数を絞る（Best + 他 4件 = 最大 5件）────────────────
     const displayStores = rankedStores.slice(0, PLACES_ENRICH_LIMIT)
 
