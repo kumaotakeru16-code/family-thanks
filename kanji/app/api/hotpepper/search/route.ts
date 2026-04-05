@@ -321,20 +321,20 @@ function scoreStoreForArea(
 }
 
 /**
- * Build the final shop list with two-tier filtering (general — any station).
+ * Build the final shop list with three-tier filtering (general — any station).
  *
- * Priority pool:
- *   station match in access (standalone) AND within walk limit
- *   (when no walk limit is set, station match alone qualifies)
+ * Tiers:
+ *   priority     = station match + within walk + price match
+ *   nearPriority = station match + within walk   (wrong price)
+ *   supplementary = everything else
  *
- * Supplementary pool:
- *   everything else (nearby areas, other stations, etc.)
- *
- * Rule:
- *   If priority.length >= PRIORITY_MIN → return ONLY priority shops.
- *     The "meaning of choosing this station" holds across the whole list.
- *   If priority.length < PRIORITY_MIN  → pad with supplementary to avoid an
- *     empty list, but priority shops still come first.
+ * Rules:
+ *   priority >= PRIORITY_MIN  → show only priority (Best is price-correct)
+ *   priority > 0              → show priority + nearPriority + supp(cap 2),
+ *                               Best is still price-correct
+ *   priority = 0, near > 0   → show nearPriority + supp(cap 2),
+ *                               Best is nearPriority → budgetRelaxedForBest = true
+ *   all empty                 → show supplementary (no budget relaxation signal)
  *
  * Within each pool, position 0 is kept fixed; positions 1+ get light jitter
  * for variety across re-searches.
@@ -344,11 +344,11 @@ function sortShopsByPrimaryArea(
   areas: string[],
   maxWalk: number | null,
   budgetCode: string | null
-) {
+): { shops: any[]; budgetRelaxedForBest: boolean } {
   const resolvedArea = resolveAreaForSearch(areas)
   const primaryArea = resolvedArea.type === 'keyword' ? resolvedArea.value : ''
 
-  if (!primaryArea) return shops
+  if (!primaryArea) return { shops, budgetRelaxedForBest: false }
 
   // Minimum priority shops needed before we drop the supplementary pool entirely
   const PRIORITY_MIN = 3
@@ -364,12 +364,15 @@ function sortShopsByPrimaryArea(
     return {
       shop: s,
       baseScore: scoreStoreForArea(s, primaryArea, maxWalk, budgetCode),
-      isPriority: stationMatch && withinWalk && priceMatch,
+      stationMatch,
+      withinWalk,
+      priceMatch,
     }
   })
 
-  const priority     = scored.filter(s => s.isPriority)
-  const supplementary = scored.filter(s => !s.isPriority)
+  const priority     = scored.filter(s => s.stationMatch && s.withinWalk && s.priceMatch)
+  const nearPriority = scored.filter(s => s.stationMatch && s.withinWalk && !s.priceMatch)
+  const supplementary = scored.filter(s => !(s.stationMatch && s.withinWalk))
 
   // Sort a pool: position 0 fixed, positions 1+ lightly jittered for variety
   const sortPool = (pool: typeof scored): any[] => {
@@ -381,16 +384,33 @@ function sortShopsByPrimaryArea(
     return [top.shop, ...jittered.map(s => s.shop)]
   }
 
+  // Enough price-correct shops: show only priority
   if (priority.length >= PRIORITY_MIN) {
-    // Enough on-station + on-walk shops: drop nearby-area candidates entirely
-    return sortPool(priority)
+    return { shops: sortPool(priority), budgetRelaxedForBest: false }
   }
 
-  // Too few priority shops: pad with top-2 supplementary only.
-  // Capping at 2 prevents nearby-area shops from flooding the list
-  // even when priority is insufficient.
-  const sortedSupplementary = sortPool(supplementary).slice(0, 2)
-  return [...sortPool(priority), ...sortedSupplementary]
+  // Some price-correct shops: priority first, then nearPriority, then cap-2 supplementary
+  if (priority.length > 0) {
+    const sortedNear = sortPool(nearPriority)
+    const sortedSupp = sortPool(supplementary).slice(0, 2)
+    return {
+      shops: [...sortPool(priority), ...sortedNear, ...sortedSupp],
+      budgetRelaxedForBest: false,
+    }
+  }
+
+  // No price-correct shops: Best comes from nearPriority → flag budget relaxation
+  if (nearPriority.length > 0) {
+    const sortedNear = sortPool(nearPriority)
+    const sortedSupp = sortPool(supplementary).slice(0, 2)
+    return {
+      shops: [...sortedNear, ...sortedSupp],
+      budgetRelaxedForBest: true,
+    }
+  }
+
+  // No station+walk match at all: return supplementary as-is
+  return { shops: sortPool(supplementary), budgetRelaxedForBest: false }
 }
 
 export async function POST(req: NextRequest) {
@@ -532,13 +552,14 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const sortedShops = sortShopsByPrimaryArea(shops, areas, maxWalk, budgetCode)
+    const { shops: sortedShops, budgetRelaxedForBest } = sortShopsByPrimaryArea(shops, areas, maxWalk, budgetCode)
     const stores = sortedShops.map(mapShopToStore)
 
     return NextResponse.json({
       stores,
       fallback: false,
       searchMode: mode,
+      budgetRelaxedForBest,
     })
   } catch (e: any) {
     console.error('[hotpepper/search] error:', e?.message ?? e)

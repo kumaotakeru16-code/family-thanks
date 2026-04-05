@@ -504,6 +504,7 @@ export default function Page() {
   const [recommendedStores, setRecommendedStores] = useState<StoreCandidate[]>([])
   const [isLoadingStores, setIsLoadingStores] = useState(false)
   const [storeFetchError, setStoreFetchError] = useState('')
+  const [budgetRelaxed, setBudgetRelaxed] = useState(false)
   const [eventDetail, setEventDetail] = useState<any>(null)
   const [copied, setCopied] = useState(false)
 
@@ -1126,6 +1127,7 @@ async function fetchRecommendedStores() {
 
   setIsLoadingStores(true)
   setStoreFetchError('')
+  setBudgetRelaxed(false)
 
 
   
@@ -1231,6 +1233,8 @@ async function fetchRecommendedStores() {
 
     setRecommendedStores(finalStores)
     setSelectedStoreId(finalStores[0]?.id ?? '')
+
+    setBudgetRelaxed(!!data?.budgetRelaxedForBest)
 
     if (data?.fallback) {
       setStoreFetchError(
@@ -2341,7 +2345,11 @@ return (
     {storeFetchError}
   </div>
 )}
-
+{budgetRelaxed && !storeFetchError && (
+  <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700 ring-1 ring-sky-100">
+    条件に合う候補が少ないため、価格帯を少し広げて表示しています
+  </div>
+)}
 
     {/* 第一候補 — dark hero */}
     {primaryStore && (
