@@ -58,6 +58,9 @@ type StoreCandidate = {
   tags?: string[]
   googleRating?: number
   googleRatingCount?: number
+  // Passed to Gemini for station/price selection logic; not rendered directly
+  stationName?: string
+  budgetCode?: string
 }
 type PastStore = {
   id: string
@@ -99,6 +102,22 @@ const HP_GENRE_OPTIONS = [
   'バー・ダイニングバー',
   'アジア・エスニック',
 ]
+
+// UIラベル → Hot Pepper 予算コードの変換マップ（Gemini 選定ルールに渡すため）
+const BUDGET_CODE_MAP: Record<string, string> = {
+  '3,000円以下':     'B005',
+  '3,001〜4,000円': 'B006',
+  '4,001〜5,000円': 'B007',
+  '5,001〜7,000円': 'B008',
+  '7,001〜10,000円': 'B009',
+}
+
+/**
+ * Google Places enrich 対象件数。
+ * Gemini が選んだ上位 N 件だけを enrich する（全候補に叩かない）。
+ * 3 / 4 / 5 / 6 と後から数字を変えるだけで調整できる。
+ */
+const PLACES_ENRICH_LIMIT = 5
 
 // UIラベル → Hot Pepper ジャンルコードの変換マップ（クライアント側で解決し、ラベル変更に引きずられないようにする）
 const GENRE_CODE_MAP: Record<string, string> = {
@@ -504,7 +523,8 @@ export default function Page() {
   const [recommendedStores, setRecommendedStores] = useState<StoreCandidate[]>([])
   const [isLoadingStores, setIsLoadingStores] = useState(false)
   const [storeFetchError, setStoreFetchError] = useState('')
-  const [budgetRelaxed, setBudgetRelaxed] = useState(false)
+  /** Condition-relaxation notes from Gemini (e.g. walk expanded, price widened) */
+  const [storeSelectNotes, setStoreSelectNotes] = useState<string[]>([])
   const [eventDetail, setEventDetail] = useState<any>(null)
   const [copied, setCopied] = useState(false)
 
@@ -1127,24 +1147,13 @@ async function fetchRecommendedStores() {
 
   setIsLoadingStores(true)
   setStoreFetchError('')
-  setBudgetRelaxed(false)
+  setStoreSelectNotes([])
 
-
-  
   try {
-    // クライアント側でUIラベル → HPコードに変換してから送る
-    // これによりラベル文言を変えても検索が壊れない
+    // ── Step 1: Hot Pepper で候補取得 ────────────────────────────────────────
     const genreCodes = orgPrefs.genres
       .map(g => GENRE_CODE_MAP[g])
       .filter((c): c is string => Boolean(c))
-
-    console.log('[fetchRecommendedStores]', {
-      genres: orgPrefs.genres,
-      genreCodes,
-      areas: orgPrefs.areas,
-      priceRange: orgPrefs.priceRange,
-      privateRoom: orgPrefs.privateRoom,
-    })
 
     const hpRes = await fetch('/api/hotpepper/search', {
       method: 'POST',
@@ -1159,34 +1168,93 @@ async function fetchRecommendedStores() {
         count: 30,
       }),
     })
+    if (!hpRes.ok) throw new Error(`HTTP ${hpRes.status}`)
 
-    if (!hpRes.ok) {
-      throw new Error(`HTTP ${hpRes.status}`)
-    }
+    const hpData = await hpRes.json()
+    console.log('[fetchRecommendedStores] hp:', { mode: hpData.searchMode, count: hpData.stores?.length })
 
-    const data = await hpRes.json()
-    console.log('hotpepper search result:', data)
-
-    const stores: StoreCandidate[] = (data.stores ?? []).map((s: any, index: number) => ({
-      id: s.id ?? `hp-store-${index + 1}`,
-      name: s.name ?? `候補${index + 1}`,
+    const hpStores: StoreCandidate[] = (hpData.stores ?? []).map((s: any, i: number) => ({
+      id: s.id ?? `hp-store-${i + 1}`,
+      name: s.name ?? `候補${i + 1}`,
       area: s.area ?? '未設定',
       access: s.access ?? '',
       image: s.image ?? undefined,
       reason: s.reason ?? '条件に合いやすい候補です',
       link: typeof s.link === 'string' ? s.link : '',
       tags: Array.isArray(s.tags) ? s.tags.slice(0, 4) : [],
+      stationName: s.stationName ?? '',
+      budgetCode: s.budgetCode ?? '',
+      genre: s.genre ?? '',
     }))
 
-    // --- Google Places enrichment (non-blocking) ---
-    // Fetch ratings in parallel; failures are silently ignored → stores keep their HP order
+    // ── Step 2: Gemini で選定・順位付け・理由生成 ──────────────────────────
+    // Gemini が失敗しても HP 順位で続行するため try-catch で囲む
+    let rankedStores = hpStores
+    let selectNotes: string[] = []
+
+    if (hpStores.length > 0) {
+      try {
+        const walkNum = orgPrefs.walkMinutes
+          ? parseInt(orgPrefs.walkMinutes.replace('分以内', ''), 10) || null
+          : null
+        const conditions = {
+          targetStation: orgPrefs.areas[0] ?? '',
+          maxWalkMinutes: walkNum,
+          budgetCode: BUDGET_CODE_MAP[orgPrefs.priceRange] ?? '',
+          budgetLabel: orgPrefs.priceRange,
+          genre: orgPrefs.genres[0] ?? '',
+        }
+
+        const selRes = await fetch('/api/store-select', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stores: hpStores, conditions }),
+        })
+
+        if (selRes.ok) {
+          const selData = await selRes.json()
+          const sel = selData.selection
+          if (sel?.rankedStoreIds?.length > 0) {
+            // Gemini の順位で並び替え
+            const byId = new Map(hpStores.map(s => [s.id, s]))
+            const reordered = (sel.rankedStoreIds as string[])
+              .map(id => byId.get(id))
+              .filter((s): s is StoreCandidate => !!s)
+            // Gemini が選ばなかった店は末尾に（フォールバック用）
+            const selectedIds = new Set(sel.rankedStoreIds as string[])
+            const leftover = hpStores.filter(s => !selectedIds.has(s.id))
+            rankedStores = [...reordered, ...leftover]
+
+            // Gemini の理由文をマージ
+            const reasonMap = Object.fromEntries(
+              (sel.reasons ?? []).map((r: any) => [r.storeId, r.reason])
+            )
+            rankedStores = rankedStores.map(s => ({
+              ...s,
+              reason: reasonMap[s.id] || s.reason,
+            }))
+
+            selectNotes = Array.isArray(sel.fallbackNotes) ? sel.fallbackNotes : []
+          }
+        }
+      } catch {
+        // Gemini 失敗 → HP 順位で続行（ログのみ）
+        console.warn('[fetchRecommendedStores] Gemini selection failed, using HP order')
+      }
+    }
+
+    // ── Step 3: 表示件数を絞る（Best + 他 4件 = 最大 5件）────────────────
+    const displayStores = rankedStores.slice(0, PLACES_ENRICH_LIMIT)
+
+    // ── Step 4: Google Places enrich（上位 PLACES_ENRICH_LIMIT 件のみ）────
+    // 1 回の候補生成で 1 回だけ。失敗・quota 超過時はそのまま続行。
     let enrichedMap = new Map<string, { rating: number; userRatingCount: number }>()
     try {
       const enrichRes = await fetch('/api/places/enrich', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          stores: stores.map(s => ({ id: s.id, name: s.name, area: s.area, access: s.access })),
+          stores: displayStores.map(s => ({ id: s.id, name: s.name, area: s.area, access: s.access })),
         }),
       })
       if (enrichRes.ok) {
@@ -1196,52 +1264,37 @@ async function fetchRecommendedStores() {
         })
       }
     } catch {
-      // Places enrichment failed → proceed without ratings
+      // Places 失敗 → 評価なしで続行（アプリは止めない）
     }
 
-    // Merge Google ratings into store objects
-    const enrichedStores: StoreCandidate[] = stores.map(s => ({
+    // ── Step 5: Google 評価を反映して最終並び替え ─────────────────────────
+    // Best（Gemini の 1位）は固定。2位以降を Google スコアで微調整。
+    const withRatings: StoreCandidate[] = displayStores.map(s => ({
       ...s,
       googleRating: enrichedMap.get(s.id)?.rating,
       googleRatingCount: enrichedMap.get(s.id)?.userRatingCount,
     }))
 
-    // Google score: rating × log10(count), capped at 10
     function googleScore(s: StoreCandidate): number {
       if (!s.googleRating || !s.googleRatingCount) return 0
       return Math.min(s.googleRating * Math.log10(Math.max(s.googleRatingCount, 1)) * 1.5, 10)
     }
 
-    // Best候補（position 0）はサーバーの順位を固定する。
-    // サーバーは「選択駅 + 徒歩条件」でスコアリング済みなので、
-    // Google スコアで上書きすると駅優先の意図が崩れる。
-    // Google スコアは 2位以降の並び替えにのみ使う。
-    const [serverBest, ...serverRest] = enrichedStores
-
-    const restRanked = serverRest
-      .map((s, i) => ({
-        store: s,
-        score: (serverRest.length - i) * 2 + googleScore(s),
-      }))
+    const [gemBest, ...gemRest] = withRatings
+    const restRanked = gemRest
+      .map((s, i) => ({ store: s, score: (gemRest.length - i) * 2 + googleScore(s) }))
       .sort((a, b) => b.score - a.score)
       .map(({ store }) => store)
-
-    // 2位は Google スコア最上位、3位以降は軽くシャッフルして多様性を出す
     const [second, ...rest] = restRanked
     const shuffled = [...rest].sort(() => Math.random() - 0.5)
-    const finalStores = [serverBest, second, ...shuffled].filter((s): s is StoreCandidate => !!s)
+    const finalStores = [gemBest, second, ...shuffled].filter((s): s is StoreCandidate => !!s)
 
     setRecommendedStores(finalStores)
     setSelectedStoreId(finalStores[0]?.id ?? '')
+    setStoreSelectNotes(selectNotes)
 
-    const isRelaxed = !!data?.budgetRelaxedForBest
-    setBudgetRelaxed(isRelaxed)
-    if (isRelaxed) setShowAltStores(true)
-
-    if (data?.fallback) {
-      setStoreFetchError(
-        data?.error ?? '条件に合う店が見つからなかったため、参考候補を表示しています。'
-      )
+    if (hpData?.fallback) {
+      setStoreFetchError(hpData?.error ?? '条件に合う店が見つからなかったため、参考候補を表示しています。')
     } else {
       setStoreFetchError('')
     }
@@ -2347,14 +2400,14 @@ return (
     {storeFetchError}
   </div>
 )}
-{budgetRelaxed && !storeFetchError && (
-  <div className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700 ring-1 ring-sky-100">
-    条件に合う候補が少ないため、価格帯を少し広げて表示しています
+{storeSelectNotes.map((note, i) => (
+  <div key={i} className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700 ring-1 ring-sky-100">
+    {note}
   </div>
-)}
+))}
 
-    {/* 第一候補 — dark hero（価格帯緩和時は非表示） */}
-    {primaryStore && !budgetRelaxed && (
+    {/* 第一候補 — dark hero */}
+    {primaryStore && (
       <div className="overflow-hidden rounded-3xl bg-stone-900">
         <div className="px-6 py-6">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">Best Choice</p>
@@ -2374,7 +2427,7 @@ return (
 
         <div className="bg-white/[0.06] px-6 py-5">
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-1.5">この会に合う理由</p>
-          <p className="text-sm leading-6 text-white/70">{storeReason || primaryStore.reason}</p>
+          <p className="text-sm leading-6 text-white/70">{primaryStore.reason || storeReason}</p>
           {primaryStore.googleRating && (
             <p className="mt-3 text-xs text-white/40">
               <span className="text-white/60">Google</span>
@@ -2399,26 +2452,23 @@ return (
       </div>
     )}
 
-    {/* 他候補: 折りたたみ + 選択可能 */}
-    {/* 補欠モード（budgetRelaxed）時は全候補をリスト表示、折りたたみなし */}
-    {(budgetRelaxed ? storePool : secondaryStores).length > 0 && (
+    {/* 他候補: 折りたたみ + 選択可能（最大 4件） */}
+    {secondaryStores.length > 0 && (
       <div>
-        {!budgetRelaxed && (
-          <button
-            type="button"
-            onClick={() => setShowAltStores(v => !v)}
-            className="w-full text-center text-xs font-bold text-stone-400 underline underline-offset-2 transition hover:text-stone-600"
-          >
-            {showAltStores ? 'ほかの候補を閉じる' : `ほかの候補を見る（${secondaryStores.length}件）`}
-          </button>
-        )}
-        {(budgetRelaxed || showAltStores) && (
+        <button
+          type="button"
+          onClick={() => setShowAltStores(v => !v)}
+          className="w-full text-center text-xs font-bold text-stone-400 underline underline-offset-2 transition hover:text-stone-600"
+        >
+          {showAltStores ? 'ほかの候補を閉じる' : `ほかの候補を見る（${secondaryStores.length}件）`}
+        </button>
+        {showAltStores && (
           <div className="mt-3 space-y-1.5">
-            {(budgetRelaxed ? storePool : secondaryStores).map((store: StoreCandidate) => (
+            {secondaryStores.map((store: StoreCandidate) => (
               <button
                 type="button"
                 key={store.id}
-                onClick={() => { setSelectedStoreId(store.id); if (!budgetRelaxed) setShowAltStores(false) }}
+                onClick={() => { setSelectedStoreId(store.id); setShowAltStores(false) }}
                 className={cx(
                   'flex w-full items-center justify-between rounded-2xl px-4 py-3 ring-1 transition hover:bg-stone-50 active:scale-[0.99]',
                   selectedStoreId === store.id

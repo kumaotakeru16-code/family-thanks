@@ -160,6 +160,10 @@ function mapShopToStore(shop: any) {
     ]
       .filter((t): t is string => Boolean(t))
       .slice(0, 4),
+    // Fields used by Gemini for selection logic (not rendered directly)
+    stationName: typeof shop.station_name === 'string' ? shop.station_name : '',
+    budgetCode: typeof shop.budget?.code === 'string' ? shop.budget.code : '',
+    genre: shop.genre?.name ?? '',
   }
 }
 
