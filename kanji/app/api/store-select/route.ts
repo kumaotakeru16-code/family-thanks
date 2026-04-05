@@ -1,13 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-/**
- * POST /api/store-select
- *
- * Accepts a pool of Hot Pepper candidates + organizer conditions and calls
- * Gemini to select the Best Choice, rank the others, generate per-store
- * reasons, and surface any condition-relaxation notes.
- */
-
 export const GEMINI_RANK_LIMIT = 5
 
 const BUDGET_LABELS: Record<string, string> = {
@@ -26,8 +18,8 @@ type StoreInput = {
   budgetCode?: string
   genre?: string
   tags?: string[]
-  googleRating?: number
-  googleRatingCount?: number
+  googleRating?: number | null
+  googleRatingCount?: number | null
 }
 
 type SelectionConditions = {
@@ -79,9 +71,9 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
 - ジャンル: ${genreStr}
 
 ## 前提
-- 候補店リストは事前に機械的な圧縮・整列が行われています
-- そのため、あなたは「最終順位づけ」と「理由文の生成」に集中してください
-- ただし、指定駅との一致や徒歩条件は引き続き重視してください
+- 候補店リストは Hot Pepper の条件一致結果を元にしています
+- あなたは「最終順位づけ」と「理由文の生成」に集中してください
+- Google評価は補助条件です。無い場合は無視してください
 
 ## 選定ルール（優先順位順に厳守してください）
 
@@ -116,6 +108,7 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
 
 6. **総合的な納得感**
    - 上記を満たした上で、会の趣旨に自然に合う順に並べてください
+   - 幹事が他人に説明しやすい店を優先してください
 
 ## 返却形式（JSONのみ。説明文は不要）
 {
