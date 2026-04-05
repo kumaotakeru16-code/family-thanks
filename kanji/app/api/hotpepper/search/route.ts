@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { resolveAreaForSearch } from '@/app/lib/area-resolver'
 
 // Hot Pepper budget codes
 const BUDGET_MAP: Record<string, string> = {
-  '3,000円以下': 'B005',        // 2001〜3000円
-  '3,001〜4,000円': 'B006',    // 3001〜4000円
-  '4,001〜5,000円': 'B007',    // 4001〜5000円
-  '5,001〜7,000円': 'B008',    // 5001〜7000円
-  '7,001〜10,000円': 'B009',   // 7001〜10000円
+  '3,000円以下': 'B005',
+  '3,001〜4,000円': 'B006',
+  '4,001〜5,000円': 'B007',
+  '5,001〜7,000円': 'B008',
+  '7,001〜10,000円': 'B009',
   '指定なし': '',
 }
 
@@ -19,7 +18,7 @@ const GENRE_MAP: Record<string, string> = {
   'イタリアン・フレンチ': 'G006',
   '中華': 'G007',
   '焼肉・ホルモン': 'G008',
-  '焼き鳥': 'G001',       // 居酒屋カテゴリが最近似（HP に焼き鳥専用コードなし）
+  '焼き鳥': 'G001', // HP に焼き鳥専用コードがないため居酒屋で取得し後段で圧縮
   '韓国料理': 'G017',
   'カフェ・スイーツ': 'G014',
   'バー・ダイニングバー': 'G012',
@@ -143,7 +142,29 @@ function buildReason(shop: any): string {
   return '条件に合う候補です'
 }
 
+function buildShopTags(shop: any): string[] {
+  const raw = [
+    shop?.genre?.name,
+    shop?.sub_genre?.name,
+    shop?.catch,
+    shop?.budget?.average ? `予算${shop.budget.average}` : undefined,
+    hasPrivateRoom(shop) ? '個室あり' : undefined,
+    shop?.wifi === 'あり' ? 'WiFiあり' : undefined,
+    shop?.name,
+  ]
+    .filter((v): v is string => Boolean(v))
+    .join(' ')
+
+  const tags = new Set<string>()
+  if (/焼き鳥|やきとり|串焼|串揚|串|鶏料理/.test(raw)) tags.add('焼き鳥系')
+  if (/焼肉|ホルモン/.test(raw)) tags.add('焼肉系')
+  if (/海鮮|魚|寿司|刺身/.test(raw)) tags.add('海鮮系')
+  if (/個室/.test(raw)) tags.add('個室あり')
+  return Array.from(tags)
+}
+
 function mapShopToStore(shop: any) {
+  const derivedTags = buildShopTags(shop)
   return {
     id: shop.id,
     name: shop.name,
@@ -157,10 +178,10 @@ function mapShopToStore(shop: any) {
       shop.budget?.average ? `予算${shop.budget.average}` : undefined,
       hasPrivateRoom(shop) ? '個室あり' : undefined,
       shop.wifi === 'あり' ? 'WiFiあり' : undefined,
+      ...derivedTags,
     ]
       .filter((t): t is string => Boolean(t))
-      .slice(0, 4),
-    // Fields used by Gemini for selection logic (not rendered directly)
+      .slice(0, 6),
     stationName: typeof shop.station_name === 'string' ? shop.station_name : '',
     budgetCode: typeof shop.budget?.code === 'string' ? shop.budget.code : '',
     genre: shop.genre?.name ?? '',
@@ -193,7 +214,6 @@ function buildBaseParams(args: {
   apiKey: string
   areas: string[]
   priceRange: string
-  /** Pre-resolved HP genre codes (e.g. 'G001') OR legacy label strings — codes take priority */
   genres: string[]
   privateRoom: string
   allYouCanDrink: string
@@ -207,36 +227,29 @@ function buildBaseParams(args: {
     count: String(Math.min(Math.max(count, 1), 30)),
   })
 
-  // エリア（最優先 — 緩和しない）
-  // keyword="${stationName}駅": HP の access フィールドも検索対象のため
-  //   "JR横浜駅 徒歩3分" のような文字列にマッチし、指定駅周辺店を確実に絞れる。
-  // large_service_area=SS10: 関東圏に固定してノイズを防ぐ（keyword と併用可）
-  const resolvedArea = resolveAreaForSearch(areas)
+  // Hot Pepper では広めに取得し、横浜駅徒歩圏などの厳格判定は後段で行う
+  const primaryArea = areas[0]?.trim() ?? ''
   params.set('large_service_area', 'SS10')
-  if (resolvedArea.type === 'keyword') {
-    params.set('keyword', resolvedArea.value)
+  if (primaryArea) {
+    params.set('keyword', primaryArea)
   }
 
-  // ジャンル（第2優先）
   const genreCode = genres
-    .map(g => (g.startsWith('G') && g.length <= 4 ? g : GENRE_MAP[g]))
+    .map((g) => (g.startsWith('G') && g.length <= 4 ? g : GENRE_MAP[g]))
     .find(Boolean)
   if (genreCode) {
     params.set('genre', genreCode)
   }
 
-  // 価格帯（第3優先）
   const budgetCode = BUDGET_MAP[priceRange] ?? ''
   if (budgetCode) {
     params.set('budget', budgetCode)
   }
 
-  // 個室（第5優先）
   if (privateRoom === '個室あり') {
     params.set('private_room', '1')
   }
 
-  // 飲み放題（第6優先 — 最初に緩和）
   if (allYouCanDrink === '希望') {
     params.set('free_drink', '1')
   }
@@ -244,29 +257,15 @@ function buildBaseParams(args: {
   return params
 }
 
-/** Extract walk minutes from an access string like "JR横浜駅 徒歩3分" → 3 */
 function parseWalkMinutes(access: string): number | null {
   const m = access.match(/徒歩(\d+)分/)
   return m ? parseInt(m[1], 10) : null
 }
 
-/**
- * Determine whether a shop's nearest station matches `primaryArea`.
- *
- * Primary: HP's own `station_name` field (e.g. "横浜").
- *   This is the exact station name without '駅', so equality is reliable.
- *   Works for any station, no text-parsing ambiguity.
- *
- * Fallback (when station_name is absent): search the access string for
- *   `primaryArea + '駅'` preceded by a non-CJK character.
- *   This handles "JR横浜駅" but may miss "相鉄線横浜駅" (prev = '線', CJK).
- *   Kept as a best-effort fallback only.
- */
 function shopMatchesStation(shop: any, primaryArea: string): boolean {
   const stationName = typeof shop?.station_name === 'string' ? shop.station_name.trim() : ''
   if (stationName) return stationName === primaryArea
 
-  // Fallback: access string — check `primaryArea + '駅'` is not a suffix of another station
   const access = String(shop?.access ?? '')
   const target = primaryArea + '駅'
   let from = 0
@@ -281,32 +280,66 @@ function shopMatchesStation(shop: any, primaryArea: string): boolean {
   }
 }
 
-/**
- * Score a shop for how well it matches the selected station + walk limit + budget.
- * General logic — works identically for any station/budget, no special cases.
- *
- * Priority order:
- *   1. Station match via HP station_name field (+12)
- *   2. Walk within limit (+10) / slightly over (+3) / clearly over (−8)
- *   3. Area name starts with station name (+4)
- *   4. Budget code match (+6) — rewards price match within the pool
- */
+const BUDGET_ORDER = ['B005', 'B006', 'B007', 'B008', 'B009'] as const
+
+function getBudgetIndex(code?: string | null): number {
+  if (!code) return -1
+  return BUDGET_ORDER.indexOf(code as (typeof BUDGET_ORDER)[number])
+}
+
+function budgetProximityScore(requestedBudget: string | null, actualBudget?: string | null): number {
+  if (!requestedBudget) return 0
+
+  const reqIdx = getBudgetIndex(requestedBudget)
+  const actIdx = getBudgetIndex(actualBudget)
+
+  if (reqIdx === -1 || actIdx === -1) return -4
+  if (reqIdx === actIdx) return 12
+
+  const dist = Math.abs(reqIdx - actIdx)
+  let score = 0
+  if (dist === 1) score = 7
+  else if (dist === 2) score = 3
+  else if (dist === 3) score = -2
+  else score = -6
+
+  if (actIdx < reqIdx) {
+    score -= (reqIdx - actIdx) * 2
+  }
+
+  return score
+}
+
+function genreSpecificBoost(shop: any, requestedGenreCode: string | null): number {
+  if (!requestedGenreCode) return 0
+
+  const genreName = String(shop?.genre?.name ?? '')
+  const subGenreName = String(shop?.sub_genre?.name ?? '')
+  const name = String(shop?.name ?? '')
+  const catchText = String(shop?.catch ?? '')
+  const text = [genreName, subGenreName, name, catchText].join(' ')
+
+  if (requestedGenreCode === 'G001') {
+    if (/焼き鳥|やきとり|串焼|串揚|串|鶏料理/.test(text)) return 8
+    if (/居酒屋/.test(text)) return 2
+    return -3
+  }
+
+  return 0
+}
+
 function scoreStoreForArea(
   shop: any,
   primaryArea: string,
   maxWalk: number | null,
-  budgetCode: string | null
+  budgetCode: string | null,
+  requestedGenreCode: string | null = null
 ): number {
   if (!primaryArea) return 0
 
   let score = 0
 
-  const area = String(
-    shop?.small_area?.name ??
-      shop?.middle_area?.name ??
-      shop?.address ??
-      ''
-  )
+  const area = String(shop?.small_area?.name ?? shop?.middle_area?.name ?? shop?.address ?? '')
   const access = String(shop?.access ?? '')
 
   if (shopMatchesStation(shop, primaryArea)) score += 12
@@ -316,120 +349,82 @@ function scoreStoreForArea(
     const walkMins = parseWalkMinutes(access)
     if (walkMins !== null) {
       if (walkMins <= maxWalk) score += 10
-      else if (walkMins <= maxWalk + 5) score += 3
+      else if (walkMins <= Math.min(maxWalk + 5, 20)) score += 3
       else score -= 8
     }
   }
 
-  // Budget match bonus — rewards price-range-correct shops within the pool
-  if (budgetCode && shop?.budget?.code === budgetCode) score += 6
+  const shopBudgetCode = typeof shop?.budget?.code === 'string' ? shop.budget.code : null
+  score += budgetProximityScore(budgetCode, shopBudgetCode)
+  score += genreSpecificBoost(shop, requestedGenreCode)
 
   return score
 }
 
-/**
- * Build the final shop list with three-tier filtering (general — any station).
- *
- * Tiers:
- *   priority     = station match + within walk + price match
- *   nearPriority = station match + within walk   (wrong price)
- *   supplementary = everything else
- *
- * Rules:
- *   priority >= PRIORITY_MIN  → show only priority (Best is price-correct)
- *   priority > 0              → show priority + nearPriority + supp(cap 2),
- *                               Best is still price-correct
- *   priority = 0, near > 0   → show nearPriority + supp(cap 2),
- *                               Best is nearPriority → budgetRelaxedForBest = true
- *   all empty                 → show supplementary (no budget relaxation signal)
- *
- * Within each pool, position 0 is kept fixed; positions 1+ get light jitter
- * for variety across re-searches.
- */
-function sortShopsByPrimaryArea(
-  shops: any[],
-  areas: string[],
-  maxWalk: number | null,
+function compressBeforeGemini(args: {
+  shops: any[]
+  targetStation: string
+  maxWalk: number | null
   budgetCode: string | null
-): { shops: any[]; budgetRelaxedForBest: boolean } {
-  const resolvedArea = resolveAreaForSearch(areas)
-  const primaryArea = 'stationName' in resolvedArea ? resolvedArea.stationName : ''
+  requestedGenreCode: string | null
+  limit?: number
+}): { shops: any[]; budgetRelaxedForBest: boolean } {
+  const { shops, targetStation, maxWalk, budgetCode, requestedGenreCode, limit = 8 } = args
 
-  if (!primaryArea) return { shops, budgetRelaxedForBest: false }
+  if (!targetStation) {
+    return { shops: shops.slice(0, limit), budgetRelaxedForBest: false }
+  }
 
-  const PRIORITY_MIN = 3
-
-  const scored = shops.map((s) => {
-    const access = String(s?.access ?? '')
-    const stationMatch = shopMatchesStation(s, primaryArea)
+  const scored = shops.map((shop) => {
+    const access = String(shop?.access ?? '')
     const walkMins = parseWalkMinutes(access)
-    const withinWalk = maxWalk === null || walkMins === null || walkMins <= maxWalk
+    const stationMatch = shopMatchesStation(shop, targetStation)
 
-    const shopBudgetCode =
-      typeof s?.budget?.code === 'string' ? s.budget.code : ''
+    const walkTier =
+      maxWalk === null
+        ? 0
+        : walkMins === null
+          ? 1
+          : walkMins <= maxWalk
+            ? 0
+            : walkMins <= 20
+              ? 2
+              : 3
 
-    // 重要:
-    // 価格指定ありのとき、budget不明は一致扱いしない
-    const priceMatch = !budgetCode ? true : shopBudgetCode === budgetCode
+    const shopBudgetCode = typeof shop?.budget?.code === 'string' ? shop.budget.code : null
+    const shopGenreCode = typeof shop?.genre?.code === 'string' ? shop.genre.code : null
+    const genreMatch = !requestedGenreCode || shopGenreCode === requestedGenreCode || genreSpecificBoost(shop, requestedGenreCode) > 0
+
+    let score = scoreStoreForArea(shop, targetStation, maxWalk, budgetCode, requestedGenreCode)
+    if (genreMatch) score += 5
+    if (walkMins !== null) score += Math.max(0, 10 - walkMins)
 
     return {
-      shop: s,
-      baseScore: scoreStoreForArea(s, primaryArea, maxWalk, budgetCode),
+      shop,
       stationMatch,
-      withinWalk,
-      priceMatch,
+      walkTier,
+      genreMatch,
+      score,
+      exactBudget: budgetCode ? shopBudgetCode === budgetCode : false,
     }
   })
 
-  const priority = scored.filter(
-    (s) => s.stationMatch && s.withinWalk && s.priceMatch
-  )
-  const nearPriority = scored.filter(
-    (s) => s.stationMatch && s.withinWalk && !s.priceMatch
-  )
-  const supplementary = scored.filter(
-    (s) => !(s.stationMatch && s.withinWalk)
-  )
+  const stationMatched = scored.filter((s) => s.stationMatch)
+  const stationFallback = stationMatched.length > 0 ? stationMatched : scored
 
-  const sortPool = (pool: typeof scored): any[] => {
-    const sorted = [...pool].sort((a, b) => b.baseScore - a.baseScore)
-    if (sorted.length <= 1) return sorted.map((s) => s.shop)
+  const tierA = stationFallback.filter((s) => s.walkTier === 0)
+  const tierB = stationFallback.filter((s) => s.walkTier === 1)
+  const tierC = stationFallback.filter((s) => s.walkTier === 2)
 
-    const [top, ...rest] = sorted
-    const jittered = rest.map((s) => ({
-      shop: s.shop,
-      score: s.baseScore + Math.random() * 2,
-    }))
-    jittered.sort((a, b) => b.score - a.score)
+  const sortDesc = (pool: typeof scored) => [...pool].sort((a, b) => b.score - a.score)
 
-    return [top.shop, ...jittered.map((s) => s.shop)]
+  const merged = [...sortDesc(tierA), ...sortDesc(tierB), ...sortDesc(tierC)].slice(0, limit)
+  const hasExactBudget = merged.some((s) => s.exactBudget)
+
+  return {
+    shops: merged.map((s) => s.shop),
+    budgetRelaxedForBest: !!budgetCode && !hasExactBudget,
   }
-
-  // 価格一致候補が十分ある → それだけ返す
-  if (priority.length >= PRIORITY_MIN) {
-    return { shops: sortPool(priority), budgetRelaxedForBest: false }
-  }
-
-  // 価格一致候補が1件以上ある → 価格一致だけ返す
-  // 今回は「Best 1件 + 他3〜4件」でも、価格帯一致を優先する方針
-  if (priority.length > 0) {
-    return {
-      shops: sortPool(priority),
-      budgetRelaxedForBest: false,
-    }
-  }
-
-  // 価格一致が0件 → ここで初めて価格緩和
-  if (nearPriority.length > 0) {
-    const sortedNear = sortPool(nearPriority)
-    const sortedSupp = sortPool(supplementary).slice(0, 2)
-    return {
-      shops: [...sortedNear, ...sortedSupp],
-      budgetRelaxedForBest: true,
-    }
-  }
-
-  return { shops: sortPool(supplementary), budgetRelaxedForBest: false }
 }
 
 export async function POST(req: NextRequest) {
@@ -445,21 +440,16 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-
-    // body.orgPrefs でも body直下でも受けられるようにする
     const prefs = body?.orgPrefs ?? body ?? {}
 
     const areas = normalizeStringArray(prefs?.areas)
-    // Prefer pre-resolved genreCodes (sent by client) over raw label strings (legacy)
+    const targetStation = areas[0]?.trim() ?? ''
     const genreCodes = normalizeStringArray(body?.genreCodes ?? prefs?.genreCodes)
     const genreLabels = normalizeStringArray(prefs?.genres)
     const genres = genreCodes.length > 0 ? genreCodes : genreLabels
-    const priceRange =
-      typeof prefs?.priceRange === 'string' ? prefs.priceRange : '指定なし'
-    const privateRoom =
-      typeof prefs?.privateRoom === 'string' ? prefs.privateRoom : 'こだわらない'
+    const priceRange = typeof prefs?.priceRange === 'string' ? prefs.priceRange : '指定なし'
+    const privateRoom = typeof prefs?.privateRoom === 'string' ? prefs.privateRoom : 'こだわらない'
     const count = typeof body?.count === 'number' ? body.count : 6
-
     const allYouCanDrink = typeof body?.allYouCanDrink === 'string' ? body.allYouCanDrink : ''
 
     const walkMinutesStr = typeof body?.walkMinutes === 'string' ? body.walkMinutes : '指定なし'
@@ -468,7 +458,6 @@ export async function POST(req: NextRequest) {
         ? null
         : parseInt(walkMinutesStr.replace('分以内', ''), 10) || null
 
-    // Keep the originally-requested budget code for priority filtering even after relaxation
     const budgetCode = BUDGET_MAP[priceRange] || null
 
     const strictParams = buildBaseParams({
@@ -481,11 +470,9 @@ export async function POST(req: NextRequest) {
       count,
     })
 
-    const resolvedArea = resolveAreaForSearch(areas)
-
     console.log('[hotpepper/search] request:', {
       areas,
-      resolvedArea,
+      targetStation,
       genreCodes,
       genreLabels,
       resolvedGenre: strictParams.get('genre') ?? '(なし)',
@@ -502,19 +489,16 @@ export async function POST(req: NextRequest) {
 
     console.log('[hotpepper/search] strict query:', {
       service_area: strictParams.get('service_area') ?? '(なし)',
-      keyword:      strictParams.get('keyword')      ?? '(なし)',
-      genre:        strictParams.get('genre')        ?? '(なし)',
-      budget:       strictParams.get('budget')       ?? '(なし)',
+      keyword: strictParams.get('keyword') ?? '(なし)',
+      genre: strictParams.get('genre') ?? '(なし)',
+      budget: strictParams.get('budget') ?? '(なし)',
       private_room: strictParams.get('private_room') ?? '(なし)',
-      free_drink:   strictParams.get('free_drink')   ?? '(なし)',
-      count:        strictParams.get('count'),
+      free_drink: strictParams.get('free_drink') ?? '(なし)',
+      count: strictParams.get('count'),
       url: result.url,
       resultCount: shops.length,
     })
 
-    // 緩和順: 飲み放題 → 個室 → 予算 → ジャンル（エリアは緩和しない）
-
-    // 1. 飲み放題を外す（最も弱い条件）
     if (shops.length === 0 && finalParams.get('free_drink') === '1') {
       console.log('[hotpepper/search] relaxing: dropping free_drink')
       const relaxed = new URLSearchParams(finalParams)
@@ -525,7 +509,6 @@ export async function POST(req: NextRequest) {
       finalParams = relaxed
     }
 
-    // 2. 個室を外す
     if (shops.length === 0 && finalParams.get('private_room') === '1') {
       console.log('[hotpepper/search] relaxing: dropping private_room')
       const relaxed = new URLSearchParams(finalParams)
@@ -536,7 +519,6 @@ export async function POST(req: NextRequest) {
       finalParams = relaxed
     }
 
-    // 3. 予算を外す
     if (shops.length === 0 && finalParams.get('budget')) {
       console.log('[hotpepper/search] relaxing: dropping budget', finalParams.get('budget'))
       const relaxed = new URLSearchParams(finalParams)
@@ -547,7 +529,6 @@ export async function POST(req: NextRequest) {
       finalParams = relaxed
     }
 
-    // 4. ジャンルを外す（エリアは残す）
     if (shops.length === 0 && finalParams.get('genre')) {
       const droppedGenre = finalParams.get('genre')
       console.log('[hotpepper/search] relaxing: dropping genre', droppedGenre)
@@ -576,34 +557,34 @@ export async function POST(req: NextRequest) {
 
     if (shops.length === 0) {
       return NextResponse.json({
-        stores: pickFallbackStores(),
-        fallback: true,
-        error: '条件にぴったり一致する店が少なかったため、参考候補を表示しています',
+        stores: [],
+        fallback: false,
         searchMode: mode,
+        budgetRelaxedForBest: mode === 'relaxed-no-budget',
+        emptyState: {
+          title: '条件に合う候補が見つかりませんでした',
+          body: '徒歩条件や価格帯を少し広げると見つかる可能性があります。',
+          cta: '条件を調整する',
+        },
       })
     }
 
-    // ── Per-shop diagnostic log ──────────────────────────────────────────────
-    // Visible in Next.js server logs. Shows exactly why each shop is / isn't
-    // priority so you can spot stationMatch / priceMatch / walkMins failures.
     {
       const requestedGenreCode = finalParams.get('genre') ?? null
-      const diagArea = resolveAreaForSearch(areas)
-      const diagStation = 'stationName' in diagArea ? diagArea.stationName : ''
       console.log('[hotpepper/search] shop diagnostics:', {
-        station: diagStation || '(未設定)',
+        station: targetStation || '(未設定)',
         maxWalk,
         budgetCode: budgetCode ?? '(指定なし)',
         requestedGenreCode: requestedGenreCode ?? '(指定なし)',
-        shops: shops.map(s => {
+        shops: shops.map((s) => {
           const access = String(s?.access ?? '')
-          const stationMatch = shopMatchesStation(s, diagStation)
+          const stationMatch = shopMatchesStation(s, targetStation)
           const walkMins = parseWalkMinutes(access)
           const withinWalk = maxWalk === null || walkMins === null || walkMins <= maxWalk
-const shopBudgetCode = typeof s?.budget?.code === 'string' ? s.budget.code : ''
-const priceMatch = !budgetCode ? true : shopBudgetCode === budgetCode
+          const shopBudgetCode = typeof s?.budget?.code === 'string' ? s.budget.code : ''
+          const priceMatch = !budgetCode ? true : shopBudgetCode === budgetCode
           const shopGenreCode = typeof s?.genre?.code === 'string' ? s.genre.code : ''
-          const genreMatch = !requestedGenreCode || shopGenreCode === requestedGenreCode
+          const genreMatch = !requestedGenreCode || shopGenreCode === requestedGenreCode || genreSpecificBoost(s, requestedGenreCode) > 0
           return {
             name: s.name,
             station_name: s.station_name ?? '(なし)',
@@ -614,68 +595,49 @@ const priceMatch = !budgetCode ? true : shopBudgetCode === budgetCode
             withinWalk,
             priceMatch,
             genreMatch,
-            isPriority: stationMatch && withinWalk && priceMatch,
+            genreBoost: genreSpecificBoost(s, requestedGenreCode),
           }
         }),
       })
     }
-    // ────────────────────────────────────────────────────────────────────────
 
-    // ── 候補母集団の健全性チェック ─────────────────────────────────────────
-    // stationMatch が全件 0 の場合、keyword 検索が意図しないエリアを取っている可能性が高い。
-    // Gemini に渡さず、フォールバックとして扱う。
-    {
-      const diagArea = resolveAreaForSearch(areas)
-      const diagStation = 'stationName' in diagArea ? diagArea.stationName : ''
-      if (diagStation) {
-        const matchCount = shops.filter(s => shopMatchesStation(s, diagStation)).length
-        const matchRate = shops.length > 0 ? matchCount / shops.length : 0
-        console.log('[hotpepper/search] station match rate:', {
-          station: diagStation,
-          matchCount,
-          total: shops.length,
-          rate: `${Math.round(matchRate * 100)}%`,
-        })
-    // ── 価格帯の厳格フィルタ（価格一致候補があるなら、それ以外を混ぜない） ─────────
-    if (budgetCode) {
-      const strictBudgetShops = shops.filter(
-        (s) => typeof s?.budget?.code === 'string' && s.budget.code === budgetCode
-      )
-
-      console.log('[hotpepper/search] budget strict filter:', {
-        requestedBudget: budgetCode,
-        before: shops.length,
-        strictBudgetCount: strictBudgetShops.length,
-        kept: strictBudgetShops.map((s) => ({
-          name: s.name,
-          budget_code: s?.budget?.code ?? '(なし)',
-          access: s?.access ?? '',
-        })),
+    if (targetStation) {
+      const matchCount = shops.filter((s) => shopMatchesStation(s, targetStation)).length
+      const matchRate = shops.length > 0 ? matchCount / shops.length : 0
+      console.log('[hotpepper/search] station match rate:', {
+        station: targetStation,
+        matchCount,
+        total: shops.length,
+        rate: `${Math.round(matchRate * 100)}%`,
       })
 
-      if (strictBudgetShops.length > 0) {
-        shops = strictBudgetShops
+      if (matchCount === 0 && shops.length > 0) {
+        return NextResponse.json({
+          stores: [],
+          fallback: false,
+          searchMode: mode,
+          budgetRelaxedForBest: mode === 'relaxed-no-budget',
+          emptyState: {
+            title: `「${targetStation}駅」周辺の候補が見つかりませんでした`,
+            body: '条件を少し変えて再検索してください。',
+            cta: '条件を調整する',
+          },
+        })
       }
     }
 
-        if (matchCount === 0 && shops.length > 0) {
-          console.warn('[hotpepper/search] 全候補が駅不一致 — keyword 検索が別エリアを取った可能性')
-          return NextResponse.json({
-            stores: pickFallbackStores(),
-            fallback: true,
-            error: `「${diagStation}駅」周辺の候補が見つかりませんでした。条件を変えてお試しください。`,
-            searchMode: mode,
-          })
-        }
-      }
-    }
-    // ────────────────────────────────────────────────────────────────────────
+    const requestedGenreCode = finalParams.get('genre') ?? null
+    const compressed = compressBeforeGemini({
+      shops,
+      targetStation,
+      maxWalk,
+      budgetCode,
+      requestedGenreCode,
+      limit: 8,
+    })
 
-    const { shops: sortedShops, budgetRelaxedForBest: tierFlag } = sortShopsByPrimaryArea(shops, areas, maxWalk, budgetCode)
-    // mode が relaxed-no-budget の場合、三段判定に関わらず常に予算緩和フラグを立てる
-    // （primaryArea 未設定でも抜け穴が生じないよう、ここで上書き）
-    const budgetRelaxedForBest = tierFlag || mode === 'relaxed-no-budget'
-    const stores = sortedShops.map(mapShopToStore)
+    const budgetRelaxedForBest = compressed.budgetRelaxedForBest || mode === 'relaxed-no-budget'
+    const stores = compressed.shops.map(mapShopToStore)
 
     return NextResponse.json({
       stores,

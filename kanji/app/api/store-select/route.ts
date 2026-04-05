@@ -6,19 +6,8 @@ import { NextRequest, NextResponse } from 'next/server'
  * Accepts a pool of Hot Pepper candidates + organizer conditions and calls
  * Gemini to select the Best Choice, rank the others, generate per-store
  * reasons, and surface any condition-relaxation notes.
- *
- * Role split:
- *   Hot Pepper → candidate discovery (name / photo / price / access)
- *   Gemini     → selection, ranking, reason text, fallback messaging
- *
- * Future: add placeId to StoreInput when the Places layer is re-introduced,
- * so Gemini's output (bestStoreId / rankedStoreIds) can be joined back to
- * cached Place Details without re-querying Text Search.
  */
 
-// ── Constants ──────────────────────────────────────────────────────────────
-
-/** Number of stores Gemini will rank and return. Tune here only. */
 export const GEMINI_RANK_LIMIT = 5
 
 const BUDGET_LABELS: Record<string, string> = {
@@ -29,8 +18,6 @@ const BUDGET_LABELS: Record<string, string> = {
   B009: '7,001〜10,000円',
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────
-
 type StoreInput = {
   id: string
   name: string
@@ -39,6 +26,8 @@ type StoreInput = {
   budgetCode?: string
   genre?: string
   tags?: string[]
+  googleRating?: number
+  googleRatingCount?: number
 }
 
 type SelectionConditions = {
@@ -52,12 +41,9 @@ type SelectionConditions = {
 export type GeminiSelection = {
   bestStoreId: string
   rankedStoreIds: string[]
-  /** Array form avoids `additionalProperties` schema issues with Gemini */
   reasons: { storeId: string; reason: string }[]
   fallbackNotes: string[]
 }
-
-// ── Prompt ─────────────────────────────────────────────────────────────────
 
 function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
   const walkStr = cond.maxWalkMinutes
@@ -67,7 +53,7 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
   const genreStr = cond.genre || '指定なし'
 
   const storeList = JSON.stringify(
-    stores.map(s => ({
+    stores.map((s) => ({
       id: s.id,
       name: s.name,
       station_name: s.stationName || '(不明)',
@@ -75,6 +61,9 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
       budget_code: s.budgetCode || '(不明)',
       budget_label: s.budgetCode ? (BUDGET_LABELS[s.budgetCode] ?? s.budgetCode) : '(不明)',
       genre: s.genre || '',
+      tags: s.tags ?? [],
+      google_rating: s.googleRating ?? null,
+      google_rating_count: s.googleRatingCount ?? 0,
     })),
     null,
     2
@@ -89,27 +78,43 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
 - 価格帯: ${budgetStr}
 - ジャンル: ${genreStr}
 
+## 前提
+- 候補店リストは事前に機械的な圧縮・整列が行われています
+- そのため、あなたは「最終順位づけ」と「理由文の生成」に集中してください
+- ただし、指定駅との一致や徒歩条件は引き続き重視してください
+
 ## 選定ルール（優先順位順に厳守してください）
 
-1. **指定駅一致は絶対条件**
-   - station_name が「${cond.targetStation}」と完全一致する店だけを選んでください
-   - 一致しない店はrankedStoreIdsに絶対含めないでください
+1. **指定駅との一致を最優先**
+   - station_name が「${cond.targetStation}」と一致する候補を最優先してください
+   - station_name が空でも、access などから明らかに「${cond.targetStation}駅」徒歩圏と読み取れる候補は許容してよいです
+   - 明らかに別駅の候補は rankedStoreIds に含めないでください
 
 2. **徒歩条件**
    - まず指定徒歩分以内の店を優先してください
-   - 指定徒歩分以内の候補が2件以下の場合のみ20分以内まで緩和してよいです
-   - 緩和した場合はfallbackNotesに「条件に合う候補が少ないため、徒歩条件を20分以内に広げて表示しています」を追加してください
+   - 徒歩分数が不明な候補は、条件内候補の次に扱ってください
+   - 指定徒歩分以内の候補が少ない場合のみ、20分以内まで緩和してよいです
+   - 緩和した場合は fallbackNotes に「条件に合う候補が少ないため、徒歩条件を20分以内に広げて表示しています」を追加してください
 
 3. **価格帯**
    - 指定価格帯（${budgetStr}）の店を最優先してください
-   - 1段階下の価格帯は補欠として許容しますが、bestStoreIdにはしないでください
-   - 2段階以上下の価格帯は選ばないでください
-   - 価格帯を広げた場合はfallbackNotesに「条件に合う価格帯の候補が少ないため、価格帯を少し広げて表示しています」を追加してください
+   - 完全一致がない場合は、近い価格帯の候補を優先してください
+   - 特に安すぎる候補を bestStoreId にしないでください
+   - 2段階以上低い価格帯の候補は、他に候補がある限り上位にしないでください
+   - 価格帯を広げた場合は fallbackNotes に「条件に合う価格帯の候補が少ないため、価格帯を少し広げて表示しています」を追加してください
 
 4. **ジャンル一致**
    - ジャンルが一致する店を優先してください
+   - tags に「焼き鳥系」などの補助情報がある場合は参考にしてください
+   - 特に「焼き鳥」希望時は、単なる居酒屋より焼き鳥・串系が明確な店を優先してください
 
-5. **総合的な納得感**
+5. **Google評価（補助条件）**
+   - Google評価点と評価数がある場合は参考にしてください
+   - 同条件なら、評価点が高く評価数も十分ある店をやや優先してください
+   - rating が 3.6 未満で、他に十分な候補がある場合は上位にしないでください
+   - ただし、指定駅・徒歩・価格帯・ジャンルの優先順位を上回ってはいけません
+
+6. **総合的な納得感**
    - 上記を満たした上で、会の趣旨に自然に合う順に並べてください
 
 ## 返却形式（JSONのみ。説明文は不要）
@@ -126,8 +131,6 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
 ${storeList}
 `
 }
-
-// ── Route handler ──────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY
