@@ -244,28 +244,30 @@ function parseWalkMinutes(access: string): number | null {
 }
 
 /**
- * Check whether `stationName + '駅'` appears in the access string as a
- * standalone station name — NOT as a suffix of a longer name.
+ * Determine whether a shop's nearest station matches `primaryArea`.
  *
- * General rule (works for any station):
- *   The character immediately before `stationName` must NOT be a CJK
- *   ideograph (U+4E00–U+9FFF).
+ * Primary: HP's own `station_name` field (e.g. "横浜").
+ *   This is the exact station name without '駅', so equality is reliable.
+ *   Works for any station, no text-parsing ambiguity.
  *
- *   "JR渋谷駅"   → prev = 'R' (latin)  → match ✓
- *   "JR新宿駅"   → prev = 'R' (latin)  → match ✓
- *   "副都心線新宿三丁目駅" → does not contain "新宿駅" at all → no match ✓
- *   prefix-station pattern (e.g. '新' + targetStation):
- *     prev char is CJK → skipped → no match ✓
+ * Fallback (when station_name is absent): search the access string for
+ *   `primaryArea + '駅'` preceded by a non-CJK character.
+ *   This handles "JR横浜駅" but may miss "相鉄線横浜駅" (prev = '線', CJK).
+ *   Kept as a best-effort fallback only.
  */
-function stationInAccess(access: string, stationName: string): boolean {
-  const target = stationName + '駅'
+function shopMatchesStation(shop: any, primaryArea: string): boolean {
+  const stationName = typeof shop?.station_name === 'string' ? shop.station_name.trim() : ''
+  if (stationName) return stationName === primaryArea
+
+  // Fallback: access string — check `primaryArea + '駅'` is not a suffix of another station
+  const access = String(shop?.access ?? '')
+  const target = primaryArea + '駅'
   let from = 0
   while (true) {
     const idx = access.indexOf(target, from)
     if (idx < 0) return false
     if (idx === 0) return true
     const prevCode = access.charCodeAt(idx - 1)
-    // CJK Unified Ideographs: 0x4E00–0x9FFF
     const isCJKBefore = prevCode >= 0x4e00 && prevCode <= 0x9fff
     if (!isCJKBefore) return true
     from = idx + 1
@@ -273,16 +275,13 @@ function stationInAccess(access: string, stationName: string): boolean {
 }
 
 /**
- * General scoring for how well a shop matches the selected station + walk limit.
- * Works identically for any station — no station-specific special cases.
+ * Score a shop for how well it matches the selected station + walk limit.
+ * General logic — works identically for any station, no station-specific cases.
  *
- * Priority order (highest → lowest impact):
- *   1. Exact station match in access string (+12) — standalone match only
+ * Priority order:
+ *   1. Station match via HP station_name field (+12)
  *   2. Walk within limit (+10) / slightly over (+3) / clearly over (−8)
  *   3. Area name starts with station name (+4)
- *
- * The Best candidate is determined server-side by this score.
- * Client-side Google score only re-ranks positions 2+.
  */
 function scoreStoreForArea(shop: any, primaryArea: string, maxWalk: number | null): number {
   if (!primaryArea) return 0
@@ -297,25 +296,16 @@ function scoreStoreForArea(shop: any, primaryArea: string, maxWalk: number | nul
   )
   const access = String(shop?.access ?? '')
 
-  // Exact station match in access (standalone — prefix stations like 新〇〇 won't match 〇〇)
-  if (stationInAccess(access, primaryArea)) score += 12
-
-  // Area name starts with station name (startsWith avoids prefix-station areas matching)
+  if (shopMatchesStation(shop, primaryArea)) score += 12
   if (area.startsWith(primaryArea)) score += 4
 
-  // Walk time — only when user specified a limit
   if (maxWalk !== null) {
     const walkMins = parseWalkMinutes(access)
     if (walkMins !== null) {
-      if (walkMins <= maxWalk) {
-        score += 10        // Within limit: strong bonus
-      } else if (walkMins <= maxWalk + 5) {
-        score += 3         // Slightly over: partial credit
-      } else {
-        score -= 8         // Clearly over limit: hard penalty
-      }
+      if (walkMins <= maxWalk) score += 10
+      else if (walkMins <= maxWalk + 5) score += 3
+      else score -= 8
     }
-    // Walk time not parseable: neutral
   }
 
   return score
@@ -351,7 +341,7 @@ function sortShopsByPrimaryArea(shops: any[], areas: string[], maxWalk: number |
 
   const scored = shops.map(s => {
     const access = String(s?.access ?? '')
-    const stationMatch = stationInAccess(access, primaryArea)
+    const stationMatch = shopMatchesStation(s, primaryArea)
     const walkMins = parseWalkMinutes(access)
     const withinWalk = maxWalk === null || walkMins === null || walkMins <= maxWalk
     return {
