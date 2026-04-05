@@ -2459,7 +2459,7 @@ return (
     </div>
   </div>
 ) : (
-  /* ── 候補あり ────────────────────────────────────────────────── */
+  /* ── 候補あり ────────────────────────────────────────────────── *//*a*/
   <>
     {storeFetchError && (
       <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-100">
