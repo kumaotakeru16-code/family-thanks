@@ -1099,7 +1099,7 @@ async function fetchRecommendedStores() {
         privateRoom: orgPrefs.privateRoom,
         allYouCanDrink: orgPrefs.allYouCanDrink,
         walkMinutes: orgPrefs.walkMinutes,
-        count: 10,
+        count: 20,
       }),
     })
 

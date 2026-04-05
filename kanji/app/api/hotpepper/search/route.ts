@@ -199,7 +199,7 @@ function buildBaseParams(args: {
   const params = new URLSearchParams({
     key: apiKey,
     format: 'json',
-    count: String(Math.min(Math.max(count, 1), 10)),
+    count: String(Math.min(Math.max(count, 1), 20)),
   })
 
   // エリア（最優先 — 緩和しない）
@@ -369,8 +369,11 @@ function sortShopsByPrimaryArea(shops: any[], areas: string[], maxWalk: number |
     return sortPool(priority)
   }
 
-  // Too few priority shops: pad with supplementary to avoid an empty list
-  return [...sortPool(priority), ...sortPool(supplementary)]
+  // Too few priority shops: pad with top-2 supplementary only.
+  // Capping at 2 prevents nearby-area shops from flooding the list
+  // even when priority is insufficient.
+  const sortedSupplementary = sortPool(supplementary).slice(0, 2)
+  return [...sortPool(priority), ...sortedSupplementary]
 }
 
 export async function POST(req: NextRequest) {
