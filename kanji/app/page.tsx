@@ -1149,27 +1149,30 @@ async function fetchRecommendedStores() {
       googleRatingCount: enrichedMap.get(s.id)?.userRatingCount,
     }))
 
-    // Re-rank: HP position bonus (preserves area+walk ordering) + Google score
-    // Google score rewards rating×log(count), capped at 10 to match walk bonus scale
+    // Google score: rating × log10(count), capped at 10
     function googleScore(s: StoreCandidate): number {
       if (!s.googleRating || !s.googleRatingCount) return 0
       return Math.min(s.googleRating * Math.log10(Math.max(s.googleRatingCount, 1)) * 1.5, 10)
     }
 
-    const n = enrichedStores.length
-    const ranked = [...enrichedStores]
+    // Best候補（position 0）はサーバーの順位を固定する。
+    // サーバーは「選択駅 + 徒歩条件」でスコアリング済みなので、
+    // Google スコアで上書きすると駅優先の意図が崩れる。
+    // Google スコアは 2位以降の並び替えにのみ使う。
+    const [serverBest, ...serverRest] = enrichedStores
+
+    const restRanked = serverRest
       .map((s, i) => ({
         store: s,
-        // Position bonus: first HP result = n, last = 1 (reflects area+walk quality)
-        score: (n - i) * 2 + googleScore(s),
+        score: (serverRest.length - i) * 2 + googleScore(s),
       }))
       .sort((a, b) => b.score - a.score)
       .map(({ store }) => store)
 
-    // Keep #1 stable; lightly shuffle positions 2+ for freshness on re-search
-    const [first, second, ...rest] = ranked
+    // 2位は Google スコア最上位、3位以降は軽くシャッフルして多様性を出す
+    const [second, ...rest] = restRanked
     const shuffled = [...rest].sort(() => Math.random() - 0.5)
-    const finalStores = [first, second, ...shuffled].filter((s): s is StoreCandidate => !!s)
+    const finalStores = [serverBest, second, ...shuffled].filter((s): s is StoreCandidate => !!s)
 
     setRecommendedStores(finalStores)
     setSelectedStoreId(finalStores[0]?.id ?? '')
