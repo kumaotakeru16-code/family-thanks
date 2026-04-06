@@ -25,21 +25,9 @@ const GENRE_MAP: Record<string, string> = {
   'アジア・エスニック': 'G009',
 }
 
-type HotPepperAreaMapping = {
-  smallArea?: string
-  middleArea?: string
-}
-
-/**
- * Minimal hand-maintained mapping to make strict search align with Hot Pepper station pages.
- * Add more stations over time as needed.
- *
- * Example:
- *   横浜駅 page => /SA12/Y135/X270/
- */
-const STATION_HP_AREA_MAP: Record<string, HotPepperAreaMapping> = {
+// 最短の実用版: まずは横浜駅だけ Hot Pepper 駅ページ寄りに合わせる
+const STATION_HP_AREA_MAP: Record<string, { smallArea?: string; middleArea?: string }> = {
   横浜: { smallArea: 'X270' },
-  '横浜駅': { smallArea: 'X270' },
 }
 
 function normalizeStringArray(input: unknown): string[] {
@@ -116,7 +104,6 @@ function mapShopToStore(shop: any) {
     genre: shop.genre?.name ?? '',
     walkMinutes: parseWalkMinutes(shop.access ?? ''),
     hasPrivateRoom: hasPrivateRoom(shop),
-    // Google 評価は別 route / client 側の optional enhancement で後付けする前提
     googleRating: null,
     googleRatingCount: null,
   }
@@ -136,23 +123,17 @@ async function fetchHotpepper(params: URLSearchParams) {
   return { url, data, shops }
 }
 
-function resolveHotPepperArea(primaryArea: string): HotPepperAreaMapping | null {
-  if (!primaryArea) return null
-  return STATION_HP_AREA_MAP[primaryArea] ?? null
-}
-
 function buildBaseParams(args: {
   apiKey: string
-  areas: string[]
+  targetStation: string
   priceRange: string
   genres: string[]
   privateRoom: string
   allYouCanDrink: string
   count: number
-  /** 10人以上の場合のみ party_capacity を追加する。9人以下では使わない。 */
   peopleCount?: number
 }) {
-  const { apiKey, areas, genres, privateRoom, allYouCanDrink, count, peopleCount } = args
+  const { apiKey, targetStation, priceRange, genres, privateRoom, allYouCanDrink, count, peopleCount } = args
 
   const params = new URLSearchParams({
     key: apiKey,
@@ -162,17 +143,13 @@ function buildBaseParams(args: {
     large_service_area: 'SS10',
   })
 
-  const primaryArea = areas[0]?.trim() ?? ''
-  const hpArea = resolveHotPepperArea(primaryArea)
-
-  // 本線: Hot Pepper の駅ページに近い母集団を作るため area code を優先する。
-  // fallback: area code が未整備の駅だけ keyword 検索を使う。
+  const hpArea = STATION_HP_AREA_MAP[targetStation]
   if (hpArea?.smallArea) {
     params.set('small_area', hpArea.smallArea)
   } else if (hpArea?.middleArea) {
     params.set('middle_area', hpArea.middleArea)
-  } else if (primaryArea) {
-    const keyword = primaryArea.endsWith('駅') ? primaryArea : `${primaryArea}駅`
+  } else if (targetStation) {
+    const keyword = targetStation.endsWith('駅') ? targetStation : `${targetStation}駅`
     params.set('keyword', keyword)
   }
 
@@ -183,11 +160,11 @@ function buildBaseParams(args: {
     params.set('genre', genreCode)
   }
 
-  // NOTE:
-  // budget は strict には入れない。
-  // 実測で `keyword=横浜駅 + budget=B007` が 0 件になり、
-  // Hot Pepper の画面条件と API の budget code が 1:1 で一致しないことが確認できたため。
-  // 価格帯は Gemini 前圧縮 / Gemini 選定で優先度として扱う。
+  // 今回は budget を strict に戻して検証する版
+  const budgetCode = BUDGET_MAP[priceRange] ?? ''
+  if (budgetCode) {
+    params.set('budget', budgetCode)
+  }
 
   if (privateRoom === '個室あり') {
     params.set('private_room', '1')
@@ -209,11 +186,11 @@ function shopMatchesStation(shop: any, targetStation: string): boolean {
   if (!targetStation) return true
 
   const stationName = typeof shop?.station_name === 'string' ? shop.station_name.trim() : ''
-  if (stationName) return stationName === targetStation || stationName === targetStation.replace(/駅$/, '')
+  if (stationName) return stationName === targetStation
 
   const access = String(shop?.access ?? '')
-  const normalizedTarget = targetStation.endsWith('駅') ? targetStation : `${targetStation}駅`
-  return access.includes(normalizedTarget)
+  const target = `${targetStation}駅`
+  return access.includes(target)
 }
 
 const BUDGET_ORDER = ['B005', 'B006', 'B007', 'B008', 'B009'] as const
@@ -370,9 +347,12 @@ export async function POST(req: NextRequest) {
 
     const areas = normalizeStringArray(prefs?.areas)
     const targetStation = areas[0]?.trim() ?? ''
+    const hpArea = STATION_HP_AREA_MAP[targetStation] ?? null
+
     const genreCodes = normalizeStringArray(body?.genreCodes ?? prefs?.genreCodes)
     const genreLabels = normalizeStringArray(prefs?.genres)
     const genres = genreCodes.length > 0 ? genreCodes : genreLabels
+
     const priceRange = typeof prefs?.priceRange === 'string' ? prefs.priceRange : '指定なし'
     const privateRoom = typeof prefs?.privateRoom === 'string' ? prefs.privateRoom : 'こだわらない'
     const count = typeof body?.count === 'number' ? body.count : 10
@@ -389,7 +369,7 @@ export async function POST(req: NextRequest) {
 
     const strictParams = buildBaseParams({
       apiKey,
-      areas,
+      targetStation,
       priceRange,
       genres,
       privateRoom,
@@ -397,8 +377,6 @@ export async function POST(req: NextRequest) {
       count,
       peopleCount,
     })
-
-    const hpArea = resolveHotPepperArea(targetStation)
 
     console.log('[hotpepper/search] request:', {
       areas,
@@ -422,8 +400,8 @@ export async function POST(req: NextRequest) {
       middle_area: strictParams.get('middle_area') ?? '(なし)',
       keyword: strictParams.get('keyword') ?? '(なし)',
       genre: strictParams.get('genre') ?? '(なし)',
-      // budget は strict に送っていないが、期待値確認のため参考値としてログに残す
-      requested_budget: budgetCode ?? '(指定なし)',
+      requested_budget: budgetCode ?? '(なし)',
+      strict_budget: strictParams.get('budget') ?? '(なし)',
       private_room: strictParams.get('private_room') ?? '(なし)',
       free_drink: strictParams.get('free_drink') ?? '(なし)',
       party_capacity: strictParams.get('party_capacity') ?? '(なし)',
@@ -433,12 +411,63 @@ export async function POST(req: NextRequest) {
       resultCount: shops.length,
     })
 
-console.log('[hotpepper/search] strict totals:', {
-  results_available: result.data?.results?.results_available ?? null,
-  results_returned: result.data?.results?.results_returned ?? null,
-  results_start: result.data?.results?.results_start ?? null,
-  shopsLength: shops.length,
-})
+    console.log('[hotpepper/search] strict totals:', {
+      results_available: result.data?.results?.results_available ?? null,
+      results_returned: result.data?.results?.results_returned ?? null,
+      results_start: result.data?.results?.results_start ?? null,
+      shopsLength: shops.length,
+    })
+
+    // area code ベースで price を strict に戻せるか確認するための一時ログ
+    if (hpArea?.smallArea && budgetCode) {
+      const areaOnly = new URLSearchParams({
+        key: apiKey,
+        format: 'json',
+        count: '15',
+        order: '4',
+        large_service_area: 'SS10',
+        small_area: hpArea.smallArea,
+      })
+
+      const areaAndBudget = new URLSearchParams(areaOnly)
+      areaAndBudget.set('budget', budgetCode)
+
+      const areaAndGenre = new URLSearchParams(areaOnly)
+      if (requestedGenreCode) areaAndGenre.set('genre', requestedGenreCode)
+
+      const areaGenreBudget = new URLSearchParams(areaAndGenre)
+      areaGenreBudget.set('budget', budgetCode)
+
+      const [r1, r2, r3, r4] = await Promise.all([
+        fetchHotpepper(areaOnly),
+        fetchHotpepper(areaAndBudget),
+        fetchHotpepper(areaAndGenre),
+        fetchHotpepper(areaGenreBudget),
+      ])
+
+      console.log('[DEBUG] area-code 4パターン結果:', [
+        {
+          label: `small_area=${hpArea.smallArea}`,
+          results_available: r1.data?.results?.results_available ?? null,
+          resultCount: r1.shops.length,
+        },
+        {
+          label: `small_area=${hpArea.smallArea} + budget=${budgetCode}`,
+          results_available: r2.data?.results?.results_available ?? null,
+          resultCount: r2.shops.length,
+        },
+        {
+          label: `small_area=${hpArea.smallArea} + genre=${requestedGenreCode ?? '(なし)'}`,
+          results_available: r3.data?.results?.results_available ?? null,
+          resultCount: r3.shops.length,
+        },
+        {
+          label: `small_area=${hpArea.smallArea} + genre=${requestedGenreCode ?? '(なし)'} + budget=${budgetCode}`,
+          results_available: r4.data?.results?.results_available ?? null,
+          resultCount: r4.shops.length,
+        },
+      ])
+    }
 
     if (shops.length === 0) {
       return NextResponse.json({
