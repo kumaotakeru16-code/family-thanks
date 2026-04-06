@@ -25,6 +25,23 @@ const GENRE_MAP: Record<string, string> = {
   'アジア・エスニック': 'G009',
 }
 
+type HotPepperAreaMapping = {
+  smallArea?: string
+  middleArea?: string
+}
+
+/**
+ * Minimal hand-maintained mapping to make strict search align with Hot Pepper station pages.
+ * Add more stations over time as needed.
+ *
+ * Example:
+ *   横浜駅 page => /SA12/Y135/X270/
+ */
+const STATION_HP_AREA_MAP: Record<string, HotPepperAreaMapping> = {
+  横浜: { smallArea: 'X270' },
+  '横浜駅': { smallArea: 'X270' },
+}
+
 function normalizeStringArray(input: unknown): string[] {
   if (!Array.isArray(input)) return []
   return input
@@ -98,6 +115,7 @@ function mapShopToStore(shop: any) {
     budgetCode: typeof shop.budget?.code === 'string' ? shop.budget.code : '',
     genre: shop.genre?.name ?? '',
     walkMinutes: parseWalkMinutes(shop.access ?? ''),
+    hasPrivateRoom: hasPrivateRoom(shop),
     // Google 評価は別 route / client 側の optional enhancement で後付けする前提
     googleRating: null,
     googleRatingCount: null,
@@ -118,6 +136,11 @@ async function fetchHotpepper(params: URLSearchParams) {
   return { url, data, shops }
 }
 
+function resolveHotPepperArea(primaryArea: string): HotPepperAreaMapping | null {
+  if (!primaryArea) return null
+  return STATION_HP_AREA_MAP[primaryArea] ?? null
+}
+
 function buildBaseParams(args: {
   apiKey: string
   areas: string[]
@@ -126,21 +149,31 @@ function buildBaseParams(args: {
   privateRoom: string
   allYouCanDrink: string
   count: number
+  /** 10人以上の場合のみ party_capacity を追加する。9人以下では使わない。 */
+  peopleCount?: number
 }) {
-  const { apiKey, areas, priceRange, genres, privateRoom, allYouCanDrink, count } = args
+  const { apiKey, areas, genres, privateRoom, allYouCanDrink, count, peopleCount } = args
 
   const params = new URLSearchParams({
     key: apiKey,
     format: 'json',
     count: String(Math.min(Math.max(count, 1), 15)),
     order: '4', // Hot Pepper おすすめ順
+    large_service_area: 'SS10',
   })
 
-  // Hot Pepper 条件と揃えたいので、検索時点では broad すぎる独自解釈を入れず keyword をそのまま使う
   const primaryArea = areas[0]?.trim() ?? ''
-  params.set('large_service_area', 'SS10')
-  if (primaryArea) {
-    params.set('keyword', primaryArea)
+  const hpArea = resolveHotPepperArea(primaryArea)
+
+  // 本線: Hot Pepper の駅ページに近い母集団を作るため area code を優先する。
+  // fallback: area code が未整備の駅だけ keyword 検索を使う。
+  if (hpArea?.smallArea) {
+    params.set('small_area', hpArea.smallArea)
+  } else if (hpArea?.middleArea) {
+    params.set('middle_area', hpArea.middleArea)
+  } else if (primaryArea) {
+    const keyword = primaryArea.endsWith('駅') ? primaryArea : `${primaryArea}駅`
+    params.set('keyword', keyword)
   }
 
   const genreCode = genres
@@ -150,10 +183,11 @@ function buildBaseParams(args: {
     params.set('genre', genreCode)
   }
 
-  const budgetCode = BUDGET_MAP[priceRange] ?? ''
-  if (budgetCode) {
-    params.set('budget', budgetCode)
-  }
+  // NOTE:
+  // budget は strict には入れない。
+  // 実測で `keyword=横浜駅 + budget=B007` が 0 件になり、
+  // Hot Pepper の画面条件と API の budget code が 1:1 で一致しないことが確認できたため。
+  // 価格帯は Gemini 前圧縮 / Gemini 選定で優先度として扱う。
 
   if (privateRoom === '個室あり') {
     params.set('private_room', '1')
@@ -163,6 +197,11 @@ function buildBaseParams(args: {
     params.set('free_drink', '1')
   }
 
+  // 10人以上のみ party_capacity を追加。9人以下は Gemini の判断材料として渡すだけ。
+  if (peopleCount && peopleCount >= 10) {
+    params.set('party_capacity', String(peopleCount))
+  }
+
   return params
 }
 
@@ -170,11 +209,11 @@ function shopMatchesStation(shop: any, targetStation: string): boolean {
   if (!targetStation) return true
 
   const stationName = typeof shop?.station_name === 'string' ? shop.station_name.trim() : ''
-  if (stationName) return stationName === targetStation
+  if (stationName) return stationName === targetStation || stationName === targetStation.replace(/駅$/, '')
 
   const access = String(shop?.access ?? '')
-  const target = `${targetStation}駅`
-  return access.includes(target)
+  const normalizedTarget = targetStation.endsWith('駅') ? targetStation : `${targetStation}駅`
+  return access.includes(normalizedTarget)
 }
 
 const BUDGET_ORDER = ['B005', 'B006', 'B007', 'B008', 'B009'] as const
@@ -346,6 +385,7 @@ export async function POST(req: NextRequest) {
         : parseInt(walkMinutesStr.replace('分以内', ''), 10) || null
 
     const budgetCode = BUDGET_MAP[priceRange] || null
+    const peopleCount = typeof body?.peopleCount === 'number' ? body.peopleCount : undefined
 
     const strictParams = buildBaseParams({
       apiKey,
@@ -355,11 +395,15 @@ export async function POST(req: NextRequest) {
       privateRoom,
       allYouCanDrink,
       count,
+      peopleCount,
     })
+
+    const hpArea = resolveHotPepperArea(targetStation)
 
     console.log('[hotpepper/search] request:', {
       areas,
       targetStation,
+      hpArea,
       genreCodes,
       genreLabels,
       priceRange,
@@ -374,16 +418,27 @@ export async function POST(req: NextRequest) {
     const requestedGenreCode = strictParams.get('genre') ?? null
 
     console.log('[hotpepper/search] strict query:', {
+      small_area: strictParams.get('small_area') ?? '(なし)',
+      middle_area: strictParams.get('middle_area') ?? '(なし)',
       keyword: strictParams.get('keyword') ?? '(なし)',
       genre: strictParams.get('genre') ?? '(なし)',
-      budget: strictParams.get('budget') ?? '(なし)',
+      // budget は strict に送っていないが、期待値確認のため参考値としてログに残す
+      requested_budget: budgetCode ?? '(指定なし)',
       private_room: strictParams.get('private_room') ?? '(なし)',
       free_drink: strictParams.get('free_drink') ?? '(なし)',
+      party_capacity: strictParams.get('party_capacity') ?? '(なし)',
       count: strictParams.get('count'),
       order: strictParams.get('order'),
       url: result.url,
       resultCount: shops.length,
     })
+
+console.log('[hotpepper/search] strict totals:', {
+  results_available: result.data?.results?.results_available ?? null,
+  results_returned: result.data?.results?.results_returned ?? null,
+  results_start: result.data?.results?.results_start ?? null,
+  shopsLength: shops.length,
+})
 
     if (shops.length === 0) {
       return NextResponse.json({
@@ -402,7 +457,7 @@ export async function POST(req: NextRequest) {
     console.log('[hotpepper/search] shop diagnostics:', {
       station: targetStation || '(未設定)',
       maxWalk,
-      budgetCode: budgetCode ?? '(指定なし)',
+      requestedBudgetCode: budgetCode ?? '(指定なし)',
       requestedGenreCode: requestedGenreCode ?? '(指定なし)',
       shops: shops.map((s) => {
         const access = String(s?.access ?? '')

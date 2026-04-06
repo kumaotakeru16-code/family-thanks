@@ -101,6 +101,12 @@ async function lookupPlaces(
 // ── Route handler ──────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // Feature flag: set ENABLE_GOOGLE_RATING=false to disable without removing the API key.
+  // Default: enabled (any value other than 'false' keeps it on).
+  if (process.env.ENABLE_GOOGLE_RATING === 'false') {
+    return NextResponse.json({ enriched: [], fallback: false, reason: 'disabled' })
+  }
+
   const apiKey = process.env.GOOGLE_MAPS_API_KEY
 
   if (!apiKey) {

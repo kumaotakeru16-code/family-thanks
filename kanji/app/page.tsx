@@ -62,6 +62,7 @@ type StoreCandidate = {
   stationName?: string
   budgetCode?: string
   walkMinutes?: number | null
+  hasPrivateRoom?: boolean
 }
 type PastStore = {
   id: string
@@ -1170,12 +1171,28 @@ async function fetchRecommendedStores() {
         allYouCanDrink: orgPrefs.allYouCanDrink,
         walkMinutes: orgPrefs.walkMinutes,
         count: 30,
+        // 10人以上のみ party_capacity として HP 検索条件に使う
+        peopleCount: totalCount,
       }),
     })
     if (!hpRes.ok) throw new Error(`HTTP ${hpRes.status}`)
 
     const hpData = await hpRes.json()
     console.log('[fetchRecommendedStores] hp:', { mode: hpData.searchMode, count: hpData.stores?.length })
+
+    // HP が strict 0件を返した場合 → Gemini/Places を呼ばずに即座に空状態へ
+    if ((hpData.stores ?? []).length === 0) {
+      const msg =
+        hpData?.emptyState?.body ??
+        hpData?.error ??
+        '指定条件に合う候補が見つかりませんでした。条件を変えてお試しください。'
+      setStoreFetchError(msg)
+      setRecommendedStores([])
+      setSelectedStoreId('')
+      setStoreSelectNotes([])
+      setStep('storeSuggestion')
+      return
+    }
 
     const hpStores: StoreCandidate[] = (hpData.stores ?? []).map((s: any, i: number) => ({
       id: s.id ?? `hp-store-${i + 1}`,
@@ -1190,6 +1207,7 @@ async function fetchRecommendedStores() {
       budgetCode: s.budgetCode ?? '',
       genre: s.genre ?? '',
       walkMinutes: s.walkMinutes ?? null,
+      hasPrivateRoom: s.hasPrivateRoom ?? false,
     }))
 
     // ── Step 2: Gemini で選定・順位付け・理由生成 ──────────────────────────
@@ -1208,6 +1226,8 @@ async function fetchRecommendedStores() {
           budgetCode: BUDGET_CODE_MAP[orgPrefs.priceRange] ?? '',
           budgetLabel: orgPrefs.priceRange,
           genre: orgPrefs.genres[0] ?? '',
+          peopleCount: totalCount,
+          eventType,
         }
 
         const selRes = await fetch('/api/store-select', {
@@ -1289,57 +1309,45 @@ async function fetchRecommendedStores() {
     // ── Step 3: 表示件数を絞る（Best + 他 4件 = 最大 5件）────────────────
     const displayStores = rankedStores.slice(0, PLACES_ENRICH_LIMIT)
 
-    // ── Step 4: Google Places enrich（最終表示候補のみ / 上限 PLACES_ENRICH_LIMIT 件）
-    // ルール:
-    //   displayStores.length <= PLACES_ENRICH_LIMIT → 全件 enrich
-    //   displayStores.length >  PLACES_ENRICH_LIMIT → 上位 PLACES_ENRICH_LIMIT 件のみ
-    // displayStores は既に slice(0, PLACES_ENRICH_LIMIT) 済みなので常に上限内に収まる。
-    // 1 フローで 1 回のみ呼び出し。失敗・quota 超過時は評価なしで続行（アプリは止めない）。
-    let enrichedMap = new Map<string, { rating: number; userRatingCount: number }>()
-    try {
-      const enrichRes = await fetch('/api/places/enrich', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          stores: displayStores.map(s => ({ id: s.id, name: s.name, area: s.area, access: s.access })),
-        }),
-      })
-      if (enrichRes.ok) {
-        const enrichData = await enrichRes.json()
-        // fallback: true = quota 到達 / API 不可 → 評価ラベルを非表示にする
-        if (enrichData.fallback) {
-          setPlacesFallback(true)
-          console.warn('[fetchRecommendedStores] Places fallback:', enrichData.reason)
-        }
-        ;(enrichData.enriched ?? []).forEach((e: any) => {
-          if (e.id && e.rating) enrichedMap.set(e.id, { rating: e.rating, userRatingCount: e.userRatingCount ?? 0 })
+    // ── Step 4: Google Places enrich — best 候補 1件のみ ─────────────────
+    // 設計方針:
+    //   - best候補 (displayStores[0]) だけを対象にする。全候補には叩かない。
+    //   - ENABLE_GOOGLE_RATING=false で無効化可能。
+    //   - 失敗・quota・キーなし → 評価なしで続行（アプリは止めない）。
+    let bestRating: { rating: number; userRatingCount: number } | null = null
+    const bestStore = displayStores[0]
+    if (bestStore) {
+      try {
+        const enrichRes = await fetch('/api/places/enrich', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            stores: [{ id: bestStore.id, name: bestStore.name, area: bestStore.area, access: bestStore.access }],
+          }),
         })
+        if (enrichRes.ok) {
+          const enrichData = await enrichRes.json()
+          const found = (enrichData.enriched ?? []).find((e: any) => e.id === bestStore.id)
+          if (found?.rating) {
+            bestRating = { rating: found.rating, userRatingCount: found.userRatingCount ?? 0 }
+          }
+          console.log('[fetchRecommendedStores] Places:', {
+            reason: enrichData.reason,
+            got: bestRating ? `★${bestRating.rating}` : 'none',
+          })
+        }
+      } catch {
+        // ネットワーク例外 → 評価なしで続行（再試行しない）
       }
-    } catch {
-      // ネットワーク例外 → 評価なしで続行（再試行しない）
     }
 
-    // ── Step 5: Google 評価を反映して最終並び替え ─────────────────────────
-    // Best（Gemini の 1位）は固定。2位以降を Google スコアで微調整。
-    const withRatings: StoreCandidate[] = displayStores.map(s => ({
-      ...s,
-      googleRating: enrichedMap.get(s.id)?.rating,
-      googleRatingCount: enrichedMap.get(s.id)?.userRatingCount,
-    }))
-
-    function googleScore(s: StoreCandidate): number {
-      if (!s.googleRating || !s.googleRatingCount) return 0
-      return Math.min(s.googleRating * Math.log10(Math.max(s.googleRatingCount, 1)) * 1.5, 10)
-    }
-
-    const [gemBest, ...gemRest] = withRatings
-    const restRanked = gemRest
-      .map((s, i) => ({ store: s, score: (gemRest.length - i) * 2 + googleScore(s) }))
-      .sort((a, b) => b.score - a.score)
-      .map(({ store }) => store)
-    const [second, ...rest] = restRanked
-    const shuffled = [...rest].sort(() => Math.random() - 0.5)
-    const finalStores = [gemBest, second, ...shuffled].filter((s): s is StoreCandidate => !!s)
+    // ── Step 5: best候補に評価を付与。順位は Gemini 確定順を維持。 ────────
+    // Google 評価による再ランクはしない（Gemini の選定結果を尊重する）。
+    const finalStores: StoreCandidate[] = displayStores.map((s, i) =>
+      i === 0 && bestRating
+        ? { ...s, googleRating: bestRating.rating, googleRatingCount: bestRating.userRatingCount }
+        : s
+    )
 
     setRecommendedStores(finalStores)
     setSelectedStoreId(finalStores[0]?.id ?? '')
@@ -2471,9 +2479,7 @@ return (
         {note}
       </div>
     ))}
-    {placesFallback && (
-      <p className="text-center text-xs text-stone-400">現在は評価補完なしで候補を表示しています</p>
-    )}
+    {/* Google rating fallback は 1件のみ試行なので非表示（失敗しても候補は表示済み） */}
 
     {/* 第一候補 — dark hero */}
     {primaryStore && (
@@ -2514,7 +2520,7 @@ return (
               rel="noreferrer"
               className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-4 text-base font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
             >
-              予約ページを見る
+              ホットペッパーで空き・予約を確認する
             </a>
           )}
         </div>
