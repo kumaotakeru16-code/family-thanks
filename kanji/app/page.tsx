@@ -1,6 +1,18 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  MapPin,
+  UtensilsCrossed,
+  Wallet,
+  DoorClosed,
+  Sparkles,
+  RefreshCw,
+  ExternalLink,
+  ChevronDown,
+  MessageSquareQuote,
+} from 'lucide-react'
 
 import { createEvent, loadEventData } from '@/lib/kanji-db'
 import { saveDecision } from '@/lib/kanji-db'
@@ -2235,41 +2247,56 @@ return (
             ⑧ 幹事条件設定
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'organizerConditions' && (
-          <div className="space-y-5">
-            <div className="px-1">
-              <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 7</p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">お店の条件</h2>
-              <p className="mt-1 text-sm text-stone-400">必要な条件だけ絞って、すぐ決められます</p>
+          <motion.div
+            className="space-y-6"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            {/* ヘッダー */}
+            <div className="px-0.5">
+              <p className="text-[10px] font-bold tracking-[0.22em] text-stone-400 uppercase">Step 7</p>
+              <h2 className="mt-1 text-[22px] font-black tracking-tight text-stone-900">お店の条件</h2>
+              <p className="mt-1 text-[13px] text-stone-400 leading-relaxed">
+                条件は4つだけ。あとはAIが選びます。
+              </p>
             </div>
 
-            {/* 参加者ジャンル希望（補助情報） */}
+            {/* 参加者希望タグ（補助情報） */}
             {genreRanking.length > 0 && (
-              <div className="rounded-2xl bg-stone-50 px-4 py-3.5 ring-1 ring-stone-100">
-                <p className="mb-2 text-[10px] font-black tracking-[0.15em] text-stone-400 uppercase">参加者の希望</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {genreRanking.map(({ genre, count }, i) => (
-                    <span key={genre} className={cx(
-                      'rounded-full px-2.5 py-1 text-xs font-bold',
-                      i === 0 ? 'bg-stone-200 text-stone-800' : 'bg-stone-100 text-stone-500'
-                    )}>
-                      {genre}
-                      <span className="ml-1 font-normal opacity-60">{count}人</span>
-                    </span>
-                  ))}
+              <motion.div
+                className="flex items-start gap-3 rounded-2xl bg-stone-50 px-4 py-3.5 ring-1 ring-stone-100"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.2, delay: 0.05 }}
+              >
+                <UtensilsCrossed size={13} className="mt-0.5 shrink-0 text-stone-400" />
+                <div className="min-w-0">
+                  <p className="mb-1.5 text-[10px] font-bold tracking-[0.12em] text-stone-400 uppercase">参加者の希望</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {genreRanking.map(({ genre, count }, i) => (
+                      <span key={genre} className={cx(
+                        'rounded-full px-2.5 py-0.5 text-[11px] font-semibold',
+                        i === 0 ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-500'
+                      )}>
+                        {genre}
+                        <span className="ml-1 opacity-50 font-normal">{count}</span>
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                <p className="mt-2 text-[11px] text-stone-400">1位のジャンルを自動でセットしています</p>
-              </div>
-            )}
-            {genreRanking.length === 0 && activeParticipants.length > 0 && (
-              <p className="px-1 text-xs text-stone-400">参加者のお店希望はまだ入力されていません</p>
+              </motion.div>
             )}
 
-            {/* 条件カード */}
-            <div className="space-y-0 divide-y divide-stone-100 rounded-2xl bg-white shadow-sm ring-1 ring-stone-100">
+            {/* 条件リスト */}
+            <div className="divide-y divide-stone-100 rounded-2xl bg-white ring-1 ring-stone-200/80 shadow-sm overflow-hidden">
 
               {/* 駅 */}
               <div className="px-4 py-4">
-                <p className="mb-2 text-xs font-bold text-stone-500">駅</p>
+                <div className="mb-3 flex items-center gap-2">
+                  <MapPin size={13} className="text-stone-400" />
+                  <p className="text-[11px] font-bold tracking-wide text-stone-500 uppercase">駅</p>
+                </div>
                 <StationInput
                   single
                   value={orgPrefs.areas}
@@ -2280,13 +2307,17 @@ return (
                   onCommittedChange={setStationCommitted}
                 />
                 {stationError && (
-                  <p className="mt-1.5 text-xs font-bold text-red-500">{stationError}</p>
+                  <p className="mt-2 text-xs text-red-500">{stationError}</p>
                 )}
               </div>
 
               {/* ジャンル */}
               <div className="px-4 py-4">
-                <p className="mb-2.5 text-xs font-bold text-stone-500">ジャンル</p>
+                <div className="mb-3 flex items-center gap-2">
+                  <UtensilsCrossed size={13} className="text-stone-400" />
+                  <p className="text-[11px] font-bold tracking-wide text-stone-500 uppercase">ジャンル</p>
+                  <span className="text-[10px] text-stone-300">（任意）</span>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {HP_GENRE_OPTIONS.map(v => (
                     <Chip key={v} active={orgPrefs.genres[0] === v}
@@ -2297,9 +2328,12 @@ return (
                 </div>
               </div>
 
-              {/* 価格 */}
+              {/* 価格帯 */}
               <div className="px-4 py-4">
-                <p className="mb-2.5 text-xs font-bold text-stone-500">価格帯</p>
+                <div className="mb-3 flex items-center gap-2">
+                  <Wallet size={13} className="text-stone-400" />
+                  <p className="text-[11px] font-bold tracking-wide text-stone-500 uppercase">価格帯</p>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {HP_BUDGET_OPTIONS.map(v => (
                     <Chip key={v} active={orgPrefs.priceRange === v}
@@ -2312,7 +2346,10 @@ return (
 
               {/* 個室 */}
               <div className="px-4 py-4">
-                <p className="mb-2.5 text-xs font-bold text-stone-500">個室</p>
+                <div className="mb-3 flex items-center gap-2">
+                  <DoorClosed size={13} className="text-stone-400" />
+                  <p className="text-[11px] font-bold tracking-wide text-stone-500 uppercase">個室</p>
+                </div>
                 <div className="flex gap-2">
                   {(['どちらでも', 'あり'] as const).map(v => (
                     <Chip key={v}
@@ -2326,13 +2363,14 @@ return (
 
             </div>
 
-            <div className="space-y-2 pt-1">
+            {/* CTA */}
+            <div className="space-y-2.5">
               <PrimaryBtn size="large" onClick={fetchRecommendedStores}>
                 {isLoadingStores ? '候補を探しています…' : 'お店候補を見る'}
               </PrimaryBtn>
-              <GhostBtn onClick={() => setStep('dateConfirmed')}>← 戻る</GhostBtn>
+              <GhostBtn onClick={() => setStep('dateConfirmed')}>戻る</GhostBtn>
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2949,11 +2987,11 @@ function PrimaryBtn({
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
       className={cx(
-        'w-full rounded-2xl font-black transition active:scale-[0.98]',
-        size === 'large' ? 'py-4 text-base' : 'py-3 text-sm',
+        'w-full rounded-2xl font-bold tracking-wide transition duration-150 active:scale-[0.98]',
+        size === 'large' ? 'py-4 text-[15px]' : 'py-3 text-sm',
         disabled
-          ? 'bg-stone-300 text-stone-500 cursor-not-allowed'
-          : 'bg-emerald-500 text-white hover:bg-emerald-600'
+          ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
+          : 'bg-stone-900 text-white shadow-md shadow-stone-900/15 hover:bg-stone-800'
       )}
     >
       {children}
@@ -2965,7 +3003,7 @@ function GhostBtn({ children, onClick }: { children: React.ReactNode; onClick?: 
   return (
     <button type="button"
       onClick={onClick}
-      className="inline-flex w-full items-center justify-center rounded-2xl px-4 py-3.5 text-sm font-semibold text-stone-400 transition hover:bg-stone-100 hover:text-stone-600 active:scale-[0.98]"
+      className="inline-flex w-full items-center justify-center gap-1.5 rounded-2xl px-4 py-3 text-sm font-medium text-stone-400 transition duration-150 hover:text-stone-600 active:scale-[0.98]"
     >
       {children}
     </button>
@@ -3057,8 +3095,10 @@ function Chip({ children, active, onClick }: { children: React.ReactNode; active
     <button type="button"
       onClick={onClick}
       className={cx(
-        'rounded-full px-4 py-2 text-sm font-bold transition active:scale-95',
-        active ? 'bg-stone-900 text-white' : 'bg-stone-50 text-stone-500 ring-1 ring-stone-200 hover:bg-stone-100'
+        'rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition duration-150 active:scale-95',
+        active
+          ? 'bg-stone-900 text-white shadow-sm'
+          : 'bg-white text-stone-500 ring-1 ring-stone-200 hover:ring-stone-300 hover:text-stone-700'
       )}
     >
       {children}
