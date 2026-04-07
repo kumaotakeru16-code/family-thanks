@@ -2,14 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const GEMINI_RANK_LIMIT = 5
 
-const BUDGET_LABELS: Record<string, string> = {
-  B005: '〜3,000円',
-  B006: '3,001〜4,000円',
-  B007: '4,001〜5,000円',
-  B008: '5,001〜7,000円',
-  B009: '7,001〜10,000円',
-}
-
 type StoreInput = {
   id: string
   name: string
@@ -44,7 +36,7 @@ export type GeminiSelection = {
 }
 
 function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
-  const budgetStr = cond.priceRange || cond.budgetLabel || (cond.budgetCode ? (BUDGET_LABELS[cond.budgetCode] ?? cond.budgetCode) : '指定なし')
+  const budgetStr = cond.priceRange || cond.budgetLabel || cond.budgetCode || '指定なし'
   const genreStr = cond.genre || '指定なし'
   const walkStr = cond.maxWalkMinutes ? `${cond.maxWalkMinutes}分以内` : '指定なし'
   const peopleStr = cond.peopleCount ? `${cond.peopleCount}人` : '不明'
@@ -71,7 +63,7 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
   )
 
   return `あなたは飲み会・会食の幹事補助AIです。
-以下は Hot Pepper strict 条件一致済みの候補店リストです。
+以下は Hot Pepper 条件一致済みの候補店リストです。
 このリストの中だけから最大 ${GEMINI_RANK_LIMIT} 件を選んでランク付けしてください。
 リスト外の店を bestStoreId / rankedStoreIds に含めてはいけません。
 
@@ -85,46 +77,44 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
 - 価格帯: ${budgetStr}
 - ジャンル: ${genreStr}
 
-## 選定優先順位（上から順に厳守）
-
-### 1. 駅一致（最重要）
+## 選定優先順位
+1. 駅一致
 - station_name が「${cond.targetStation}」と一致する店を最優先
 - station_name が空でも access に「${cond.targetStation}駅」を含む場合は許容
 - どちらにも当てはまらない店は rankedStoreIds に含めないこと
 
-### 2. 徒歩時間
+2. 徒歩時間
 - walk_minutes が小さいほど優先
 - walk_minutes が null の場合は中位として扱う
 
-### 3. 価格帯（重要）
+3. 価格帯（重要）
 - budget_average を見て、指定価格帯（${budgetStr}）に近い店を優先
-- 「ディナー4000円～5000円」のように budget_average にディナー価格が書いてある場合はそれを強く参考にする
-- bestStoreId には、指定価格帯より明らかに安すぎる店を選ばないこと
+- bestStoreId には、指定価格帯より明らかに安すぎる店を選ばない
+- top5 の中に価格帯が近い店を優先して残す
 - 価格帯が近い候補が少ない場合は fallbackNotes に「指定価格帯に近い候補が少ないため、近い価格帯も含めて表示しています」を追加
 
-### 4. ジャンル適合
+4. ジャンル適合
 - genre / tags / name が希望ジャンルに近い店を優先
 - 「焼き鳥」希望: tags に「焼き鳥系」または name / genre に「焼き鳥」「串」「鶏」を含む店を最優先
 - 「焼肉」希望: tags に「焼肉系」を含む店を優先
-- 「居酒屋」希望: 汎用性の高い居酒屋を優先
 
-### 5. 個室・収容力
-- has_private_room == true なら、他条件が同等のとき優先${isLargeGroup ? '\n- 大人数なので、個室・収容人数への言及がある店をより優先' : ''}
+5. 個室・収容力
+- has_private_room == true なら、他条件が同等のとき優先
+${isLargeGroup ? '- 大人数なので、個室・収容人数への言及がある店をより優先' : ''}
 
-### 6. Google評価（補助条件）
+6. Google評価（補助条件）
 - google_rating と google_rating_count がある場合のみ参考にする
 - 同条件なら評価が高い店をやや優先
-- ただし上記 1〜5 の優先順位を上回ってはいけない
+- ただし上記1〜5を上回ってはいけない
 
-## 理由文ルール（重要）
-各店に 1〜2文の理由文を書いてください。
-
-必ず以下のうち 1〜2 点を具体的に含めること:
-- 徒歩時間: 「${cond.targetStation}駅から徒歩○分」
-- 価格帯: 「ディナー4000円～5000円で条件に近い」など budget_average ベースの説明
-- ジャンル: 「${genreStr}に合う」「${genreStr}メイン」など
-- 個室: 「個室あり」
-- 大人数: 「○人規模にも向く」
+## 理由文ルール
+各店に1〜2文の理由文を書いてください。
+必ず以下のうち1〜2点を具体的に含めること:
+- 徒歩時間
+- budget_average ベースの価格説明
+- ジャンル適合
+- 個室
+- 大人数適合
 
 禁止表現:
 - 「おすすめ」
@@ -132,10 +122,7 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
 - 「良さそう」
 - 「ぴったりのお店」
 
-目標:
-- 幹事が参加者にそのまま読み上げられる具体的な一言
-
-## 返却形式（JSON のみ。説明文・コードブロック不要）
+## 返却形式（JSONのみ）
 {
   "bestStoreId": "最もおすすめの店の id",
   "rankedStoreIds": ["id1", "id2", "id3"],
@@ -154,13 +141,17 @@ function buildFallbackSelection(stores: StoreInput[]): GeminiSelection {
   const ranked = stores.slice(0, GEMINI_RANK_LIMIT)
   const reasons = ranked.map((s) => {
     const parts: string[] = []
-    if (typeof s.walkMinutes === 'number') parts.push(`横浜駅から徒歩${s.walkMinutes}分`)
+    if (typeof s.walkMinutes === 'number') parts.push(`${s.stationName || '最寄り駅'}から徒歩${s.walkMinutes}分`)
     if (s.budgetAverage) parts.push(s.budgetAverage)
-    else if (s.budgetCode) parts.push(BUDGET_LABELS[s.budgetCode] ?? s.budgetCode)
+    else if (s.budgetCode) parts.push(s.budgetCode)
     if (s.genre) parts.push(s.genre)
     if (s.hasPrivateRoom) parts.push('個室あり')
-    return { storeId: s.id, reason: parts.slice(0, 2).join('・') || '条件に近い候補です' }
+    return {
+      storeId: s.id,
+      reason: parts.slice(0, 2).join('・') || '条件に近い候補です',
+    }
   })
+
   return {
     bestStoreId: ranked[0]?.id ?? '',
     rankedStoreIds: ranked.map((s) => s.id),
@@ -197,44 +188,51 @@ export async function POST(req: NextRequest) {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 15000)
 
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: 'OBJECT',
-            properties: {
-              bestStoreId: { type: 'STRING' },
-              rankedStoreIds: { type: 'ARRAY', items: { type: 'STRING' } },
-              reasons: {
-                type: 'ARRAY',
-                items: {
-                  type: 'OBJECT',
-                  properties: {
-                    storeId: { type: 'STRING' },
-                    reason: { type: 'STRING' },
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: 'OBJECT',
+              properties: {
+                bestStoreId: { type: 'STRING' },
+                rankedStoreIds: { type: 'ARRAY', items: { type: 'STRING' } },
+                reasons: {
+                  type: 'ARRAY',
+                  items: {
+                    type: 'OBJECT',
+                    properties: {
+                      storeId: { type: 'STRING' },
+                      reason: { type: 'STRING' },
+                    },
+                    required: ['storeId', 'reason'],
                   },
-                  required: ['storeId', 'reason'],
                 },
+                fallbackNotes: { type: 'ARRAY', items: { type: 'STRING' } },
               },
-              fallbackNotes: { type: 'ARRAY', items: { type: 'STRING' } },
+              required: ['bestStoreId', 'rankedStoreIds', 'reasons', 'fallbackNotes'],
             },
-            required: ['bestStoreId', 'rankedStoreIds', 'reasons', 'fallbackNotes'],
           },
-        },
-      }),
-      signal: controller.signal,
-    })
+        }),
+        signal: controller.signal,
+      }
+    )
 
     clearTimeout(timeout)
 
     if (!res.ok) {
       const errText = await res.text().catch(() => '')
       console.error('[store-select] Gemini HTTP error:', res.status, errText.slice(0, 300))
-      return NextResponse.json({ selection: buildFallbackSelection(stores), error: `gemini_${res.status}`, usedFallback: true })
+      return NextResponse.json({
+        selection: buildFallbackSelection(stores),
+        error: `gemini_${res.status}`,
+        usedFallback: true,
+      })
     }
 
     const data = await res.json()
@@ -245,16 +243,26 @@ export async function POST(req: NextRequest) {
       selection = JSON.parse(rawText) as GeminiSelection
     } catch {
       console.error('[store-select] JSON parse failed:', rawText.slice(0, 300))
-      return NextResponse.json({ selection: buildFallbackSelection(stores), error: 'parse_failed', usedFallback: true })
+      return NextResponse.json({
+        selection: buildFallbackSelection(stores),
+        error: 'parse_failed',
+        usedFallback: true,
+      })
     }
 
     if (selection) {
       const validIds = new Set(stores.map((s) => s.id))
       selection.rankedStoreIds = selection.rankedStoreIds.filter((id) => validIds.has(id))
       selection.reasons = selection.reasons.filter((r) => validIds.has(r.storeId))
-      if (!validIds.has(selection.bestStoreId)) selection.bestStoreId = selection.rankedStoreIds[0] ?? ''
+      if (!validIds.has(selection.bestStoreId)) {
+        selection.bestStoreId = selection.rankedStoreIds[0] ?? ''
+      }
       if (!selection.bestStoreId) {
-        return NextResponse.json({ selection: buildFallbackSelection(stores), error: 'invalid_best', usedFallback: true })
+        return NextResponse.json({
+          selection: buildFallbackSelection(stores),
+          error: 'invalid_best',
+          usedFallback: true,
+        })
       }
     }
 
