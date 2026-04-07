@@ -23,6 +23,13 @@ type EventDateRow = {
 }
 
 type AvailabilityValue = 'yes' | 'maybe' | 'no'
+type ParticipantGenre = '和風・居酒屋' | '洋食' | '中華'
+
+const PARTICIPANT_GENRE_OPTIONS: ParticipantGenre[] = [
+  '和風・居酒屋',
+  '洋食',
+  '中華',
+]
 
 export default function EventParticipantPage() {
   const params = useParams()
@@ -39,8 +46,7 @@ export default function EventParticipantPage() {
 
   const [participantName, setParticipantName] = useState('')
   const [answers, setAnswers] = useState<Record<string, AvailabilityValue | undefined>>({})
-  const [showPrefs, setShowPrefs] = useState(false)
-  const [prefGenres, setPrefGenres] = useState<string[]>([])
+  const [prefGenre, setPrefGenre] = useState<ParticipantGenre | null>(null)
 
   useEffect(() => {
     if (!eventId) return
@@ -101,47 +107,48 @@ export default function EventParticipantPage() {
     }))
   }
 
- const submitResponse = async () => {
-  if (!participantName.trim()) {
-    setErrorMessage('名前を入力してください')
-    return
-  }
+  const submitResponse = async () => {
+    if (!participantName.trim()) {
+      setErrorMessage('名前を入力してください')
+      return
+    }
 
-  if (!allAnswered) {
-    setErrorMessage('すべての候補日に回答してください')
-    return
-  }
+    if (!allAnswered) {
+      setErrorMessage('すべての候補日に回答してください')
+      return
+    }
 
-  setSubmitting(true)
-  setErrorMessage('')
+    setSubmitting(true)
+    setErrorMessage('')
 
-  // 👇 ここが重要（json形式に変換）
-  const dateAnswers: Record<string, string> = {}
+    const dateAnswers: Record<string, string> = {}
 
-  dates.forEach((d, index) => {
-    const key = `date${index + 1}` // ← 今のDBに合わせる
-    dateAnswers[key] = answers[d.id] || 'maybe'
-  })
-
-  const { error } = await supabase
-    .from('responses')
-    .insert({
-      event_id: eventId,
-      participant_name: participantName.trim(),
-      date_answers: dateAnswers,
-      genres: prefGenres,
-      areas: [],
+    dates.forEach((d, index) => {
+      const key = `date${index + 1}`
+      dateAnswers[key] = answers[d.id] || 'maybe'
     })
 
-  if (error) {
-    setErrorMessage(`回答送信エラー: ${error.message}`)
-    setSubmitting(false)
-    return
-  }
+    const genres = prefGenre ? [prefGenre] : []
 
-  setSubmitting(false)
-  setSubmitted(true)
-}
+    const { error } = await supabase
+      .from('responses')
+      .insert({
+        event_id: eventId,
+        participant_name: participantName.trim(),
+        date_answers: dateAnswers,
+        genres,
+        areas: [],
+      })
+
+    if (error) {
+      setErrorMessage(`回答送信エラー: ${error.message}`)
+      setSubmitting(false)
+      return
+    }
+
+    setSubmitting(false)
+    setSubmitted(true)
+  }
 
   if (loading) {
     return (
@@ -260,70 +267,29 @@ export default function EventParticipantPage() {
           )}
         </div>
 
-        {/* お店希望 — 導線 or フォーム */}
-        {!showPrefs ? (
-          <button
-            type="button"
-            onClick={() => setShowPrefs(true)}
-            className="w-full rounded-3xl bg-white px-5 py-4 text-left shadow-sm ring-1 ring-stone-100 transition hover:shadow-md active:scale-[0.99]"
-          >
-            <p className="text-sm font-bold text-stone-900">お店の希望も伝える</p>
-            <p className="mt-1 text-xs leading-5 text-stone-400">
-              ジャンルや個室希望など、あれば入力できます
-            </p>
-            <p className="mt-3 text-xs font-bold text-stone-500">
-              希望を入力する →
-            </p>
-          </button>
-        ) : (
-          <div className="rounded-3xl bg-white px-4 py-5 shadow-sm ring-1 ring-black/5">
-            <div className="mb-4 flex items-center justify-between">
-              <p className="text-sm font-bold text-stone-900">お店の希望</p>
-              <button
-                type="button"
-                onClick={() => setShowPrefs(false)}
-                className="text-xs text-stone-400 underline underline-offset-2"
-              >
-                閉じる
-              </button>
-            </div>
-            <div className="space-y-5">
-
-              {/* ジャンル — 最大2つ選択 */}
-              <div>
-                <p className="mb-2 text-xs font-bold text-stone-600">ジャンル（最大2つ）</p>
-                <div className="flex flex-wrap gap-2">
-                  {['居酒屋', '和食', 'イタリアン・フレンチ', '中華', '焼肉・ホルモン', '焼き鳥', '韓国料理', 'カフェ・スイーツ', 'なんでもいい'].map(v => {
-                    const isSelected = prefGenres.includes(v)
-                    const isDisabled = !isSelected && prefGenres.length >= 2
-                    return (
-                      <button type="button" key={v}
-                        onClick={() => {
-                          if (isSelected) {
-                            setPrefGenres(prefGenres.filter(g => g !== v))
-                          } else if (!isDisabled) {
-                            setPrefGenres([...prefGenres, v])
-                          }
-                        }}
-                        className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition active:scale-95 ${
-                          isSelected
-                            ? 'bg-stone-900 text-white ring-stone-900'
-                            : isDisabled
-                            ? 'bg-stone-50 text-stone-300 ring-stone-100 cursor-not-allowed'
-                            : 'bg-stone-50 text-stone-500 ring-stone-200 hover:bg-stone-100'
-                        }`}
-                      >{v}</button>
-                    )
-                  })}
-                </div>
-                {prefGenres.length >= 2 && (
-                  <p className="mt-1.5 text-xs text-stone-400">2つ選択中。変更するには一度選択を外してください。</p>
-                )}
-              </div>
-
-            </div>
+        <div className="rounded-3xl bg-white px-4 py-5 shadow-sm ring-1 ring-stone-100">
+          <p className="text-sm font-bold text-stone-900">何系のお店がいい？（任意）</p>
+          <p className="mt-1 text-xs leading-5 text-stone-400">幹事が候補を選ぶときの参考にします</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {PARTICIPANT_GENRE_OPTIONS.map((option) => {
+              const isSelected = prefGenre === option
+              return (
+                <button
+                  type="button"
+                  key={option}
+                  onClick={() => setPrefGenre(isSelected ? null : option)}
+                  className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 transition active:scale-95 ${
+                    isSelected
+                      ? 'bg-stone-800 text-white ring-stone-800'
+                      : 'bg-stone-50 text-stone-500 ring-stone-200 hover:bg-stone-100'
+                  }`}
+                >
+                  {option}
+                </button>
+              )
+            })}
           </div>
-        )}
+        </div>
 
         {errorMessage ? (
           <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-100">

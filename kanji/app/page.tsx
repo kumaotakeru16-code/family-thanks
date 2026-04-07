@@ -36,13 +36,8 @@ type Participant = {
 type OrganizerPrefs = {
   priceRange: string
   genres: string[]
-  drinks: string[]
   privateRoom: string
-  allYouCanDrink: string
-  smoking: string
   areas: string[]
-  atmosphere: string[]
-  walkMinutes: string
 }
 
 type StoreCandidate = {
@@ -91,19 +86,7 @@ const EVENT_TYPES: EventType[] = ['歓迎会', '送別会', '普通の飲み会'
 const AREA_OPTIONS = ['渋谷', '新宿', '池袋', '東京', '品川', '横浜']
 
 // Hot Pepper ジャンル準拠のラベル（UI表示用）
-const HP_GENRE_OPTIONS = [
-  '居酒屋',
-  '和食',
-  '洋食',
-  'イタリアン・フレンチ',
-  '中華',
-  '焼肉・ホルモン',
-  '焼き鳥',
-  '韓国料理',
-  'カフェ・スイーツ',
-  'バー・ダイニングバー',
-  'アジア・エスニック',
-]
+const HP_GENRE_OPTIONS = ['和風・居酒屋', '洋食', '中華'] as const
 
 // UIラベル → Hot Pepper 予算コードの変換マップ（Gemini 選定ルールに渡すため）
 const BUDGET_CODE_MAP: Record<string, string> = {
@@ -121,29 +104,60 @@ const BUDGET_CODE_MAP: Record<string, string> = {
  */
 const PLACES_ENRICH_LIMIT = 5
 
-// UIラベル → Hot Pepper ジャンルコードの変換マップ（クライアント側で解決し、ラベル変更に引きずられないようにする）
-const GENRE_CODE_MAP: Record<string, string> = {
-  '居酒屋': 'G001',
-  '和食': 'G004',
-  '洋食': 'G005',
-  'イタリアン・フレンチ': 'G006',
-  '中華': 'G007',
-  '焼肉・ホルモン': 'G008',
-  '焼き鳥': 'G001',
-  '韓国料理': 'G017',
-  'カフェ・スイーツ': 'G014',
-  'バー・ダイニングバー': 'G012',
-  'アジア・エスニック': 'G009',
+// UIラベル → Hot Pepper ジャンルコード配列の変換マップ
+const GENRE_CODE_MAP: Record<string, string[]> = {
+  '和風・居酒屋': ['G001', 'G004'],
+  '洋食': ['G006'],
+  '中華': ['G007'],
 }
 
-// Hot Pepper budget code に対応する予算帯
+// 参加者が選んだ旧ジャンル（任意入力含む）を新3択に正規化する
+const PARTICIPANT_GENRE_NORMALIZE: Record<string, string> = {
+  // 和風・居酒屋 寄り
+  '居酒屋': '和風・居酒屋',
+  '和食': '和風・居酒屋',
+  '焼き鳥': '和風・居酒屋',
+  'やきとり': '和風・居酒屋',
+  '焼肉・ホルモン': '和風・居酒屋', // MVP では和風扱い
+  '韓国料理': '和風・居酒屋',       // MVP では和風扱い
+  '海鮮': '和風・居酒屋',
+  '魚': '和風・居酒屋',
+  '寿司': '和風・居酒屋',
+  '刺身': '和風・居酒屋',
+  '炉端': '和風・居酒屋',
+  'おでん': '和風・居酒屋',
+  '鍋': '和風・居酒屋',
+  '鶏料理': '和風・居酒屋',
+  '串焼き': '和風・居酒屋',
+  '串焼': '和風・居酒屋',
+  '和風・居酒屋': '和風・居酒屋',
+  // 洋食 寄り
+  '洋食': '洋食',
+  'イタリアン': '洋食',
+  'イタリアン・フレンチ': '洋食',
+  'イタリアン・スペイン系': '洋食',
+  'フレンチ': '洋食',
+  'スペイン': '洋食',
+  'バル': '洋食',
+  'ビストロ': '洋食',
+  // 中華 寄り
+  '中華': '中華',
+  '四川': '中華',
+  '上海': '中華',
+  '広東': '中華',
+  '餃子': '中華',
+  '小籠包': '中華',
+  '火鍋': '中華',
+}
+function normalizeParticipantGenre(g: string): string | null {
+  return PARTICIPANT_GENRE_NORMALIZE[g] ?? null
+}
+
+// 価格帯UI選択肢（「指定なし」= 内部的に4,000〜7,000円帯を自然に優先するデフォルトモード）
 const HP_BUDGET_OPTIONS = [
-  '3,000円以下',      // B005: 2001〜3000円
-  '3,001〜4,000円',  // B006
-  '4,001〜5,000円',  // B007
-  '5,001〜7,000円',  // B008
-  '7,001〜10,000円', // B009
   '指定なし',
+  '4,001〜5,000円',
+  '5,001〜7,000円',
 ]
 const INITIAL_DATES: DateOption[] = [
   { id: 'date1', label: '4/10（水）19:00' },
@@ -360,7 +374,7 @@ function buildStoreReason(params: {
   const genre = orgPrefs?.genres?.find(g => g !== 'なんでもいい')
   const priceRange = orgPrefs?.priceRange && orgPrefs.priceRange !== '指定なし' ? orgPrefs.priceRange : null
   const hasPrivateRoom = orgPrefs?.privateRoom === '個室あり' && storeTags.includes('個室あり')
-  const hasFreeDrink = orgPrefs?.allYouCanDrink === '希望' && storeTags.some(t => t.includes('飲み放題'))
+  const hasFreeDrink = false
   const formalTypes = ['会食', '歓迎会', '送別会']
   const isFormal = eventType && formalTypes.includes(eventType)
   const hasVip = mainGuestCount > 0
@@ -499,17 +513,12 @@ export default function Page() {
   const [showAltStores, setShowAltStores] = useState(false)
 
   const [orgPrefs, setOrgPrefs] = useState<OrganizerPrefs>({
-    priceRange: '4,001〜5,000円',
+    priceRange: '指定なし',
     genres: [],
-    drinks: [],
     privateRoom: '',
-    allYouCanDrink: '',
-    smoking: '',
     areas: [],
-    atmosphere: [],
-    walkMinutes: '15分以内',
   })
-  const [showAdvancedPrefs, setShowAdvancedPrefs] = useState(false)
+
 
   const orgPrefsInitRef = useRef(false)
   const [selectedStoreId, setSelectedStoreId] = useState('s1')
@@ -804,24 +813,14 @@ const participantMajority = useMemo(() => {
   const total = activeParticipants.length
   if (total === 0) return null
   const genreCounts = new Map<string, number>()
-  const atmCounts = new Map<string, number>()
   let privateRoomCount = 0
-  let allYouCanDrinkCount = 0
-  const drinkCounts = new Map<string, number>()
   activeParticipants.forEach(p => {
     ;(p.genres ?? []).forEach((g: string) => {
-      if (g.startsWith('atm:')) {
-        const atm = g.slice(4)
-        atmCounts.set(atm, (atmCounts.get(atm) ?? 0) + 1)
-      } else if (g === 'pref:個室') {
+      if (g === 'pref:個室') {
         privateRoomCount++
-      } else if (g === 'pref:飲み放題') {
-        allYouCanDrinkCount++
-      } else if (g.startsWith('drink:')) {
-        const drink = g.slice(6)
-        drinkCounts.set(drink, (drinkCounts.get(drink) ?? 0) + 1)
-      } else {
-        genreCounts.set(g, (genreCounts.get(g) ?? 0) + 1)
+      } else if (!g.startsWith('atm:') && !g.startsWith('pref:') && !g.startsWith('drink:')) {
+        const normalized = normalizeParticipantGenre(g)
+        if (normalized) genreCounts.set(normalized, (genreCounts.get(normalized) ?? 0) + 1)
       }
     })
   })
@@ -831,16 +830,7 @@ const participantMajority = useMemo(() => {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
       .map(([g]) => g),
-    atmosphere: [...atmCounts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([a]) => a)
-      .slice(0, 2),
     privateRoom: privateRoomCount > half ? '必要' : 'どちらでも',
-    allYouCanDrink: allYouCanDrinkCount > half ? '希望' : 'どちらでも',
-    drinks: [...drinkCounts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([d]) => d)
-      .slice(0, 2),
     areas: getTopAreas(activeParticipants).slice(0, 2),
   }
 }, [activeParticipants])
@@ -850,7 +840,8 @@ const genreRanking = useMemo(() => {
   activeParticipants.forEach(p => {
     ;(p.genres ?? []).forEach((g: string) => {
       if (!g.startsWith('atm:') && !g.startsWith('pref:') && !g.startsWith('drink:') && g !== 'なんでもいい') {
-        counts.set(g, (counts.get(g) ?? 0) + 1)
+        const normalized = normalizeParticipantGenre(g)
+        if (normalized) counts.set(normalized, (counts.get(normalized) ?? 0) + 1)
       }
     })
   })
@@ -862,13 +853,10 @@ const genreRanking = useMemo(() => {
 
 const organizerConditions = useMemo(() => {
   const c: string[] = []
-  if (orgPrefs.privateRoom === '個室あり') c.push('個室あり')
-  if (orgPrefs.smoking === '禁煙希望') c.push('禁煙希望')
-  if (orgPrefs.smoking === '喫煙可') c.push('喫煙可がよい')
-  if (orgPrefs.atmosphere.includes('落ち着き')) c.push('静かめ')
-  orgPrefs.genres.forEach(g => c.push(g))
   orgPrefs.areas.forEach(a => c.push(a))
-  if (orgPrefs.allYouCanDrink === '希望') c.push('飲み放題希望')
+  orgPrefs.genres.forEach(g => c.push(g))
+  if (orgPrefs.priceRange !== '指定なし') c.push(orgPrefs.priceRange)
+  if (orgPrefs.privateRoom === '個室あり') c.push('個室あり')
   return c
 }, [orgPrefs])
 
@@ -880,10 +868,7 @@ useEffect(() => {
       genres: participantMajority.genres.length
         ? [participantMajority.genres.find(g => g !== 'なんでもいい') ?? participantMajority.genres[0]]
         : p.genres,
-      atmosphere: participantMajority.atmosphere.length ? participantMajority.atmosphere : p.atmosphere,
       privateRoom: participantMajority.privateRoom === '必要' ? '個室あり' : p.privateRoom,
-      allYouCanDrink: participantMajority.allYouCanDrink === '希望' ? '希望' : p.allYouCanDrink,
-      drinks: participantMajority.drinks.length ? participantMajority.drinks : p.drinks,
       areas: participantMajority.areas.length ? participantMajority.areas : p.areas,
     }))
   }
@@ -1156,9 +1141,7 @@ async function fetchRecommendedStores() {
 
   try {
     // ── Step 1: Hot Pepper で候補取得 ────────────────────────────────────────
-    const genreCodes = orgPrefs.genres
-      .map(g => GENRE_CODE_MAP[g])
-      .filter((c): c is string => Boolean(c))
+    const genreCodes = orgPrefs.genres.flatMap(g => GENRE_CODE_MAP[g] ?? [])
 
     const hpRes = await fetch('/api/hotpepper/search', {
       method: 'POST',
@@ -1167,9 +1150,8 @@ async function fetchRecommendedStores() {
         areas: orgPrefs.areas,
         priceRange: orgPrefs.priceRange,
         genreCodes,
+        genres: orgPrefs.genres,
         privateRoom: orgPrefs.privateRoom,
-        allYouCanDrink: orgPrefs.allYouCanDrink,
-        walkMinutes: orgPrefs.walkMinutes,
         count: 30,
         // 10人以上のみ party_capacity として HP 検索条件に使う
         peopleCount: totalCount,
@@ -1217,14 +1199,11 @@ async function fetchRecommendedStores() {
 
     if (hpStores.length > 0) {
       try {
-        const walkNum = orgPrefs.walkMinutes
-          ? parseInt(orgPrefs.walkMinutes.replace('分以内', ''), 10) || null
-          : null
         const conditions = {
           targetStation: orgPrefs.areas[0] ?? '',
-          maxWalkMinutes: walkNum,
           budgetCode: BUDGET_CODE_MAP[orgPrefs.priceRange] ?? '',
           budgetLabel: orgPrefs.priceRange,
+          priceRange: orgPrefs.priceRange,
           genre: orgPrefs.genres[0] ?? '',
           peopleCount: totalCount,
           eventType,
@@ -2256,193 +2235,103 @@ return (
             ⑧ 幹事条件設定
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'organizerConditions' && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div className="px-1">
               <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 7</p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">条件を設定</h2>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">お店の条件</h2>
+              <p className="mt-1 text-sm text-stone-400">必要な条件だけ絞って、すぐ決められます</p>
             </div>
 
+            {/* 参加者ジャンル希望（補助情報） */}
             {genreRanking.length > 0 && (
-              <div className="rounded-3xl bg-stone-50 px-5 py-4 ring-1 ring-stone-100">
-                <p className="mb-3 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">ジャンル希望ランキング</p>
-                <div className="space-y-2">
+              <div className="rounded-2xl bg-stone-50 px-4 py-3.5 ring-1 ring-stone-100">
+                <p className="mb-2 text-[10px] font-black tracking-[0.15em] text-stone-400 uppercase">参加者の希望</p>
+                <div className="flex flex-wrap gap-1.5">
                   {genreRanking.map(({ genre, count }, i) => (
-                    <div key={genre} className="flex items-center gap-3">
-                      <span className={`shrink-0 text-[11px] font-black w-5 text-right ${i === 0 ? 'text-stone-900' : 'text-stone-400'}`}>
-                        {i + 1}位
-                      </span>
-                      <div className="flex flex-1 items-center gap-2">
-                        <div
-                          className="h-1.5 rounded-full bg-stone-900"
-                          style={{ width: `${Math.round((count / genreRanking[0].count) * 100)}%`, minWidth: '8px', maxWidth: '100%' }}
-                        />
-                      </div>
-                      <span className={`text-xs font-bold ${i === 0 ? 'text-stone-900' : 'text-stone-500'}`}>{genre}</span>
-                      <span className="text-[11px] text-stone-400">{count}人</span>
-                    </div>
+                    <span key={genre} className={cx(
+                      'rounded-full px-2.5 py-1 text-xs font-bold',
+                      i === 0 ? 'bg-stone-200 text-stone-800' : 'bg-stone-100 text-stone-500'
+                    )}>
+                      {genre}
+                      <span className="ml-1 font-normal opacity-60">{count}人</span>
+                    </span>
                   ))}
                 </div>
-                <p className="mt-3 text-[11px] text-stone-400">1位のジャンルを自動でセットしています</p>
+                <p className="mt-2 text-[11px] text-stone-400">1位のジャンルを自動でセットしています</p>
               </div>
             )}
             {genreRanking.length === 0 && activeParticipants.length > 0 && (
-              <div className="rounded-3xl bg-stone-50 px-5 py-4 ring-1 ring-stone-100">
-                <p className="text-sm text-stone-400">ジャンル希望はまだ集まっていません</p>
-              </div>
+              <p className="px-1 text-xs text-stone-400">参加者のお店希望はまだ入力されていません</p>
             )}
 
-            <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-              <p className="mb-5 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">幹事条件（修正可）</p>
-              <div className="space-y-5">
+            {/* 条件カード */}
+            <div className="space-y-0 divide-y divide-stone-100 rounded-2xl bg-white shadow-sm ring-1 ring-stone-100">
 
-                {/* ① エリア（駅名） */}
-                <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">エリア（駅名）</p>
-                  <StationInput
-                    single
-                    value={orgPrefs.areas}
-                    onChange={(stations) => {
-                      setOrgPrefs((p) => ({ ...p, areas: stations }))
-                      setStationError('')
-                    }}
-                    onCommittedChange={setStationCommitted}
-                  />
-                  {stationError && (
-                    <p className="mt-1.5 text-xs font-bold text-red-600">{stationError}</p>
-                  )}
-                </div>
-
-                {/* ② 徒歩何分以内 */}
-                <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">駅から徒歩</p>
-                  <div className="flex flex-wrap gap-2">
-                    {['5分以内', '10分以内', '15分以内', '20分以内', '指定なし'].map(v => (
-                      <Chip key={v} active={orgPrefs.walkMinutes === v}
-                        onClick={() => setOrgPrefs(p => ({ ...p, walkMinutes: v }))}>
-                        {v}
-                      </Chip>
-                    ))}
-                  </div>
-                </div>
-
-                {/* ③ ジャンル */}
-                <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">ジャンル</p>
-                  <div className="flex flex-wrap gap-2">
-                    {HP_GENRE_OPTIONS.map(v => (
-                      <Chip key={v} active={orgPrefs.genres[0] === v}
-                        onClick={() => setOrgPrefs(p => ({ ...p, genres: p.genres[0] === v ? [] : [v] }))}>
-                        {v}
-                      </Chip>
-                    ))}
-                  </div>
-                </div>
-
-                {/* ④ 価格帯 */}
-                <div>
-                  <p className="mb-2 text-xs font-bold text-stone-700">価格帯</p>
-                  <select
-                    value={orgPrefs.priceRange}
-                    onChange={(e) => setOrgPrefs((p) => ({ ...p, priceRange: e.target.value }))}
-                    className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-bold text-stone-700 outline-none transition focus:border-stone-400"
-                  >
-                    {HP_BUDGET_OPTIONS.map((price) => (
-                      <option key={price} value={price}>{price}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* さらにこだわる */}
-                <div className="border-t border-stone-100 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowAdvancedPrefs(v => !v)}
-                    className="flex w-full items-center justify-between text-xs font-bold text-stone-500 transition hover:text-stone-700"
-                  >
-                    <span>{showAdvancedPrefs ? 'こだわり条件を閉じる' : 'さらにこだわる'}</span>
-                    <span className="text-[10px] text-stone-300">{showAdvancedPrefs ? '▲' : '▼'}</span>
-                  </button>
-
-                  {showAdvancedPrefs && (
-                    <div className="mt-4 space-y-5">
-
-                      {/* 飲み放題 */}
-                      <div>
-                        <p className="mb-2 text-xs font-bold text-stone-700">飲み放題</p>
-                        <div className="flex gap-2">
-                          <Chip active={orgPrefs.allYouCanDrink === '希望'}
-                            onClick={() => setOrgPrefs(p => ({ ...p, allYouCanDrink: p.allYouCanDrink === '希望' ? '' : '希望' }))}>
-                            希望する
-                          </Chip>
-                        </div>
-                      </div>
-
-                      {/* 個室 */}
-                      <div>
-                        <p className="mb-2 text-xs font-bold text-stone-700">個室</p>
-                        <div className="flex gap-2">
-                          <Chip active={orgPrefs.privateRoom === '個室あり'}
-                            onClick={() => setOrgPrefs(p => ({ ...p, privateRoom: p.privateRoom === '個室あり' ? '' : '個室あり' }))}>
-                            個室あり
-                          </Chip>
-                        </div>
-                      </div>
-
-                      {/* 禁煙 / 喫煙 */}
-                      <div>
-                        <p className="mb-2 text-xs font-bold text-stone-700">禁煙 / 喫煙</p>
-                        <div className="flex flex-wrap gap-2">
-                          {['禁煙希望', '喫煙可'].map(v => (
-                            <Chip key={v} active={orgPrefs.smoking === v}
-                              onClick={() => setOrgPrefs(p => ({ ...p, smoking: p.smoking === v ? '' : v }))}>
-                              {v}
-                            </Chip>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* ドリンクの好み */}
-                      <div>
-                        <p className="mb-2 text-xs font-bold text-stone-700">ドリンクの好み</p>
-                        <div className="flex flex-wrap gap-2">
-                          {['ワイン', '日本酒', '焼酎'].map(v => (
-                            <Chip key={v} active={orgPrefs.drinks[0] === v}
-                              onClick={() => setOrgPrefs(p => ({ ...p, drinks: p.drinks[0] === v ? [] : [v] }))}>
-                              {v}
-                            </Chip>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* 雰囲気 */}
-                      <div>
-                        <p className="mb-2 text-xs font-bold text-stone-700">雰囲気</p>
-                        <div className="flex flex-wrap gap-2">
-                          {['落ち着き', 'にぎやか', 'おしゃれ'].map(v => (
-                            <Chip key={v} active={orgPrefs.atmosphere.includes(v)}
-                              onClick={() => setOrgPrefs(p => ({
-                                ...p,
-                                atmosphere: p.atmosphere.includes(v)
-                                  ? p.atmosphere.filter(a => a !== v)
-                                  : [...p.atmosphere, v],
-                              }))}>
-                              {v}
-                            </Chip>
-                          ))}
-                        </div>
-                      </div>
-
-                    </div>
-                  )}
-                </div>
-
+              {/* 駅 */}
+              <div className="px-4 py-4">
+                <p className="mb-2 text-xs font-bold text-stone-500">駅</p>
+                <StationInput
+                  single
+                  value={orgPrefs.areas}
+                  onChange={(stations) => {
+                    setOrgPrefs((p) => ({ ...p, areas: stations }))
+                    setStationError('')
+                  }}
+                  onCommittedChange={setStationCommitted}
+                />
+                {stationError && (
+                  <p className="mt-1.5 text-xs font-bold text-red-500">{stationError}</p>
+                )}
               </div>
+
+              {/* ジャンル */}
+              <div className="px-4 py-4">
+                <p className="mb-2.5 text-xs font-bold text-stone-500">ジャンル</p>
+                <div className="flex flex-wrap gap-2">
+                  {HP_GENRE_OPTIONS.map(v => (
+                    <Chip key={v} active={orgPrefs.genres[0] === v}
+                      onClick={() => setOrgPrefs(p => ({ ...p, genres: p.genres[0] === v ? [] : [v] }))}>
+                      {v}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+
+              {/* 価格 */}
+              <div className="px-4 py-4">
+                <p className="mb-2.5 text-xs font-bold text-stone-500">価格帯</p>
+                <div className="flex flex-wrap gap-2">
+                  {HP_BUDGET_OPTIONS.map(v => (
+                    <Chip key={v} active={orgPrefs.priceRange === v}
+                      onClick={() => setOrgPrefs(p => ({ ...p, priceRange: v }))}>
+                      {v}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+
+              {/* 個室 */}
+              <div className="px-4 py-4">
+                <p className="mb-2.5 text-xs font-bold text-stone-500">個室</p>
+                <div className="flex gap-2">
+                  {(['どちらでも', 'あり'] as const).map(v => (
+                    <Chip key={v}
+                      active={v === 'あり' ? orgPrefs.privateRoom === '個室あり' : orgPrefs.privateRoom !== '個室あり'}
+                      onClick={() => setOrgPrefs(p => ({ ...p, privateRoom: v === 'あり' ? '個室あり' : '' }))}>
+                      {v}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+
             </div>
 
-            <PrimaryBtn size="large" onClick={fetchRecommendedStores}>
-              {isLoadingStores ? '店を提案中…' : 'おすすめの店を見る'}
-            </PrimaryBtn>
-            <GhostBtn onClick={() => setStep('dateConfirmed')}>← 戻る</GhostBtn>
+            <div className="space-y-2 pt-1">
+              <PrimaryBtn size="large" onClick={fetchRecommendedStores}>
+                {isLoadingStores ? '候補を探しています…' : 'お店候補を見る'}
+              </PrimaryBtn>
+              <GhostBtn onClick={() => setStep('dateConfirmed')}>← 戻る</GhostBtn>
+            </div>
           </div>
         )}
 
@@ -2450,134 +2339,139 @@ return (
             ⑨ 店提案（決断UI）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
 {step === 'storeSuggestion' && heroDate && (
-  <div className="space-y-4">
+  <div className="space-y-5">
     <div className="px-1">
       <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 9</p>
       <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">お店を選ぶ</h2>
     </div>
-{storePool.length === 0 ? (
-  /* ── 空状態: 候補なし ───────────────────────────────────────── */
-  <div className="rounded-3xl bg-stone-50 px-6 py-10 text-center ring-1 ring-stone-100">
-    <p className="text-base font-bold text-stone-700">指定駅・徒歩条件に合う候補が見つかりませんでした</p>
-    <p className="mt-2 text-sm leading-6 text-stone-500">
-      {storeFetchError || '徒歩条件を広げるか、価格帯やジャンル条件を見直してください。'}
-    </p>
-    <div className="mt-5">
-      <GhostBtn onClick={() => setStep('organizerConditions')}>条件を調整する</GhostBtn>
-    </div>
-  </div>
-) : (
-  /* ── 候補あり ────────────────────────────────────────────────── *//*a*/
-  <>
-    {storeFetchError && (
-      <div className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-100">
-        {storeFetchError}
-      </div>
-    )}
-    {storeSelectNotes.map((note, i) => (
-      <div key={i} className="rounded-2xl bg-sky-50 px-4 py-3 text-sm text-sky-700 ring-1 ring-sky-100">
-        {note}
-      </div>
-    ))}
-    {/* Google rating fallback は 1件のみ試行なので非表示（失敗しても候補は表示済み） */}
 
-    {/* 第一候補 — dark hero */}
-    {primaryStore && (
-      <div className="overflow-hidden rounded-3xl bg-stone-900">
-        <div className="px-6 py-6">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">Best Choice</p>
-          <h3 className="mt-2 text-2xl font-black tracking-tight text-white">{primaryStore.name}</h3>
-          {primaryStore.area && (
-            <p className="mt-1 text-sm text-white/50">
-              {primaryStore.area}{primaryStore.access ? ` · ${primaryStore.access}` : ''}
-            </p>
-          )}
+    {storePool.length === 0 ? (
+      /* ── 空状態 ─────────────────────────────────────────────── */
+      <div className="rounded-2xl bg-stone-50 px-6 py-10 text-center ring-1 ring-stone-100">
+        <p className="text-sm font-bold text-stone-700">条件に合う候補が見つかりませんでした</p>
+        <p className="mt-2 text-sm leading-6 text-stone-400">
+          {storeFetchError || '価格帯やジャンル条件を変えてお試しください。'}
+        </p>
+        <div className="mt-5">
+          <GhostBtn onClick={() => setStep('organizerConditions')}>条件を調整する</GhostBtn>
         </div>
-
-        {primaryStore.image && (
-          <div className="overflow-hidden h-52 sm:h-64">
-            <img src={primaryStore.image} alt={primaryStore.name} className="h-full w-full object-cover object-center opacity-90" />
+      </div>
+    ) : (
+      /* ── 候補あり ────────────────────────────────────────────── */
+      <>
+        {storeFetchError && (
+          <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-100">
+            {storeFetchError}
           </div>
         )}
+        {storeSelectNotes.map((note, i) => (
+          <div key={i} className="rounded-xl bg-stone-50 px-4 py-3 text-xs text-stone-500 ring-1 ring-stone-100">
+            {note}
+          </div>
+        ))}
 
-        <div className="bg-white/[0.06] px-6 py-5">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 mb-1.5">この会に合う理由</p>
-          <p className="text-sm leading-6 text-white/70">{primaryStore.reason || storeReason}</p>
-          {primaryStore.googleRating && (
-            <p className="mt-3 text-xs text-white/40">
-              <span className="text-white/60">Google</span>
-              {' '}★ {primaryStore.googleRating.toFixed(1)}
-              {primaryStore.googleRatingCount ? `（${primaryStore.googleRatingCount.toLocaleString()}件）` : ''}
-            </p>
-          )}
-        </div>
-
-        <div className="px-6 py-5">
-          {primaryStore.link && (
-            <a
-              href={primaryStore.link}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-4 py-4 text-base font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
-            >
-              ホットペッパーで空き・予約を確認する
-            </a>
-          )}
-        </div>
-      </div>
-    )}
-
-    {/* 他候補: 折りたたみ + 選択可能（最大 4件） */}
-    {secondaryStores.length > 0 && (
-      <div>
-        <button
-          type="button"
-          onClick={() => setShowAltStores(v => !v)}
-          className="w-full text-center text-xs font-bold text-stone-400 underline underline-offset-2 transition hover:text-stone-600"
-        >
-          {showAltStores ? 'ほかの候補を閉じる' : `ほかの候補を見る（${secondaryStores.length}件）`}
-        </button>
-        {showAltStores && (
-          <div className="mt-3 space-y-1.5">
-            {secondaryStores.map((store: StoreCandidate) => (
-              <button
-                type="button"
-                key={store.id}
-                onClick={() => { setSelectedStoreId(store.id); setShowAltStores(false) }}
-                className={cx(
-                  'flex w-full items-center justify-between rounded-2xl px-4 py-3 ring-1 transition hover:bg-stone-50 active:scale-[0.99]',
-                  selectedStoreId === store.id
-                    ? 'bg-stone-900 text-white ring-stone-900'
-                    : 'bg-white text-stone-700 ring-stone-100'
-                )}
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-bold">{store.name}</p>
-                  {store.area && (
-                    <p className={cx('mt-0.5 text-xs', selectedStoreId === store.id ? 'text-white/60' : 'text-stone-400')}>
-                      {store.area}{store.access ? ` · ${store.access}` : ''}
-                    </p>
-                  )}
-                  {store.googleRating && (
-                    <p className={cx('mt-0.5 text-xs', selectedStoreId === store.id ? 'text-white/50' : 'text-stone-400')}>
-                      Google ★ {store.googleRating.toFixed(1)}{store.googleRatingCount ? `（${store.googleRatingCount.toLocaleString()}件）` : ''}
-                    </p>
-                  )}
-                </div>
-                <span className={cx('ml-3 shrink-0 text-xs', selectedStoreId === store.id ? 'text-white/60' : 'text-stone-300')}>→</span>
-              </button>
+        {/* 条件チップ */}
+        {organizerConditions.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-0.5">
+            {organizerConditions.map(c => (
+              <span key={c} className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-600">
+                {c}
+              </span>
             ))}
           </div>
         )}
-      </div>
-    )}
 
-    <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
-      この候補で進む
-    </PrimaryBtn>
-    <GhostBtn onClick={() => setStep('organizerConditions')}>条件を調整する</GhostBtn>
-  </>
-)}
+        {/* Best候補 — 決定用ヒーロー */}
+        {primaryStore && (
+          <div className="overflow-hidden rounded-2xl bg-stone-900">
+            {primaryStore.image && (
+              <div className="h-48 overflow-hidden sm:h-56">
+                <img src={primaryStore.image} alt={primaryStore.name}
+                  className="h-full w-full object-cover object-center opacity-80" />
+              </div>
+            )}
+            <div className="px-5 pt-5 pb-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/35">Best Choice</p>
+              <h3 className="mt-1.5 text-xl font-black tracking-tight text-white leading-snug">
+                {primaryStore.name}
+              </h3>
+              {primaryStore.access && (
+                <p className="mt-1 text-xs text-white/40">{primaryStore.access}</p>
+              )}
+            </div>
+
+            <div className="px-5 pb-5">
+              <p className="text-sm leading-6 text-white/65">
+                {primaryStore.reason || storeReason}
+              </p>
+              {primaryStore.googleRating && (
+                <p className="mt-3 text-[11px] text-white/30">
+                  Google ★ {primaryStore.googleRating.toFixed(1)}
+                  {primaryStore.googleRatingCount ? `（${primaryStore.googleRatingCount.toLocaleString()}件）` : ''}
+                </p>
+              )}
+            </div>
+
+            {primaryStore.link && (
+              <div className="px-5 pb-5">
+                <a
+                  href={primaryStore.link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-3.5 text-sm font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
+                >
+                  ホットペッパーで予約を確認する
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 2位以下 — 軽量比較カード */}
+        {secondaryStores.length > 0 && (
+          <div className="space-y-2">
+            <p className="px-0.5 text-[10px] font-black tracking-[0.15em] text-stone-400 uppercase">他の候補</p>
+            {secondaryStores.map((store: StoreCandidate) => (
+              <div key={store.id} className="flex items-center gap-3 rounded-xl bg-white px-4 py-3.5 ring-1 ring-stone-100">
+                {store.image && (
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+                    <img src={store.image} alt={store.name} className="h-full w-full object-cover" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-stone-900 leading-snug">{store.name}</p>
+                  {store.reason && (
+                    <p className="mt-0.5 text-xs text-stone-400 line-clamp-1">{store.reason}</p>
+                  )}
+                  {store.tags?.[1] && (
+                    <p className="mt-0.5 text-[11px] text-stone-400">{store.tags[1]}</p>
+                  )}
+                </div>
+                {store.link && (
+                  <a
+                    href={store.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 rounded-lg bg-stone-50 px-3 py-1.5 text-xs font-bold text-stone-600 ring-1 ring-stone-200 transition hover:bg-stone-100 active:scale-95"
+                  >
+                    詳細
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="space-y-2 pt-1">
+          <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
+            この候補で進む
+          </PrimaryBtn>
+          <GhostBtn onClick={() => setStep('organizerConditions')}>
+            候補を入れ替える
+          </GhostBtn>
+        </div>
+      </>
+    )}
   </div>
 )}
 
