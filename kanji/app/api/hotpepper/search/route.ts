@@ -9,40 +9,18 @@ const UI_GENRE_TO_SEARCH_CODES: Record<string, string[]> = {
 const ALLOWED_PRIMARY_GENRES = new Set(['G001', 'G006', 'G007'])
 const ALLOWED_PRICE_RANGES = new Set(['指定なし', '4,001〜5,000円', '5,001〜7,000円'])
 
-// ここは「広域都市キー」だけ持つ。
-// 通常の駅名（横浜、みなとみらい、梅田、すすきの等）はここに入れない。
-type BroadAreaConfig = {
-  aliases: string[]
-}
-
-const BROAD_AREA_ALIAS_MAP: Record<string, BroadAreaConfig> = {
-  大阪: {
-    aliases: ['大阪', '梅田', '東梅田', '西梅田', '大阪梅田', '北新地'],
-  },
-  札幌: {
-    aliases: ['札幌', 'さっぽろ', '大通', 'すすきの', '豊水すすきの'],
-  },
-  名古屋: {
-    aliases: ['名古屋', '名鉄名古屋', '近鉄名古屋', '国際センター'],
-  },
-  博多: {
-    aliases: ['博多', '祇園', '櫛田神社前'],
-  },
-  天神: {
-    aliases: ['天神', '西鉄福岡', '天神南', '赤坂'],
-  },
-  京都: {
-    aliases: ['京都', '四条', '烏丸', '京都河原町', '祇園四条'],
-  },
-  神戸: {
-    aliases: ['三宮', '神戸三宮', '三ノ宮', '元町'],
-  },
-}
-
-// 既存の横浜用 area map は維持。
-// ただし「全国クラスタ用」には使わない。
+/**
+ * Hot Pepper マスタ由来の駅→area code マップ
+ *
+ * 重要:
+ * - これは「検索母集団を安定させるため」の辞書
+ * - 駅の厳密一致を緩めるものではない
+ * - shopMatchesStation / isClearlyOtherStation は従来どおり厳密一致
+ */
 const STATION_HP_AREA_MAP: Record<string, { middleArea?: string; smallArea?: string }> = {
   横浜: { middleArea: 'Y135', smallArea: 'X270' },
+  札幌: { middleArea: 'Y505', smallArea: 'X501' },
+  大阪: { middleArea: 'Y300', smallArea: 'X300' },
 }
 
 type ParsedBudgetAverage = {
@@ -56,16 +34,6 @@ type ParsedBudgetAverage = {
 function normalizeStringArray(input: unknown): string[] {
   if (!Array.isArray(input)) return []
   return input.map((v) => (typeof v === 'string' ? v.trim() : '')).filter(Boolean)
-}
-
-function normalizeText(value: string): string {
-  return String(value ?? '').replace(/\s+/g, ' ').trim()
-}
-
-function normalizeStationToken(value: string): string {
-  return normalizeText(value)
-    .replace(/駅/g, '')
-    .replace(/\s+/g, '')
 }
 
 function parseWalkMinutes(access: string): number | null {
@@ -106,6 +74,7 @@ function extractRange(fragment: string): { min: number; max: number } | null {
   const rangeMatch =
     text.match(/([0-9,]+)\s*円?\s*[〜\-]\s*([0-9,]+)\s*円?/) ||
     text.match(/([0-9,]+)\s*[〜\-]\s*([0-9,]+)\s*円?/)
+
   if (rangeMatch) {
     const min = parseYen(rangeMatch[1])
     const max = parseYen(rangeMatch[2])
@@ -143,11 +112,31 @@ function parseLabeledBudgetCandidates(text: string) {
     regex: RegExp
     confidence: ParsedBudgetAverage['confidence']
   }> = [
-    { type: 'dinner', regex: /ディナー[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g, confidence: 'high' },
-    { type: 'normal', regex: /通常平均[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g, confidence: 'medium' },
-    { type: 'normal', regex: /フリー[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g, confidence: 'medium' },
-    { type: 'banquet', regex: /宴会[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g, confidence: 'medium' },
-    { type: 'course', regex: /コース[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g, confidence: 'low' },
+    {
+      type: 'dinner',
+      regex: /ディナー[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g,
+      confidence: 'high',
+    },
+    {
+      type: 'normal',
+      regex: /通常平均[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g,
+      confidence: 'medium',
+    },
+    {
+      type: 'normal',
+      regex: /フリー[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g,
+      confidence: 'medium',
+    },
+    {
+      type: 'banquet',
+      regex: /宴会[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g,
+      confidence: 'medium',
+    },
+    {
+      type: 'course',
+      regex: /コース[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g,
+      confidence: 'low',
+    },
   ]
 
   for (const { type, regex, confidence } of patterns) {
@@ -401,36 +390,33 @@ async function fetchHotpepper(params: URLSearchParams) {
   return { url, data, shops }
 }
 
-function isBroadAreaKey(targetStation: string): boolean {
-  return Object.prototype.hasOwnProperty.call(BROAD_AREA_ALIAS_MAP, targetStation)
-}
-
-function buildAreaAliases(targetStation: string): string[] {
-  if (isBroadAreaKey(targetStation)) {
-    return BROAD_AREA_ALIAS_MAP[targetStation].aliases
-  }
-  return [targetStation]
-}
-
 function baseAreaParams(apiKey: string, targetStation: string) {
   const params = new URLSearchParams({
     key: apiKey,
     format: 'json',
     count: '120',
     order: '4',
-    large_service_area: 'SS10',
   })
 
-  // 広域都市キーのときだけ keyword ではなく都市名で検索
-  if (isBroadAreaKey(targetStation)) {
-    params.set('keyword', targetStation)
+  const hpArea = STATION_HP_AREA_MAP[targetStation]
+
+  // area code がある駅は、それだけで検索する
+  if (hpArea?.middleArea) {
+    params.set('middle_area', hpArea.middleArea)
     return params
   }
 
-  const hpArea = STATION_HP_AREA_MAP[targetStation]
-  if (hpArea?.middleArea) params.set('middle_area', hpArea.middleArea)
-  else if (hpArea?.smallArea) params.set('small_area', hpArea.smallArea)
-  else if (targetStation) params.set('keyword', targetStation.endsWith('駅') ? targetStation : `${targetStation}駅`)
+  if (hpArea?.smallArea) {
+    params.set('small_area', hpArea.smallArea)
+    return params
+  }
+
+  // map にない駅だけ keyword 検索にフォールバック
+  // 既存運用との互換のため、ここだけ関東固定を残すなら残す
+  params.set('large_service_area', 'SS10')
+  if (targetStation) {
+    params.set('keyword', targetStation.endsWith('駅') ? targetStation : `${targetStation}駅`)
+  }
 
   return params
 }
@@ -447,35 +433,19 @@ function withOptionalCommonFilters(
   return next
 }
 
-function shopMatchesTarget(shop: any, targetStation: string): boolean {
+function shopMatchesStation(shop: any, targetStation: string): boolean {
   if (!targetStation) return true
-
-  const stationName = normalizeStationToken(stationNameOf(shop))
-  const access = normalizeText(String(shop?.access ?? ''))
-
-  if (isBroadAreaKey(targetStation)) {
-    const aliases = buildAreaAliases(targetStation).map(normalizeStationToken)
-    if (stationName && aliases.includes(stationName)) return true
-    return aliases.some((alias) => access.includes(`${alias}駅`) || access.includes(alias))
-  }
-
-  // 通常駅・スポットは厳密一致のまま
-  if (stationName) return stationName === normalizeStationToken(targetStation)
+  const stationName = stationNameOf(shop)
+  if (stationName) return stationName === targetStation
+  const access = String(shop?.access ?? '')
   return access.includes(`${targetStation}駅`)
 }
 
-function isClearlyOtherTarget(shop: any, targetStation: string): boolean {
+function isClearlyOtherStation(shop: any, targetStation: string): boolean {
   if (!targetStation) return false
-
-  const stationName = normalizeStationToken(stationNameOf(shop))
+  const stationName = stationNameOf(shop)
   if (!stationName) return false
-
-  if (isBroadAreaKey(targetStation)) {
-    const aliases = buildAreaAliases(targetStation).map(normalizeStationToken)
-    return !aliases.includes(stationName)
-  }
-
-  return stationName !== normalizeStationToken(targetStation)
+  return stationName !== targetStation
 }
 
 function genreSpecificBoost(shop: any, requestedPrimaryGenreCode: string | null): number {
@@ -549,11 +519,11 @@ function scoreStoreForSelection(
 ): number {
   let score = 0
 
-  const stationMatch = shopMatchesTarget(shop, targetStation)
-  const clearlyOtherStation = isClearlyOtherTarget(shop, targetStation)
+  const stationMatch = shopMatchesStation(shop, targetStation)
+  const clearlyOtherStation = isClearlyOtherStation(shop, targetStation)
 
   if (stationMatch) score += 28
-  if (clearlyOtherStation) score -= isBroadAreaKey(targetStation) ? 18 : 40
+  if (clearlyOtherStation) score -= 40
 
   const budgetAverage = typeof shop?.budget?.average === 'string' ? shop.budget.average : ''
   score += priceRangeScoreFromAverage(priceRange, budgetAverage)
@@ -579,9 +549,8 @@ function compressBeforeGemini(args: {
   const { shops, targetStation, priceRange, requestedPrimaryGenreCode, limit = 12 } = args
 
   const scored = shops.map((shop) => {
-    const stationMatch = shopMatchesTarget(shop, targetStation)
-    const clearlyOtherStation = isClearlyOtherTarget(shop, targetStation)
-
+    const stationMatch = shopMatchesStation(shop, targetStation)
+    const clearlyOtherStation = isClearlyOtherStation(shop, targetStation)
     const priceScore = priceRangeScoreFromAverage(
       priceRange,
       typeof shop?.budget?.average === 'string' ? shop.budget.average : ''
@@ -744,8 +713,6 @@ export async function POST(req: NextRequest) {
       areas,
       targetStation,
       hpArea,
-      broadAreaMode: isBroadAreaKey(targetStation),
-      aliases: buildAreaAliases(targetStation),
       preferredGenres,
       searchGenreCodes,
       displayGenre: genreQuery.displayGenre || '(未指定)',
@@ -775,7 +742,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         stores: [],
         fallback: false,
-        searchMode: 'safe-broad-area-mode',
+        searchMode: 'strict-station-with-master-map',
         budgetRelaxedForBest: false,
         emptyState: {
           title: '条件に合う候補が見つかりませんでした',
@@ -796,8 +763,6 @@ export async function POST(req: NextRequest) {
 
     console.log('[hotpepper/search] shop diagnostics:', {
       station: targetStation || '(未設定)',
-      broadAreaMode: isBroadAreaKey(targetStation),
-      aliases: buildAreaAliases(targetStation),
       requestedPriceRange: priceRange,
       displayGenre: genreQuery.displayGenre || '(未指定)',
       primaryGenreCode: genreQuery.primaryGenreCode ?? '(なし)',
@@ -817,18 +782,17 @@ export async function POST(req: NextRequest) {
             confidence: parsedBudget.confidence,
           },
           genre_code: s?.genre?.code ?? '(なし)',
-          stationMatch: shopMatchesTarget(s, targetStation),
+          stationMatch: shopMatchesStation(s, targetStation),
           priceScore: priceRangeScoreFromAverage(priceRange, average),
           genreBoost: genreSpecificBoost(s, genreQuery.primaryGenreCode),
         }
       }),
     })
 
-    const matchCount = prefiltered.shops.filter((s) => shopMatchesTarget(s, targetStation)).length
+    const matchCount = prefiltered.shops.filter((s) => shopMatchesStation(s, targetStation)).length
     const matchRate = prefiltered.shops.length > 0 ? matchCount / prefiltered.shops.length : 0
     console.log('[hotpepper/search] station match rate:', {
       station: targetStation,
-      broadAreaMode: isBroadAreaKey(targetStation),
       matchCount,
       total: prefiltered.shops.length,
       rate: `${Math.round(matchRate * 100)}%`,
@@ -845,12 +809,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       stores: compressed.shops.map(mapShopToStore),
       fallback: false,
-      searchMode: 'safe-broad-area-mode',
+      searchMode: 'strict-station-with-master-map',
       budgetRelaxedForBest: compressed.budgetRelaxedForBest,
       normalizedGenre: genreQuery.displayGenre || '',
       normalizedPriceRange: priceRange,
-      broadAreaMode: isBroadAreaKey(targetStation),
-      areaAliases: buildAreaAliases(targetStation),
     })
   } catch (e: any) {
     console.error('[hotpepper/search] error:', e?.message ?? e)
