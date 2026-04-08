@@ -26,6 +26,7 @@ type SelectionConditions = {
   genre?: string
   peopleCount?: number
   eventType?: string
+  areaAliases?: string[]
 }
 
 export type GeminiSelection = {
@@ -59,6 +60,17 @@ function normalizePriceText(text: string): string {
     .trim()
 }
 
+function normalizeStationToken(value: string): string {
+  return normalizeText(value)
+    .replace(/駅/g, '')
+    .replace(/\s+/g, '')
+}
+
+function buildAreaAliases(targetStation: string, aliases?: string[]): string[] {
+  const raw = aliases && aliases.length > 0 ? aliases : [targetStation]
+  return Array.from(new Set(raw.map(normalizeStationToken).filter(Boolean)))
+}
+
 function parseYen(value: string): number | null {
   const digits = value.replace(/[^0-9]/g, '')
   if (!digits) return null
@@ -72,7 +84,6 @@ function extractRange(fragment: string): { min: number; max: number } | null {
   const rangeMatch =
     text.match(/([0-9,]+)\s*円?\s*[〜\-]\s*([0-9,]+)\s*円?/) ||
     text.match(/([0-9,]+)\s*[〜\-]\s*([0-9,]+)\s*円?/)
-
   if (rangeMatch) {
     const min = parseYen(rangeMatch[1])
     const max = parseYen(rangeMatch[2])
@@ -193,21 +204,20 @@ function hasMeaningfulBudgetAverage(value?: string): boolean {
   return /\d/.test(v)
 }
 
-/**
- * budgetAverage が未設定（page.tsx 経由では渡されない）でも、
- * tags に HP budget.average 文字列が含まれていれば meaningful とみなす。
- */
 function hasMeaningfulBudgetData(store: StoreInput): boolean {
   if (hasMeaningfulBudgetAverage(store.budgetAverage)) return true
   return (store.tags ?? []).some((tag) => hasMeaningfulBudgetAverage(tag))
 }
 
-function isStationMatch(store: StoreInput, targetStation: string): boolean {
+function isAreaMatch(store: StoreInput, targetStation: string, aliases?: string[]): boolean {
   if (!targetStation) return true
-  const station = (store.stationName ?? '').trim()
-  if (station) return station === targetStation
-  const access = store.access ?? ''
-  return access.includes(`${targetStation}駅`)
+
+  const normalizedAliases = buildAreaAliases(targetStation, aliases)
+  const station = normalizeStationToken(store.stationName ?? '')
+  const access = normalizeText(store.access ?? '')
+
+  if (station && normalizedAliases.includes(station)) return true
+  return normalizedAliases.some((alias) => access.includes(`${alias}駅`) || access.includes(alias))
 }
 
 function dedupeIds(ids: string[], validIds: Set<string>, limit = GEMINI_RANK_LIMIT): string[] {
@@ -225,7 +235,6 @@ function dedupeIds(ids: string[], validIds: Set<string>, limit = GEMINI_RANK_LIM
 function requestedPriceRangeToNumbers(priceRange: string): { min: number | null; max: number | null } {
   switch (priceRange) {
     case '指定なし':
-      // UI上は未指定だが、内部的に4,000〜7,000円帯を自然優先するデフォルトモード
       return { min: 4000, max: 7000 }
     case '4,001〜5,000円':
       return { min: 4001, max: 5000 }
@@ -291,20 +300,8 @@ function scoreBudgetFit(store: StoreInput, priceRange?: string): number {
 function scoreStoreForFallback(store: StoreInput, cond: SelectionConditions): number {
   let score = 0
 
-  if (isStationMatch(store, cond.targetStation)) score += 30
-  else score -= 28
-
-  if (typeof store.walkMinutes === 'number') {
-    const maxWalk = cond.maxWalkMinutes ?? null
-    if (maxWalk !== null) {
-      if (store.walkMinutes <= maxWalk) score += 10
-      else if (store.walkMinutes <= maxWalk + 5) score += 1
-      else score -= 10
-    }
-    score += Math.max(0, 8 - store.walkMinutes)
-  } else {
-    score -= isStationMatch(store, cond.targetStation) ? 1 : 8
-  }
+  if (isAreaMatch(store, cond.targetStation, cond.areaAliases)) score += 30
+  else score -= 18
 
   score += scoreBudgetFit(store, cond.priceRange)
 
@@ -327,8 +324,8 @@ function scoreStoreForFallback(store: StoreInput, cond: SelectionConditions): nu
 function formatReasonFromStore(store: StoreInput, cond?: SelectionConditions): string {
   const parts: string[] = []
 
-  if (typeof store.walkMinutes === 'number') {
-    parts.push(`${store.stationName || '最寄り駅'}から徒歩${store.walkMinutes}分`)
+  if (store.stationName) {
+    parts.push(`${store.stationName}エリア`)
   }
 
   if (hasMeaningfulBudgetAverage(store.budgetAverage)) {
@@ -343,23 +340,16 @@ function formatReasonFromStore(store: StoreInput, cond?: SelectionConditions): s
     parts.push('個室あり')
   }
 
-  if (cond?.genre === '和風・居酒屋') {
-    const joined = `${store.name} ${store.genre ?? ''} ${(store.tags ?? []).join(' ')}`
-    if (/居酒屋|和食|海鮮|魚|寿司|刺身|炉端|おでん|鍋|鶏料理|串焼|焼き鳥|やきとり/.test(joined) && parts.length < 2) {
-      parts.push('和風居酒屋寄りの候補')
-    }
-  }
-
   return parts.slice(0, 2).join('・') || '条件に近い候補です'
 }
 
 function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
   const budgetStr = cond.priceRange || cond.budgetLabel || cond.budgetCode || '指定なし'
   const genreStr = cond.genre || '指定なし'
-  const walkStr = cond.maxWalkMinutes ? `${cond.maxWalkMinutes}分以内` : '指定なし'
   const peopleStr = cond.peopleCount ? `${cond.peopleCount}人` : '不明'
   const isLargeGroup = (cond.peopleCount ?? 0) >= 10
   const eventStr = cond.eventType ?? '飲み会'
+  const areaAliases = buildAreaAliases(cond.targetStation, cond.areaAliases)
 
   const storeList = JSON.stringify(
     stores.map((s) => ({
@@ -390,17 +380,17 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
 - 参加人数: ${peopleStr}${isLargeGroup ? '（大人数。収容力・個室対応をやや重視）' : ''}
 
 ## 確定済み検索条件
-- 駅: ${cond.targetStation}
-- 徒歩: ${walkStr}
+- 開催エリア: ${cond.targetStation}
+- エリア別名候補: ${areaAliases.join(' / ')}
 - 価格帯: ${budgetStr}
 - 希望系統: ${genreStr}
 
 ## 選定優先順位
-1. 駅一致
-- station_name が「${cond.targetStation}」と一致する店を最優先
-- station_name が空でも access に「${cond.targetStation}駅」を含む場合は許容
-- 別駅の店を bestStoreId にしない
-- rankedStoreIds の上位にも別駅を残しすぎない
+1. 開催エリア一致
+- station_name が開催エリア別名候補のいずれかに近い店を優先
+- access に開催エリア別名候補が含まれる場合も許容
+- まったく別エリアの店を bestStoreId にしない
+- rankedStoreIds の上位にも別エリアを残しすぎない
 
 2. 系統の近さ
 - 希望系統は「${genreStr}」
@@ -416,33 +406,23 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
 - budget_average が数値を含む候補については「不明」と扱わない
 - fallbackNotes は本当に必要な場合だけ入れる。不要なら空配列にする
 
-4. 徒歩時間
-- walk_minutes が小さいほど優先
-- walk_minutes が null の場合は中位として扱う
-- ただし別駅かつ徒歩不明の候補は上位にしすぎない
-
-5. 個室・収容力
+4. 個室・収容力
 - has_private_room == true なら、他条件が同等のとき優先
 ${isLargeGroup ? '- 大人数なので、個室やまとまりやすさに言及できる店をやや優先' : ''}
 
-6. Google評価（補助条件）
+5. Google評価（補助条件）
 - google_rating と google_rating_count がある場合のみ参考にする
 - 同条件なら評価が高い店をやや優先
-- ただし上記1〜5を上回ってはいけない
+- ただし上記1〜4を上回ってはいけない
 
 ## 理由文ルール
 各店に1〜2文の理由文を書いてください。
 必ず以下のうち1〜2点を具体的に含めること:
-- 徒歩時間
+- 開催エリアとの近さ
 - budget_average ベースの価格説明
 - 系統の近さ
 - 個室
 - 大人数適合
-
-補足:
-- budget_average があるなら、できるだけ価格の言及を優先する
-- 文型を毎回同じにしすぎない
-- 事実にないことは書かない
 
 禁止表現:
 - 「おすすめ」
@@ -453,7 +433,6 @@ ${isLargeGroup ? '- 大人数なので、個室やまとまりやすさに言及
 ## fallbackNotes ルール
 - 原則は []
 - top候補の多くで budget_average 情報が足りず、価格帯判断がかなり難しい場合のみ短い日本語で1文だけ入れてよい
-- 機械的・言い訳っぽい文は避ける
 
 ## 返却形式（JSONのみ）
 {
@@ -526,8 +505,6 @@ function sanitizeSelection(
   const topStores = trimmedRanked.map((id) => storeMap.get(id)!).filter(Boolean)
   const topMeaningfulBudgetCount = topStores.filter((s) => hasMeaningfulBudgetData(s)).length
 
-  // fallbackNotes: top5 のうち meaningful な budget_average が 3件以上あれば常に []
-  // 2件以下のときだけ1文だけ出す
   const fallbackNotes: string[] =
     topStores.length > 0 && topMeaningfulBudgetCount <= 2
       ? ['価格帯の情報が限られる候補が多いため、記載のある予算情報を優先して並べています。']
@@ -540,9 +517,9 @@ function sanitizeSelection(
 
   const fallbackSorted = [...topStores].sort((a, b) => scoreStoreForFallback(b, conditions) - scoreStoreForFallback(a, conditions))
   const fallbackBestId = fallbackSorted[0]?.id ?? bestStoreId
-  const bestIsStationMismatch = !isStationMatch(bestStore, conditions.targetStation)
+  const bestIsAreaMismatch = !isAreaMatch(bestStore, conditions.targetStation, conditions.areaAliases)
 
-  if (bestIsStationMismatch && fallbackBestId && fallbackBestId !== bestStoreId) {
+  if (bestIsAreaMismatch && fallbackBestId && fallbackBestId !== bestStoreId) {
     bestStoreId = fallbackBestId
     const reordered = dedupeIds([bestStoreId, ...trimmedRanked], validIds, GEMINI_RANK_LIMIT)
     return {
