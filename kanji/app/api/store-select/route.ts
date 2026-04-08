@@ -19,13 +19,13 @@ type StoreInput = {
 
 type SelectionConditions = {
   targetStation: string
-  maxWalkMinutes?: number | null
   budgetCode?: string
   budgetLabel?: string
   priceRange?: string
   genre?: string
   peopleCount?: number
   eventType?: string
+  broadAreaMode?: boolean
   areaAliases?: string[]
 }
 
@@ -66,9 +66,11 @@ function normalizeStationToken(value: string): string {
     .replace(/\s+/g, '')
 }
 
-function buildAreaAliases(targetStation: string, aliases?: string[]): string[] {
-  const raw = aliases && aliases.length > 0 ? aliases : [targetStation]
-  return Array.from(new Set(raw.map(normalizeStationToken).filter(Boolean)))
+function buildAreaAliases(targetStation: string, broadAreaMode?: boolean, aliases?: string[]): string[] {
+  if (broadAreaMode && aliases && aliases.length > 0) {
+    return Array.from(new Set(aliases.map(normalizeStationToken).filter(Boolean)))
+  }
+  return [normalizeStationToken(targetStation)].filter(Boolean)
 }
 
 function parseYen(value: string): number | null {
@@ -84,6 +86,7 @@ function extractRange(fragment: string): { min: number; max: number } | null {
   const rangeMatch =
     text.match(/([0-9,]+)\s*円?\s*[〜\-]\s*([0-9,]+)\s*円?/) ||
     text.match(/([0-9,]+)\s*[〜\-]\s*([0-9,]+)\s*円?/)
+
   if (rangeMatch) {
     const min = parseYen(rangeMatch[1])
     const max = parseYen(rangeMatch[2])
@@ -209,15 +212,14 @@ function hasMeaningfulBudgetData(store: StoreInput): boolean {
   return (store.tags ?? []).some((tag) => hasMeaningfulBudgetAverage(tag))
 }
 
-function isAreaMatch(store: StoreInput, targetStation: string, aliases?: string[]): boolean {
-  if (!targetStation) return true
-
-  const normalizedAliases = buildAreaAliases(targetStation, aliases)
+function isStationOrAreaMatch(store: StoreInput, cond: SelectionConditions): boolean {
+  if (!cond.targetStation) return true
+  const aliases = buildAreaAliases(cond.targetStation, cond.broadAreaMode, cond.areaAliases)
   const station = normalizeStationToken(store.stationName ?? '')
   const access = normalizeText(store.access ?? '')
 
-  if (station && normalizedAliases.includes(station)) return true
-  return normalizedAliases.some((alias) => access.includes(`${alias}駅`) || access.includes(alias))
+  if (station && aliases.includes(station)) return true
+  return aliases.some((alias) => access.includes(`${alias}駅`) || access.includes(alias))
 }
 
 function dedupeIds(ids: string[], validIds: Set<string>, limit = GEMINI_RANK_LIMIT): string[] {
@@ -300,8 +302,8 @@ function scoreBudgetFit(store: StoreInput, priceRange?: string): number {
 function scoreStoreForFallback(store: StoreInput, cond: SelectionConditions): number {
   let score = 0
 
-  if (isAreaMatch(store, cond.targetStation, cond.areaAliases)) score += 30
-  else score -= 18
+  if (isStationOrAreaMatch(store, cond)) score += 30
+  else score -= cond.broadAreaMode ? 14 : 28
 
   score += scoreBudgetFit(store, cond.priceRange)
 
@@ -349,7 +351,7 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
   const peopleStr = cond.peopleCount ? `${cond.peopleCount}人` : '不明'
   const isLargeGroup = (cond.peopleCount ?? 0) >= 10
   const eventStr = cond.eventType ?? '飲み会'
-  const areaAliases = buildAreaAliases(cond.targetStation, cond.areaAliases)
+  const aliases = buildAreaAliases(cond.targetStation, cond.broadAreaMode, cond.areaAliases)
 
   const storeList = JSON.stringify(
     stores.map((s) => ({
@@ -357,7 +359,6 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
       name: s.name,
       station_name: s.stationName || '(不明)',
       access: s.access || '',
-      walk_minutes: s.walkMinutes ?? null,
       budget_code: s.budgetCode || '(不明)',
       budget_average: s.budgetAverage || '(不明)',
       genre: s.genre || '',
@@ -380,29 +381,27 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
 - 参加人数: ${peopleStr}${isLargeGroup ? '（大人数。収容力・個室対応をやや重視）' : ''}
 
 ## 確定済み検索条件
-- 開催エリア: ${cond.targetStation}
-- エリア別名候補: ${areaAliases.join(' / ')}
+- 開催駅/エリア: ${cond.targetStation}
+- 広域モード: ${cond.broadAreaMode ? 'ON' : 'OFF'}
+- 許容別名: ${aliases.join(' / ')}
 - 価格帯: ${budgetStr}
 - 希望系統: ${genreStr}
 
 ## 選定優先順位
-1. 開催エリア一致
-- station_name が開催エリア別名候補のいずれかに近い店を優先
-- access に開催エリア別名候補が含まれる場合も許容
-- まったく別エリアの店を bestStoreId にしない
-- rankedStoreIds の上位にも別エリアを残しすぎない
+1. 開催駅/エリア一致
+- broadAreaMode が OFF の場合は、station_name が開催駅と一致する店を最優先
+- broadAreaMode が ON の場合のみ、許容別名に含まれる駅を近接エリアとして許容
+- broadAreaMode が OFF のときは、別駅の店を bestStoreId にしない
+- broadAreaMode が ON のときも、まったく別エリアの店を bestStoreId にしない
 
 2. 系統の近さ
 - 希望系統は「${genreStr}」
 - 和風・居酒屋: 居酒屋、和食、海鮮、魚、寿司、刺身、炉端、おでん、鍋、鶏料理、串焼き、焼き鳥寄りの店を優先
 - 洋食: イタリアン、フレンチ、ビストロ、バル、スペイン、パエリア、ピザ、パスタ寄りの店を優先
 - 中華: 中華、四川、上海、広東、餃子、小籠包、火鍋寄りの店を優先
-- 希望系統と明確にズレる店を bestStoreId にしない
 
 3. 価格帯（重要）
 - budget_average を最優先で見て、指定価格帯（${budgetStr}）に近い店を優先
-- 重なり方が強い候補を上位にする
-- bestStoreId には、指定価格帯より明らかに安すぎる店を選ばない
 - budget_average が数値を含む候補については「不明」と扱わない
 - fallbackNotes は本当に必要な場合だけ入れる。不要なら空配列にする
 
@@ -410,25 +409,13 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
 - has_private_room == true なら、他条件が同等のとき優先
 ${isLargeGroup ? '- 大人数なので、個室やまとまりやすさに言及できる店をやや優先' : ''}
 
-5. Google評価（補助条件）
-- google_rating と google_rating_count がある場合のみ参考にする
-- 同条件なら評価が高い店をやや優先
-- ただし上記1〜4を上回ってはいけない
-
 ## 理由文ルール
 各店に1〜2文の理由文を書いてください。
 必ず以下のうち1〜2点を具体的に含めること:
-- 開催エリアとの近さ
+- 開催駅/エリアとの近さ
 - budget_average ベースの価格説明
 - 系統の近さ
 - 個室
-- 大人数適合
-
-禁止表現:
-- 「おすすめ」
-- 「素敵」
-- 「良さそう」
-- 「ぴったりのお店」
 
 ## fallbackNotes ルール
 - 原則は []
@@ -517,9 +504,9 @@ function sanitizeSelection(
 
   const fallbackSorted = [...topStores].sort((a, b) => scoreStoreForFallback(b, conditions) - scoreStoreForFallback(a, conditions))
   const fallbackBestId = fallbackSorted[0]?.id ?? bestStoreId
-  const bestIsAreaMismatch = !isAreaMatch(bestStore, conditions.targetStation, conditions.areaAliases)
+  const bestIsMismatch = !isStationOrAreaMatch(bestStore, conditions)
 
-  if (bestIsAreaMismatch && fallbackBestId && fallbackBestId !== bestStoreId) {
+  if (bestIsMismatch && fallbackBestId && fallbackBestId !== bestStoreId) {
     bestStoreId = fallbackBestId
     const reordered = dedupeIds([bestStoreId, ...trimmedRanked], validIds, GEMINI_RANK_LIMIT)
     return {

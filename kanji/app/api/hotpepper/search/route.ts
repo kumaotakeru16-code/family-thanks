@@ -9,62 +9,40 @@ const UI_GENRE_TO_SEARCH_CODES: Record<string, string[]> = {
 const ALLOWED_PRIMARY_GENRES = new Set(['G001', 'G006', 'G007'])
 const ALLOWED_PRICE_RANGES = new Set(['指定なし', '4,001〜5,000円', '5,001〜7,000円'])
 
-type AreaSearchConfig = {
-  middleArea?: string
-  smallArea?: string
+// ここは「広域都市キー」だけ持つ。
+// 通常の駅名（横浜、みなとみらい、梅田、すすきの等）はここに入れない。
+type BroadAreaConfig = {
   aliases: string[]
 }
 
-const AREA_SEARCH_MAP: Record<string, AreaSearchConfig> = {
-  横浜: {
-    middleArea: 'Y135',
-    smallArea: 'X270',
-    aliases: ['横浜', '新高島', '高島町', '平沼橋'],
-  },
-  新宿: {
-    middleArea: 'Y055',
-    aliases: ['新宿', '西新宿', '新宿三丁目', '東新宿', '都庁前'],
-  },
-  渋谷: {
-    middleArea: 'Y030',
-    aliases: ['渋谷', '神泉', '表参道'],
-  },
-  池袋: {
-    middleArea: 'Y050',
-    aliases: ['池袋', '東池袋', '要町'],
-  },
-  品川: {
-    middleArea: 'Y025',
-    aliases: ['品川', '高輪ゲートウェイ', '北品川'],
-  },
+const BROAD_AREA_ALIAS_MAP: Record<string, BroadAreaConfig> = {
   大阪: {
-    middleArea: 'Y300',
     aliases: ['大阪', '梅田', '東梅田', '西梅田', '大阪梅田', '北新地'],
   },
   札幌: {
-    middleArea: 'Y500',
     aliases: ['札幌', 'さっぽろ', '大通', 'すすきの', '豊水すすきの'],
   },
   名古屋: {
-    middleArea: 'Y220',
     aliases: ['名古屋', '名鉄名古屋', '近鉄名古屋', '国際センター'],
   },
   博多: {
-    middleArea: 'Y700',
     aliases: ['博多', '祇園', '櫛田神社前'],
   },
   天神: {
-    middleArea: 'Y705',
     aliases: ['天神', '西鉄福岡', '天神南', '赤坂'],
   },
   京都: {
-    middleArea: 'Y430',
     aliases: ['京都', '四条', '烏丸', '京都河原町', '祇園四条'],
   },
   神戸: {
-    middleArea: 'Y370',
     aliases: ['三宮', '神戸三宮', '三ノ宮', '元町'],
   },
+}
+
+// 既存の横浜用 area map は維持。
+// ただし「全国クラスタ用」には使わない。
+const STATION_HP_AREA_MAP: Record<string, { middleArea?: string; smallArea?: string }> = {
+  横浜: { middleArea: 'Y135', smallArea: 'X270' },
 }
 
 type ParsedBudgetAverage = {
@@ -423,26 +401,18 @@ async function fetchHotpepper(params: URLSearchParams) {
   return { url, data, shops }
 }
 
-function resolveAreaConfig(input: string): AreaSearchConfig | null {
-  const normalized = normalizeStationToken(input)
-  if (!normalized) return null
-
-  const direct = AREA_SEARCH_MAP[input]
-  if (direct) return direct
-
-  const entry = Object.entries(AREA_SEARCH_MAP).find(([, cfg]) =>
-    cfg.aliases.some((alias) => normalizeStationToken(alias) === normalized)
-  )
-  return entry?.[1] ?? null
+function isBroadAreaKey(targetStation: string): boolean {
+  return Object.prototype.hasOwnProperty.call(BROAD_AREA_ALIAS_MAP, targetStation)
 }
 
-function buildAreaAliases(targetArea: string): string[] {
-  const cfg = resolveAreaConfig(targetArea)
-  if (!cfg) return [targetArea]
-  return Array.from(new Set([targetArea, ...cfg.aliases]))
+function buildAreaAliases(targetStation: string): string[] {
+  if (isBroadAreaKey(targetStation)) {
+    return BROAD_AREA_ALIAS_MAP[targetStation].aliases
+  }
+  return [targetStation]
 }
 
-function baseAreaParams(apiKey: string, targetArea: string) {
+function baseAreaParams(apiKey: string, targetStation: string) {
   const params = new URLSearchParams({
     key: apiKey,
     format: 'json',
@@ -451,10 +421,16 @@ function baseAreaParams(apiKey: string, targetArea: string) {
     large_service_area: 'SS10',
   })
 
-  const config = resolveAreaConfig(targetArea)
-  if (config?.middleArea) params.set('middle_area', config.middleArea)
-  else if (config?.smallArea) params.set('small_area', config.smallArea)
-  else if (targetArea) params.set('keyword', targetArea.endsWith('駅') ? targetArea : `${targetArea}駅`)
+  // 広域都市キーのときだけ keyword ではなく都市名で検索
+  if (isBroadAreaKey(targetStation)) {
+    params.set('keyword', targetStation)
+    return params
+  }
+
+  const hpArea = STATION_HP_AREA_MAP[targetStation]
+  if (hpArea?.middleArea) params.set('middle_area', hpArea.middleArea)
+  else if (hpArea?.smallArea) params.set('small_area', hpArea.smallArea)
+  else if (targetStation) params.set('keyword', targetStation.endsWith('駅') ? targetStation : `${targetStation}駅`)
 
   return params
 }
@@ -471,23 +447,35 @@ function withOptionalCommonFilters(
   return next
 }
 
-function shopMatchesArea(shop: any, targetArea: string): boolean {
-  if (!targetArea) return true
+function shopMatchesTarget(shop: any, targetStation: string): boolean {
+  if (!targetStation) return true
 
-  const aliases = buildAreaAliases(targetArea).map(normalizeStationToken)
   const stationName = normalizeStationToken(stationNameOf(shop))
   const access = normalizeText(String(shop?.access ?? ''))
 
-  if (stationName && aliases.includes(stationName)) return true
-  return aliases.some((alias) => access.includes(`${alias}駅`) || access.includes(alias))
+  if (isBroadAreaKey(targetStation)) {
+    const aliases = buildAreaAliases(targetStation).map(normalizeStationToken)
+    if (stationName && aliases.includes(stationName)) return true
+    return aliases.some((alias) => access.includes(`${alias}駅`) || access.includes(alias))
+  }
+
+  // 通常駅・スポットは厳密一致のまま
+  if (stationName) return stationName === normalizeStationToken(targetStation)
+  return access.includes(`${targetStation}駅`)
 }
 
-function isClearlyOtherArea(shop: any, targetArea: string): boolean {
-  if (!targetArea) return false
+function isClearlyOtherTarget(shop: any, targetStation: string): boolean {
+  if (!targetStation) return false
+
   const stationName = normalizeStationToken(stationNameOf(shop))
   if (!stationName) return false
-  const aliases = buildAreaAliases(targetArea).map(normalizeStationToken)
-  return !aliases.includes(stationName)
+
+  if (isBroadAreaKey(targetStation)) {
+    const aliases = buildAreaAliases(targetStation).map(normalizeStationToken)
+    return !aliases.includes(stationName)
+  }
+
+  return stationName !== normalizeStationToken(targetStation)
 }
 
 function genreSpecificBoost(shop: any, requestedPrimaryGenreCode: string | null): number {
@@ -555,24 +543,26 @@ function applyPricePrefilter(shops: any[], priceRange: string) {
 
 function scoreStoreForSelection(
   shop: any,
-  targetArea: string,
+  targetStation: string,
   priceRange: string,
   requestedPrimaryGenreCode: string | null
 ): number {
   let score = 0
 
-  const areaMatch = shopMatchesArea(shop, targetArea)
-  const clearlyOtherArea = isClearlyOtherArea(shop, targetArea)
+  const stationMatch = shopMatchesTarget(shop, targetStation)
+  const clearlyOtherStation = isClearlyOtherTarget(shop, targetStation)
 
-  if (areaMatch) score += 24
-  if (clearlyOtherArea) score -= 26
+  if (stationMatch) score += 28
+  if (clearlyOtherStation) score -= isBroadAreaKey(targetStation) ? 18 : 40
 
   const budgetAverage = typeof shop?.budget?.average === 'string' ? shop.budget.average : ''
   score += priceRangeScoreFromAverage(priceRange, budgetAverage)
   score += genreSpecificBoost(shop, requestedPrimaryGenreCode)
 
   const walk = parseWalkMinutes(String(shop?.access ?? ''))
-  if (typeof walk === 'number') score += Math.max(0, 7 - walk)
+  if (walk !== null) {
+    score += Math.max(0, 7 - walk)
+  }
 
   if (hasPrivateRoom(shop)) score += 2
 
@@ -581,16 +571,17 @@ function scoreStoreForSelection(
 
 function compressBeforeGemini(args: {
   shops: any[]
-  targetArea: string
+  targetStation: string
   priceRange: string
   requestedPrimaryGenreCode: string | null
   limit?: number
 }) {
-  const { shops, targetArea, priceRange, requestedPrimaryGenreCode, limit = 12 } = args
+  const { shops, targetStation, priceRange, requestedPrimaryGenreCode, limit = 12 } = args
 
   const scored = shops.map((shop) => {
-    const areaMatch = shopMatchesArea(shop, targetArea)
-    const clearlyOtherArea = isClearlyOtherArea(shop, targetArea)
+    const stationMatch = shopMatchesTarget(shop, targetStation)
+    const clearlyOtherStation = isClearlyOtherTarget(shop, targetStation)
+
     const priceScore = priceRangeScoreFromAverage(
       priceRange,
       typeof shop?.budget?.average === 'string' ? shop.budget.average : ''
@@ -598,20 +589,20 @@ function compressBeforeGemini(args: {
 
     return {
       shop,
-      areaMatch,
-      clearlyOtherArea,
+      stationMatch,
+      clearlyOtherStation,
       priceScore,
-      score: scoreStoreForSelection(shop, targetArea, priceRange, requestedPrimaryGenreCode),
+      score: scoreStoreForSelection(shop, targetStation, priceRange, requestedPrimaryGenreCode),
     }
   })
 
-  const areaMatched = scored.filter((s) => s.areaMatch)
-  const nonOther = scored.filter((s) => !s.clearlyOtherArea)
-  const baseAreaPool = areaMatched.length >= 4 ? areaMatched : (nonOther.length >= 4 ? nonOther : scored)
+  const stationMatched = scored.filter((s) => s.stationMatch)
+  const nonOther = scored.filter((s) => !s.clearlyOtherStation)
+  const baseStationPool = stationMatched.length >= 4 ? stationMatched : (nonOther.length >= 4 ? nonOther : scored)
 
-  const exactPrice = baseAreaPool.filter((s) => s.priceScore >= 30)
-  const nearPrice = baseAreaPool.filter((s) => s.priceScore >= 10)
-  const loosePrice = baseAreaPool.filter((s) => s.priceScore >= 0)
+  const exactPrice = baseStationPool.filter((s) => s.priceScore >= 30)
+  const nearPrice = baseStationPool.filter((s) => s.priceScore >= 10)
+  const loosePrice = baseStationPool.filter((s) => s.priceScore >= 0)
 
   let pricePool = exactPrice
   let usedRelaxation = false
@@ -625,10 +616,10 @@ function compressBeforeGemini(args: {
     usedRelaxation = true
   }
   if (pricePool.length < 5) {
-    pricePool = [...baseAreaPool]
+    pricePool = [...baseStationPool]
       .sort((a, b) => {
-        if (a.areaMatch !== b.areaMatch) return Number(b.areaMatch) - Number(a.areaMatch)
-        if (a.clearlyOtherArea !== b.clearlyOtherArea) return Number(a.clearlyOtherArea) - Number(b.clearlyOtherArea)
+        if (a.stationMatch !== b.stationMatch) return Number(b.stationMatch) - Number(a.stationMatch)
+        if (a.clearlyOtherStation !== b.clearlyOtherStation) return Number(a.clearlyOtherStation) - Number(b.clearlyOtherStation)
         if (a.priceScore !== b.priceScore) return b.priceScore - a.priceScore
         return b.score - a.score
       })
@@ -638,8 +629,8 @@ function compressBeforeGemini(args: {
 
   const merged = [...pricePool]
     .sort((a, b) => {
-      if (a.areaMatch !== b.areaMatch) return Number(b.areaMatch) - Number(a.areaMatch)
-      if (a.clearlyOtherArea !== b.clearlyOtherArea) return Number(a.clearlyOtherArea) - Number(b.clearlyOtherArea)
+      if (a.stationMatch !== b.stationMatch) return Number(b.stationMatch) - Number(a.stationMatch)
+      if (a.clearlyOtherStation !== b.clearlyOtherStation) return Number(a.clearlyOtherStation) - Number(b.clearlyOtherStation)
       if (a.priceScore !== b.priceScore) return b.priceScore - a.priceScore
       return b.score - a.score
     })
@@ -679,14 +670,14 @@ function buildGenreQueriesFromPreference(preferredGenres: string[]): {
 
 async function fetchGenrePools(args: {
   apiKey: string
-  targetArea: string
+  targetStation: string
   privateRoom: string
   allYouCanDrink: string
   nonSmoking?: boolean
   peopleCount?: number
   searchGenreCodes: string[]
 }) {
-  const areaBase = baseAreaParams(args.apiKey, args.targetArea)
+  const areaBase = baseAreaParams(args.apiKey, args.targetStation)
   const commonBase = withOptionalCommonFilters(areaBase, {
     privateRoom: args.privateRoom,
     allYouCanDrink: args.allYouCanDrink,
@@ -729,8 +720,8 @@ export async function POST(req: NextRequest) {
     const prefs = body?.orgPrefs ?? body ?? {}
 
     const areas = normalizeStringArray(prefs?.areas)
-    const targetArea = areas[0]?.trim() ?? ''
-    const areaConfig = resolveAreaConfig(targetArea)
+    const targetStation = areas[0]?.trim() ?? ''
+    const hpArea = STATION_HP_AREA_MAP[targetStation] ?? null
 
     const preferredGenres = normalizeStringArray(body?.genreLabels ?? prefs?.genres)
     const genreQuery = buildGenreQueriesFromPreference(preferredGenres)
@@ -751,8 +742,10 @@ export async function POST(req: NextRequest) {
 
     console.log('[hotpepper/search] request:', {
       areas,
-      targetArea,
-      areaConfig,
+      targetStation,
+      hpArea,
+      broadAreaMode: isBroadAreaKey(targetStation),
+      aliases: buildAreaAliases(targetStation),
       preferredGenres,
       searchGenreCodes,
       displayGenre: genreQuery.displayGenre || '(未指定)',
@@ -766,7 +759,7 @@ export async function POST(req: NextRequest) {
 
     const fetched = await fetchGenrePools({
       apiKey,
-      targetArea,
+      targetStation,
       privateRoom,
       allYouCanDrink,
       nonSmoking,
@@ -782,7 +775,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         stores: [],
         fallback: false,
-        searchMode: 'area-cluster-search',
+        searchMode: 'safe-broad-area-mode',
         budgetRelaxedForBest: false,
         emptyState: {
           title: '条件に合う候補が見つかりませんでした',
@@ -802,11 +795,12 @@ export async function POST(req: NextRequest) {
     })
 
     console.log('[hotpepper/search] shop diagnostics:', {
-      area: targetArea || '(未設定)',
+      station: targetStation || '(未設定)',
+      broadAreaMode: isBroadAreaKey(targetStation),
+      aliases: buildAreaAliases(targetStation),
       requestedPriceRange: priceRange,
       displayGenre: genreQuery.displayGenre || '(未指定)',
       primaryGenreCode: genreQuery.primaryGenreCode ?? '(なし)',
-      aliases: buildAreaAliases(targetArea),
       shops: prefiltered.shops.map((s) => {
         const average = typeof s?.budget?.average === 'string' ? s.budget.average : ''
         const parsedBudget = parseBudgetAverage(average)
@@ -823,17 +817,18 @@ export async function POST(req: NextRequest) {
             confidence: parsedBudget.confidence,
           },
           genre_code: s?.genre?.code ?? '(なし)',
-          areaMatch: shopMatchesArea(s, targetArea),
+          stationMatch: shopMatchesTarget(s, targetStation),
           priceScore: priceRangeScoreFromAverage(priceRange, average),
           genreBoost: genreSpecificBoost(s, genreQuery.primaryGenreCode),
         }
       }),
     })
 
-    const matchCount = prefiltered.shops.filter((s) => shopMatchesArea(s, targetArea)).length
+    const matchCount = prefiltered.shops.filter((s) => shopMatchesTarget(s, targetStation)).length
     const matchRate = prefiltered.shops.length > 0 ? matchCount / prefiltered.shops.length : 0
-    console.log('[hotpepper/search] area match rate:', {
-      area: targetArea,
+    console.log('[hotpepper/search] station match rate:', {
+      station: targetStation,
+      broadAreaMode: isBroadAreaKey(targetStation),
       matchCount,
       total: prefiltered.shops.length,
       rate: `${Math.round(matchRate * 100)}%`,
@@ -841,7 +836,7 @@ export async function POST(req: NextRequest) {
 
     const compressed = compressBeforeGemini({
       shops: prefiltered.shops,
-      targetArea,
+      targetStation,
       priceRange,
       requestedPrimaryGenreCode: genreQuery.primaryGenreCode,
       limit: 12,
@@ -850,12 +845,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       stores: compressed.shops.map(mapShopToStore),
       fallback: false,
-      searchMode: 'area-cluster-search',
+      searchMode: 'safe-broad-area-mode',
       budgetRelaxedForBest: compressed.budgetRelaxedForBest,
       normalizedGenre: genreQuery.displayGenre || '',
       normalizedPriceRange: priceRange,
-      normalizedArea: targetArea,
-      areaAliases: buildAreaAliases(targetArea),
+      broadAreaMode: isBroadAreaKey(targetStation),
+      areaAliases: buildAreaAliases(targetStation),
     })
   } catch (e: any) {
     console.error('[hotpepper/search] error:', e?.message ?? e)
