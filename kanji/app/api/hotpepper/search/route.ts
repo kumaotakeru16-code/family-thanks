@@ -15,12 +15,29 @@ const ALLOWED_PRICE_RANGES = new Set(['指定なし', '4,001〜5,000円', '5,001
  * 重要:
  * - これは「検索母集団を安定させるため」の辞書
  * - 駅の厳密一致を緩めるものではない
- * - shopMatchesStation / isClearlyOtherStation は従来どおり厳密一致
+ * - shopMatchesStation / isClearlyOtherStation は基本厳密一致
  */
 const STATION_HP_AREA_MAP: Record<string, { middleArea?: string; smallArea?: string }> = {
   横浜: { middleArea: 'Y135', smallArea: 'X270' },
   札幌: { middleArea: 'Y505', smallArea: 'X501' },
   大阪: { middleArea: 'Y300', smallArea: 'X300' },
+  梅田: { middleArea: 'Y300', smallArea: 'X300' },
+}
+
+/**
+ * 最小限の表記ゆれ吸収だけを行う
+ *
+ * 重要:
+ * - これは都市エリア化ではない
+ * - 札幌 = さっぽろ 程度
+ * - 大阪 = 梅田 / 大阪梅田 / 東梅田 程度
+ * - 梅田 = 大阪梅田 / 東梅田 程度
+ * - 大通 / 北新地 / 西梅田 などは今回は含めない
+ */
+const STATION_ALIAS_MAP: Record<string, string[]> = {
+  札幌: ['札幌', 'さっぽろ'],
+  大阪: ['大阪', '梅田', '大阪梅田', '東梅田'],
+  梅田: ['梅田', '大阪梅田', '東梅田'],
 }
 
 type ParsedBudgetAverage = {
@@ -400,7 +417,6 @@ function baseAreaParams(apiKey: string, targetStation: string) {
 
   const hpArea = STATION_HP_AREA_MAP[targetStation]
 
-  // area code がある駅は、それだけで検索する
   if (hpArea?.middleArea) {
     params.set('middle_area', hpArea.middleArea)
     return params
@@ -411,8 +427,6 @@ function baseAreaParams(apiKey: string, targetStation: string) {
     return params
   }
 
-  // map にない駅だけ keyword 検索にフォールバック
-  // 既存運用との互換のため、ここだけ関東固定を残すなら残す
   params.set('large_service_area', 'SS10')
   if (targetStation) {
     params.set('keyword', targetStation.endsWith('駅') ? targetStation : `${targetStation}駅`)
@@ -433,19 +447,30 @@ function withOptionalCommonFilters(
   return next
 }
 
+function stationAliases(targetStation: string): string[] {
+  return STATION_ALIAS_MAP[targetStation] ?? [targetStation]
+}
+
 function shopMatchesStation(shop: any, targetStation: string): boolean {
   if (!targetStation) return true
+
   const stationName = stationNameOf(shop)
-  if (stationName) return stationName === targetStation
+  const aliases = stationAliases(targetStation)
+
+  if (stationName) return aliases.includes(stationName)
+
   const access = String(shop?.access ?? '')
-  return access.includes(`${targetStation}駅`)
+  return aliases.some((alias) => access.includes(`${alias}駅`))
 }
 
 function isClearlyOtherStation(shop: any, targetStation: string): boolean {
   if (!targetStation) return false
+
   const stationName = stationNameOf(shop)
   if (!stationName) return false
-  return stationName !== targetStation
+
+  const aliases = stationAliases(targetStation)
+  return !aliases.includes(stationName)
 }
 
 function genreSpecificBoost(shop: any, requestedPrimaryGenreCode: string | null): number {
@@ -713,6 +738,7 @@ export async function POST(req: NextRequest) {
       areas,
       targetStation,
       hpArea,
+      aliases: stationAliases(targetStation),
       preferredGenres,
       searchGenreCodes,
       displayGenre: genreQuery.displayGenre || '(未指定)',
@@ -742,7 +768,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         stores: [],
         fallback: false,
-        searchMode: 'strict-station-with-master-map',
+        searchMode: 'strict-station-with-master-map-and-min-alias',
         budgetRelaxedForBest: false,
         emptyState: {
           title: '条件に合う候補が見つかりませんでした',
@@ -763,6 +789,7 @@ export async function POST(req: NextRequest) {
 
     console.log('[hotpepper/search] shop diagnostics:', {
       station: targetStation || '(未設定)',
+      aliases: stationAliases(targetStation),
       requestedPriceRange: priceRange,
       displayGenre: genreQuery.displayGenre || '(未指定)',
       primaryGenreCode: genreQuery.primaryGenreCode ?? '(なし)',
@@ -793,6 +820,7 @@ export async function POST(req: NextRequest) {
     const matchRate = prefiltered.shops.length > 0 ? matchCount / prefiltered.shops.length : 0
     console.log('[hotpepper/search] station match rate:', {
       station: targetStation,
+      aliases: stationAliases(targetStation),
       matchCount,
       total: prefiltered.shops.length,
       rate: `${Math.round(matchRate * 100)}%`,
@@ -809,7 +837,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       stores: compressed.shops.map(mapShopToStore),
       fallback: false,
-      searchMode: 'strict-station-with-master-map',
+      searchMode: 'strict-station-with-master-map-and-min-alias',
       budgetRelaxedForBest: compressed.budgetRelaxedForBest,
       normalizedGenre: genreQuery.displayGenre || '',
       normalizedPriceRange: priceRange,
