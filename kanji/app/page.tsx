@@ -12,6 +12,11 @@ import {
   ExternalLink,
   ChevronDown,
   MessageSquareQuote,
+  Star,
+  Train,
+  CheckCircle2,
+  Clock,
+  ArrowRight,
 } from 'lucide-react'
 
 import { createEvent, loadEventData } from '@/lib/kanji-db'
@@ -115,13 +120,6 @@ const BUDGET_CODE_MAP: Record<string, string> = {
  * 3 / 4 / 5 / 6 と後から数字を変えるだけで調整できる。
  */
 const PLACES_ENRICH_LIMIT = 5
-
-// UIラベル → Hot Pepper ジャンルコード配列の変換マップ
-const GENRE_CODE_MAP: Record<string, string[]> = {
-  '和風・居酒屋': ['G001', 'G004'],
-  '洋食': ['G006'],
-  '中華': ['G007'],
-}
 
 // 参加者が選んだ旧ジャンル（任意入力含む）を新3択に正規化する
 const PARTICIPANT_GENRE_NORMALIZE: Record<string, string> = {
@@ -1064,9 +1062,11 @@ async function openSavedEvent(id: string, name: string, type: string) {
 
     if (status === 'store_pending' && confirmedDateId) {
       // Date confirmed, store not yet selected
-      // → resume at dateConfirmed so the organizer sees the confirmed date and can proceed
+      // → resume at organizerConditions so the organizer can search for stores
       setHeroBestDateId(confirmedDateId)
-      setStep('dateConfirmed')
+      // orgPrefs を再初期化させる（participantMajority useEffect が走るよう ref をリセット）
+      orgPrefsInitRef.current = false
+      setStep('organizerConditions')
 
     } else if (status === 'store_confirmed') {
       // Store was already selected in a previous session
@@ -1134,7 +1134,14 @@ const data = await saveDecision({
   }
 }
 
-async function fetchRecommendedStores() {
+// 「候補を入れ替える」：現在表示中の候補IDを除外して同条件で再取得
+async function refreshStores() {
+  const currentIds = recommendedStores.map((s) => s.id)
+  await fetchRecommendedStores(currentIds)
+}
+
+// excludeIds: 再取得時に除外したい店のID一覧（「候補を入れ替える」用）
+async function fetchRecommendedStores(excludeIds: string[] = []) {
   if (!heroDate) {
     alert('先に日程を確定してください')
     return
@@ -1153,28 +1160,31 @@ async function fetchRecommendedStores() {
 
   try {
     // ── Step 1: Hot Pepper で候補取得 ────────────────────────────────────────
-    const genreCodes = orgPrefs.genres.flatMap(g => GENRE_CODE_MAP[g] ?? [])
-
     const hpRes = await fetch('/api/hotpepper/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         areas: orgPrefs.areas,
+        // route.ts は targetStation または areas[0] を使う。明示的に渡す
+        targetStation: orgPrefs.areas[0] ?? '',
+        // route.ts が期待するフィールド名は preferredGenres
+        preferredGenres: orgPrefs.genres,
         priceRange: orgPrefs.priceRange,
-        genreCodes,
-        genres: orgPrefs.genres,
         privateRoom: orgPrefs.privateRoom,
-        count: 30,
-        // 10人以上のみ party_capacity として HP 検索条件に使う
         peopleCount: totalCount,
+        eventType,
       }),
     })
     if (!hpRes.ok) throw new Error(`HTTP ${hpRes.status}`)
 
     const hpData = await hpRes.json()
-    console.log('[fetchRecommendedStores] hp:', {
-      mode: hpData.searchMode,
-      count: hpData.shops?.length,
+
+    // ── Step 1 診断ログ ──────────────────────────────────────────────────────
+    console.log('[fetchRecommendedStores] step1 hp raw:', {
+      ok: hpRes.ok,
+      shopsLength: Array.isArray(hpData.shops) ? hpData.shops.length : `NOT_ARRAY(${typeof hpData.shops})`,
+      selectionError: hpData.selectionError ?? null,
+      error: hpData.error ?? null,
     })
 
     // HP が strict 0件を返した場合 → Gemini/Places を呼ばずに即座に空状態へ
@@ -1238,21 +1248,27 @@ async function fetchRecommendedStores() {
         if (selRes.ok) {
           const selData = await selRes.json()
           const sel = selData.selection
-          if (sel?.rankedStoreIds?.length > 0) {
+
+          // rankedStoreIds が本当に配列かを確認してから使う
+          const rankedIds: string[] = Array.isArray(sel?.rankedStoreIds)
+            ? (sel.rankedStoreIds as string[])
+            : []
+
+          if (rankedIds.length > 0) {
             // Gemini の順位で並び替え
             const byId = new Map(hpStores.map(s => [s.id, s]))
-            const reordered = (sel.rankedStoreIds as string[])
+            const reordered = rankedIds
               .map(id => byId.get(id))
               .filter((s): s is StoreCandidate => !!s)
 
             // Gemini が選ばなかった店は末尾に（フォールバック用）
-            const selectedIds = new Set(sel.rankedStoreIds as string[])
+            const selectedIds = new Set(rankedIds)
             const leftover = hpStores.filter(s => !selectedIds.has(s.id))
             rankedStores = [...reordered, ...leftover]
 
             // Gemini の理由文をマージ
             const reasonMap = Object.fromEntries(
-              (sel.reasons ?? []).map((r: any) => [r.storeId, r.reason])
+              (Array.isArray(sel.reasons) ? sel.reasons : []).map((r: any) => [r.storeId, r.reason])
             )
             rankedStores = rankedStores.map(s => ({
               ...s,
@@ -1262,15 +1278,37 @@ async function fetchRecommendedStores() {
             selectNotes = Array.isArray(sel.fallbackNotes) ? sel.fallbackNotes : []
           }
         }
-      } catch {
-        // Gemini 失敗 → HP 順位で続行（ログのみ）
-        console.warn('[fetchRecommendedStores] Gemini selection failed, using HP order')
+      } catch (e) {
+        // Gemini 失敗 → HP 順位で続行。エラー内容を必ずログに残す
+        console.warn('[fetchRecommendedStores] Gemini selection failed, using HP order', e)
       }
     }
 
+    console.log('[fetchRecommendedStores] step2 ranked:', {
+      rankedStoresLength: rankedStores.length,
+      excludeIdsLength: excludeIds.length,
+    })
+
     // ── Step 3: 表示件数を絞る（Best + 他 4件 = 最大 5件）────────────────
-    // 駅一致の再フィルタは backend 側で実施済みなので、ここでは順序だけ信じる
-    const displayStores = rankedStores.slice(0, PLACES_ENRICH_LIMIT)
+    // 「候補を入れ替える」時は excludeIds に含まれる店を後回しにして新鮮な候補を優先する。
+    // 足りない場合は除外候補も末尾に補完する（完全排除より新鮮さ優先）。
+    // ※ excludeIds はデフォルト [] なので、初回呼び出しでは freshStores === rankedStores になる。
+    const excludedSet = new Set<string>(excludeIds)
+    const freshStores = rankedStores.filter((s) => !excludedSet.has(s.id))
+    const reusableStores = rankedStores.filter((s) => excludedSet.has(s.id))
+    // スプレッド構文で配列結合（配列結合であることを明示）
+    const reranked: StoreCandidate[] =
+      freshStores.length >= PLACES_ENRICH_LIMIT
+        ? freshStores
+        : [...freshStores, ...reusableStores]
+    const displayStores = reranked.slice(0, PLACES_ENRICH_LIMIT)
+
+    console.log('[fetchRecommendedStores] step3 display:', {
+      freshStoresLength: freshStores.length,
+      reusableStoresLength: reusableStores.length,
+      rerankedLength: reranked.length,
+      displayStoresLength: displayStores.length,
+    })
 
     // ── Step 4: Google Places enrich — best 候補 1件のみ ─────────────────
     // 設計方針:
@@ -2239,6 +2277,8 @@ return (
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
           >
+            {/* ローディングオーバーレイ：候補取得中に全面表示（共通コンポーネント） */}
+            {isLoadingStores && <StoreLoadingOverlay />}
             {/* ヘッダー */}
             <div className="px-0.5">
               <p className="text-[10px] font-bold tracking-[0.22em] text-stone-400 uppercase">Step 7</p>
@@ -2351,7 +2391,7 @@ return (
 
             {/* CTA */}
             <div className="space-y-2.5">
-              <PrimaryBtn size="large" onClick={fetchRecommendedStores}>
+              <PrimaryBtn size="large" onClick={() => fetchRecommendedStores()}>
                 {isLoadingStores ? '候補を探しています…' : 'お店候補を見る'}
               </PrimaryBtn>
               <GhostBtn onClick={() => setStep('dateConfirmed')}>戻る</GhostBtn>
@@ -2364,6 +2404,8 @@ return (
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
 {step === 'storeSuggestion' && heroDate && (
   <div className="space-y-5">
+    {/* 「候補を入れ替える」再取得中も同じローディングUIを使う */}
+    {isLoadingStores && <StoreLoadingOverlay />}
     <div className="px-1">
       <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 9</p>
       <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">お店を選ぶ</h2>
@@ -2456,7 +2498,13 @@ return (
           <div className="space-y-2">
             <p className="px-0.5 text-[10px] font-black tracking-[0.15em] text-stone-400 uppercase">他の候補</p>
             {secondaryStores.map((store: StoreCandidate) => (
-              <div key={store.id} className="flex items-center gap-3 rounded-xl bg-white px-4 py-3.5 ring-1 ring-stone-100">
+              /* タップでこの店を選択（selectedStoreId を更新 → primaryStore が入れ替わる） */
+              <button
+                type="button"
+                key={store.id}
+                onClick={() => setSelectedStoreId(store.id)}
+                className="flex w-full items-center gap-3 rounded-xl bg-white px-4 py-3.5 text-left ring-1 ring-stone-100 transition hover:shadow-sm hover:ring-stone-200 active:scale-[0.99]"
+              >
                 {store.image && (
                   <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg">
                     <img src={store.image} alt={store.name} className="h-full w-full object-cover" />
@@ -2476,12 +2524,13 @@ return (
                     href={store.link}
                     target="_blank"
                     rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
                     className="shrink-0 rounded-lg bg-stone-50 px-3 py-1.5 text-xs font-bold text-stone-600 ring-1 ring-stone-200 transition hover:bg-stone-100 active:scale-95"
                   >
                     詳細
                   </a>
                 )}
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -2490,8 +2539,13 @@ return (
           <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
             この候補で進む
           </PrimaryBtn>
-          <GhostBtn onClick={() => setStep('organizerConditions')}>
+          {/* 候補入れ替え：現在の5件を除外して別候補セットを新規取得 */}
+          <GhostBtn onClick={isLoadingStores ? undefined : refreshStores}>
             候補を入れ替える
+          </GhostBtn>
+          {/* 条件変更：organizerConditions に戻る */}
+          <GhostBtn onClick={() => setStep('organizerConditions')}>
+            条件を変える
           </GhostBtn>
         </div>
       </>
@@ -2955,6 +3009,25 @@ function ReasonItem({ icon, text, highlight }: { icon: string; text: string; hig
 
 function ButtonRow({ children }: { children: React.ReactNode }) {
   return <div className="mt-8 flex gap-3">{children}</div>
+}
+
+// ─── 共通ローディングオーバーレイ ────────────────────────────────────────────
+// 初回検索・候補入れ替えのどちらでも同じUIを使う
+function StoreLoadingOverlay() {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-stone-50/90 backdrop-blur-sm">
+      <div className="mx-4 w-full max-w-xs rounded-3xl bg-white px-8 py-10 text-center shadow-xl ring-1 ring-stone-100">
+        <div className="mb-4 flex justify-center">
+          <RefreshCw size={26} className="animate-spin text-stone-500" />
+        </div>
+        <p className="text-base font-black text-stone-900">候補を探しています</p>
+        <p className="mt-2 text-sm leading-5 text-stone-400">
+          条件に合うお店を整理しています
+        </p>
+        <p className="mt-1 text-xs text-stone-300">少し時間がかかることがあります</p>
+      </div>
+    </div>
+  )
 }
 
 function PrimaryBtn({

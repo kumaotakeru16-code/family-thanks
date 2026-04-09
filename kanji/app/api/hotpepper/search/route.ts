@@ -59,6 +59,8 @@ type SearchGenreConfig = {
   displayGenre: string
   searchGenreCodes: string[]
   primaryGenreCode: string
+  resolvedFrom: string[]
+  normalizedGenres: string[]
 }
 
 type ParsedBudget = {
@@ -73,11 +75,13 @@ type ScoredShop = HotpepperShop & {
     stationMatch: boolean
     priceScore: number
     genreBoost: number
+    genrePenalty: number
     totalScore: number
+    genreMatched: boolean
   }
 }
 
-const GENRE_MAP: Record<string, SearchGenreConfig> = {
+const GENRE_MAP: Record<string, Omit<SearchGenreConfig, 'resolvedFrom' | 'normalizedGenres'>> = {
   '和風・居酒屋': {
     displayGenre: '和風・居酒屋',
     searchGenreCodes: ['G001', 'G004'],
@@ -93,6 +97,81 @@ const GENRE_MAP: Record<string, SearchGenreConfig> = {
     searchGenreCodes: ['G007'],
     primaryGenreCode: 'G007',
   },
+  焼肉: {
+    displayGenre: '焼肉',
+    searchGenreCodes: ['G008'],
+    primaryGenreCode: 'G008',
+  },
+  カフェ: {
+    displayGenre: 'カフェ',
+    searchGenreCodes: ['G014'],
+    primaryGenreCode: 'G014',
+  },
+}
+
+const GENRE_ALIAS_MAP: Record<string, keyof typeof GENRE_MAP> = {
+  // 和風・居酒屋
+  居酒屋: '和風・居酒屋',
+  和食: '和風・居酒屋',
+  和風: '和風・居酒屋',
+  海鮮: '和風・居酒屋',
+  鮨: '和風・居酒屋',
+  寿司: '和風・居酒屋',
+  焼き鳥: '和風・居酒屋',
+  焼鳥: '和風・居酒屋',
+  鳥料理: '和風・居酒屋',
+  鍋: '和風・居酒屋',
+  もつ鍋: '和風・居酒屋',
+  しゃぶしゃぶ: '和風・居酒屋',
+  すき焼き: '和風・居酒屋',
+  郷土料理: '和風・居酒屋',
+  割烹: '和風・居酒屋',
+  小料理: '和風・居酒屋',
+  日本料理: '和風・居酒屋',
+
+  // 洋食
+  洋食: '洋食',
+  イタリアン: '洋食',
+  フレンチ: '洋食',
+  ビストロ: '洋食',
+  バル: '洋食',
+  ダイニングバー: '洋食',
+  ダイニング: '洋食',
+  ステーキ: '洋食',
+  ハンバーグ: '洋食',
+  パスタ: '洋食',
+  ピザ: '洋食',
+  スペイン料理: '洋食',
+  欧風料理: '洋食',
+  西洋料理: '洋食',
+
+  // 中華
+  中華: '中華',
+  中華料理: '中華',
+  台湾料理: '中華',
+  四川料理: '中華',
+  点心: '中華',
+  飲茶: '中華',
+  餃子: '中華',
+
+  // 焼肉
+  焼肉: '焼肉',
+  ホルモン: '焼肉',
+  韓国料理: '焼肉',
+
+  // カフェ
+  カフェ: 'カフェ',
+  喫茶店: 'カフェ',
+  スイーツ: 'カフェ',
+}
+
+const GENRE_CODE_TO_GROUP: Record<string, keyof typeof GENRE_MAP> = {
+  G001: '和風・居酒屋',
+  G004: '和風・居酒屋',
+  G006: '洋食',
+  G007: '中華',
+  G008: '焼肉',
+  G014: 'カフェ',
 }
 
 function uniqBy<T>(items: T[], getKey: (item: T) => string): T[] {
@@ -107,6 +186,69 @@ function uniqBy<T>(items: T[], getKey: (item: T) => string): T[] {
   }
 
   return out
+}
+
+function normalizeGenreLabel(label: string): string {
+  return label.replace(/\s+/g, '').replace(/[・/／]/g, '').trim()
+}
+
+function canonicalizeGenre(raw: string): keyof typeof GENRE_MAP | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+
+  if (trimmed in GENRE_MAP) {
+    return trimmed as keyof typeof GENRE_MAP
+  }
+
+  if (trimmed in GENRE_ALIAS_MAP) {
+    return GENRE_ALIAS_MAP[trimmed]
+  }
+
+  const normalized = normalizeGenreLabel(trimmed)
+
+  for (const key of Object.keys(GENRE_MAP) as Array<keyof typeof GENRE_MAP>) {
+    if (normalizeGenreLabel(key) === normalized) return key
+  }
+
+  for (const [alias, canonical] of Object.entries(GENRE_ALIAS_MAP)) {
+    if (normalizeGenreLabel(alias) === normalized) return canonical
+  }
+
+  if (normalized.includes('イタリアン')) return '洋食'
+  if (normalized.includes('フレンチ')) return '洋食'
+  if (normalized.includes('バル')) return '洋食'
+  if (normalized.includes('ビストロ')) return '洋食'
+  if (normalized.includes('ダイニング')) return '洋食'
+  if (normalized.includes('洋食')) return '洋食'
+
+  if (normalized.includes('中華')) return '中華'
+  if (normalized.includes('四川')) return '中華'
+  if (normalized.includes('台湾')) return '中華'
+  if (normalized.includes('点心')) return '中華'
+  if (normalized.includes('飲茶')) return '中華'
+
+  if (normalized.includes('焼肉')) return '焼肉'
+  if (normalized.includes('ホルモン')) return '焼肉'
+  if (normalized.includes('韓国')) return '焼肉'
+
+  if (normalized.includes('カフェ')) return 'カフェ'
+  if (normalized.includes('喫茶')) return 'カフェ'
+  if (normalized.includes('スイーツ')) return 'カフェ'
+
+  if (
+    normalized.includes('居酒屋') ||
+    normalized.includes('和食') ||
+    normalized.includes('海鮮') ||
+    normalized.includes('寿司') ||
+    normalized.includes('鮨') ||
+    normalized.includes('焼鳥') ||
+    normalized.includes('焼き鳥') ||
+    normalized.includes('鍋')
+  ) {
+    return '和風・居酒屋'
+  }
+
+  return null
 }
 
 function parseBudgetAverage(text?: string): ParsedBudget {
@@ -148,8 +290,31 @@ function parseBudgetAverage(text?: string): ParsedBudget {
 }
 
 function resolveGenre(preferredGenres?: string[]): SearchGenreConfig {
-  const first = preferredGenres?.[0] ?? '和風・居酒屋'
-  return GENRE_MAP[first] ?? GENRE_MAP['和風・居酒屋']
+  const rawGenres = (preferredGenres ?? []).map((v) => v.trim()).filter(Boolean)
+
+  const normalizedGenres = rawGenres
+    .map(canonicalizeGenre)
+    .filter((v): v is keyof typeof GENRE_MAP => !!v)
+
+  const uniqueNormalizedGenres = Array.from(new Set(normalizedGenres))
+
+  const primary = uniqueNormalizedGenres[0] ?? '和風・居酒屋'
+  const baseConfig = GENRE_MAP[primary]
+
+  const mergedSearchGenreCodes = Array.from(
+    new Set(
+      uniqueNormalizedGenres.flatMap((genre) => GENRE_MAP[genre].searchGenreCodes)
+    )
+  )
+
+  return {
+    displayGenre: uniqueNormalizedGenres.length > 0 ? uniqueNormalizedGenres.join('・') : baseConfig.displayGenre,
+    searchGenreCodes:
+      mergedSearchGenreCodes.length > 0 ? mergedSearchGenreCodes : baseConfig.searchGenreCodes,
+    primaryGenreCode: baseConfig.primaryGenreCode,
+    resolvedFrom: rawGenres,
+    normalizedGenres: uniqueNormalizedGenres,
+  }
 }
 
 function buildHotpepperUrl(args: {
@@ -203,21 +368,46 @@ async function fetchGenreShops(url: string): Promise<HotpepperShop[]> {
   return json?.results?.shop ?? []
 }
 
-function computeGenreBoost(
-  shop: HotpepperShop,
-  primaryGenreCode: string,
-  displayGenre: string
-): number {
-  const code = shop.genre?.code ?? ''
+function computeGenreScore(args: {
+  shop: HotpepperShop
+  primaryGenreCode: string
+  searchGenreCodes: string[]
+}): { genreBoost: number; genrePenalty: number; genreMatched: boolean } {
+  const code = args.shop.genre?.code ?? ''
+  const matched = args.searchGenreCodes.includes(code)
 
-  if (code === primaryGenreCode) return 18
-
-  if (displayGenre === '和風・居酒屋') {
-    if (code === 'G004') return 10
-    return 8
+  if (code === args.primaryGenreCode) {
+    return {
+      genreBoost: 34,
+      genrePenalty: 0,
+      genreMatched: true,
+    }
   }
 
-  return 10
+  if (matched) {
+    return {
+      genreBoost: 22,
+      genrePenalty: 0,
+      genreMatched: true,
+    }
+  }
+
+  const group = GENRE_CODE_TO_GROUP[code]
+  const primaryGroup = GENRE_CODE_TO_GROUP[args.primaryGenreCode]
+
+  if (group && primaryGroup && group === primaryGroup) {
+    return {
+      genreBoost: 16,
+      genrePenalty: 0,
+      genreMatched: true,
+    }
+  }
+
+  return {
+    genreBoost: 0,
+    genrePenalty: -16,
+    genreMatched: false,
+  }
 }
 
 function computePriceScore(parsed: ParsedBudget, requestedPriceRange: string): number {
@@ -234,6 +424,12 @@ function computePriceScore(parsed: ParsedBudget, requestedPriceRange: string): n
   if (requestedPriceRange === '5,001〜7,000円') {
     if (value >= 5001 && value <= 7000) return 40
     if (value >= 4500 && value <= 7500) return 26
+    return 8
+  }
+
+  if (requestedPriceRange === '3,001〜4,000円') {
+    if (value >= 3001 && value <= 4000) return 40
+    if (value >= 2500 && value <= 4500) return 26
     return 8
   }
 
@@ -257,6 +453,10 @@ function shouldKeepByPrice(parsed: ParsedBudget, requestedPriceRange: string): b
     return value >= 4300 && value <= 7800
   }
 
+  if (requestedPriceRange === '3,001〜4,000円') {
+    return value >= 2500 && value <= 4800
+  }
+
   // 指定なし
   return value >= 3500 && value <= 8000
 }
@@ -273,20 +473,57 @@ function prefilterByPrice(shops: HotpepperShop[], requestedPriceRange: string) {
   }
 }
 
+function maybePrefilterByGenre(shops: HotpepperShop[], searchGenreCodes: string[]) {
+  if (searchGenreCodes.length === 0) {
+    return {
+      shops,
+      applied: false,
+      beforeCount: shops.length,
+      afterCount: shops.length,
+    }
+  }
+
+  const genreMatched = shops.filter((shop) => {
+    const code = shop.genre?.code ?? ''
+    return searchGenreCodes.includes(code)
+  })
+
+  // 一致店が十分あるときだけ事前に絞る
+  if (genreMatched.length >= 12) {
+    return {
+      shops: genreMatched,
+      applied: true,
+      beforeCount: shops.length,
+      afterCount: genreMatched.length,
+    }
+  }
+
+  return {
+    shops,
+    applied: false,
+    beforeCount: shops.length,
+    afterCount: shops.length,
+  }
+}
+
 function scoreShop(args: {
   shop: HotpepperShop
   targetStation: string
   requestedPriceRange: string
   primaryGenreCode: string
-  displayGenre: string
+  searchGenreCodes: string[]
 }): ScoredShop {
   const parsedBudget = parseBudgetAverage(args.shop.budget?.average)
   const stationMatch = isStationMatch(args.targetStation, args.shop.station_name)
   const priceScore = computePriceScore(parsedBudget, args.requestedPriceRange)
-  const genreBoost = computeGenreBoost(args.shop, args.primaryGenreCode, args.displayGenre)
+  const { genreBoost, genrePenalty, genreMatched } = computeGenreScore({
+    shop: args.shop,
+    primaryGenreCode: args.primaryGenreCode,
+    searchGenreCodes: args.searchGenreCodes,
+  })
 
   const stationScore = stationMatch ? 35 : 0
-  const totalScore = stationScore + priceScore + genreBoost
+  const totalScore = stationScore + priceScore + genreBoost + genrePenalty
 
   return {
     ...args.shop,
@@ -295,7 +532,9 @@ function scoreShop(args: {
       stationMatch,
       priceScore,
       genreBoost,
+      genrePenalty,
       totalScore,
+      genreMatched,
     },
   }
 }
@@ -408,6 +647,8 @@ export async function POST(req: NextRequest) {
       matchedBy: stationContext.matchedBy,
       searchMode: stationContext.searchMode,
       preferredGenres: body.preferredGenres ?? [],
+      resolvedGenreInput: genreConfig.resolvedFrom,
+      normalizedGenres: genreConfig.normalizedGenres,
       searchGenreCodes: genreConfig.searchGenreCodes,
       displayGenre: genreConfig.displayGenre,
       primaryGenreCode: genreConfig.primaryGenreCode,
@@ -462,14 +703,24 @@ export async function POST(req: NextRequest) {
       usedRelaxation: pricePrefilter.usedRelaxation,
     })
 
-    const scored = afterPrice
+    const genrePrefilter = maybePrefilterByGenre(afterPrice, genreConfig.searchGenreCodes)
+    const afterGenre = genrePrefilter.shops
+
+    console.log('[hotpepper/search] genre prefilter:', {
+      searchGenreCodes: genreConfig.searchGenreCodes,
+      applied: genrePrefilter.applied,
+      beforeCount: genrePrefilter.beforeCount,
+      afterCount: genrePrefilter.afterCount,
+    })
+
+    const scored = afterGenre
       .map((shop) =>
         scoreShop({
           shop,
           targetStation: stationContext.canonical,
           requestedPriceRange: priceRange,
           primaryGenreCode: genreConfig.primaryGenreCode,
-          displayGenre: genreConfig.displayGenre,
+          searchGenreCodes: genreConfig.searchGenreCodes,
         })
       )
       .sort((a, b) => b._debug.totalScore - a._debug.totalScore)
@@ -478,12 +729,18 @@ export async function POST(req: NextRequest) {
     const stationMatchRate =
       scored.length > 0 ? `${Math.round((stationMatchCount / scored.length) * 100)}%` : '0%'
 
+    const genreMatchCount = scored.filter((shop) => shop._debug.genreMatched).length
+    const genreMatchRate =
+      scored.length > 0 ? `${Math.round((genreMatchCount / scored.length) * 100)}%` : '0%'
+
     console.log('[hotpepper/search] shop diagnostics:', {
       station: stationContext.canonical,
       aliases: stationContext.aliases,
       requestedPriceRange: priceRange,
       displayGenre: genreConfig.displayGenre,
+      normalizedGenres: genreConfig.normalizedGenres,
       primaryGenreCode: genreConfig.primaryGenreCode,
+      searchGenreCodes: genreConfig.searchGenreCodes,
       shops: scored.slice(0, 30).map((shop) => ({
         name: shop.name,
         station_name: shop.station_name,
@@ -491,9 +748,13 @@ export async function POST(req: NextRequest) {
         budget_average: shop.budget?.average,
         parsed_budget: shop._debug.parsedBudget,
         genre_code: shop.genre?.code,
+        genre_name: shop.genre?.name,
         stationMatch: shop._debug.stationMatch,
+        genreMatched: shop._debug.genreMatched,
         priceScore: shop._debug.priceScore,
         genreBoost: shop._debug.genreBoost,
+        genrePenalty: shop._debug.genrePenalty,
+        totalScore: shop._debug.totalScore,
       })),
     })
 
@@ -503,6 +764,13 @@ export async function POST(req: NextRequest) {
       matchCount: stationMatchCount,
       total: scored.length,
       rate: stationMatchRate,
+    })
+
+    console.log('[hotpepper/search] genre match rate:', {
+      searchGenreCodes: genreConfig.searchGenreCodes,
+      matchCount: genreMatchCount,
+      total: scored.length,
+      rate: genreMatchRate,
     })
 
     const shops = scored.map(compactShop)
@@ -545,6 +813,7 @@ export async function POST(req: NextRequest) {
       aliases: stationContext.aliases,
       hpArea: stationContext.hpArea,
       displayGenre: genreConfig.displayGenre,
+      normalizedGenres: genreConfig.normalizedGenres,
       primaryGenreCode: genreConfig.primaryGenreCode,
       requestedPriceRange: priceRange,
       count: shops.length,
