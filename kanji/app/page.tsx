@@ -3149,7 +3149,7 @@ function StoreLoadingOverlay() {
           <p className="text-center text-[15px] font-black text-stone-900">候補を探しています</p>
 
           {/* ステップ文言 — 順番にフェード */}
-          <div className="mt-2 h-5 overflow-hidden text-center">
+          <div className="relative mt-2 h-6 overflow-hidden text-center">
             {steps.map((s, i) => (
               <motion.p
                 key={s}
@@ -3162,7 +3162,7 @@ function StoreLoadingOverlay() {
                   delay: i * 1.8,
                   times: [0, 0.15, 0.8, 1],
                 }}
-                className="text-xs text-stone-400"
+                className="absolute inset-x-0 text-xs text-stone-400"
               >
                 {s}
               </motion.p>
