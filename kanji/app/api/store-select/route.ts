@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { buildStationSearchContext } from '../../lib/station'
 
 export const GEMINI_RANK_LIMIT = 5
 
@@ -66,11 +67,29 @@ function normalizeStationToken(value: string): string {
     .replace(/\s+/g, '')
 }
 
-function buildAreaAliases(targetStation: string, broadAreaMode?: boolean, aliases?: string[]): string[] {
-  if (broadAreaMode && aliases && aliases.length > 0) {
-    return Array.from(new Set(aliases.map(normalizeStationToken).filter(Boolean)))
+function uniqueNormalized(values: Array<string | null | undefined>): string[] {
+  return Array.from(
+    new Set(
+      values
+        .map((v) => normalizeStationToken(v ?? ''))
+        .filter(Boolean)
+    )
+  )
+}
+
+/**
+ * 駅の基本許容は station.ts に寄せる。
+ * broadAreaMode が ON のときだけ、呼び出し側から追加 alias を足せるようにする。
+ */
+function buildEffectiveAliases(cond: SelectionConditions): string[] {
+  const ctx = buildStationSearchContext(cond.targetStation)
+  const baseAliases = ctx.aliases ?? []
+
+  if (!cond.broadAreaMode) {
+    return uniqueNormalized(baseAliases)
   }
-  return [normalizeStationToken(targetStation)].filter(Boolean)
+
+  return uniqueNormalized([...baseAliases, ...(cond.areaAliases ?? [])])
 }
 
 function parseYen(value: string): number | null {
@@ -124,11 +143,31 @@ function parseLabeledBudgetCandidates(text: string) {
     regex: RegExp
     confidence: ParsedBudgetAverage['confidence']
   }> = [
-    { type: 'dinner', regex: /ディナー[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g, confidence: 'high' },
-    { type: 'normal', regex: /通常平均[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g, confidence: 'medium' },
-    { type: 'normal', regex: /フリー[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g, confidence: 'medium' },
-    { type: 'banquet', regex: /宴会[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g, confidence: 'medium' },
-    { type: 'course', regex: /コース[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g, confidence: 'low' },
+    {
+      type: 'dinner',
+      regex: /ディナー[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g,
+      confidence: 'high',
+    },
+    {
+      type: 'normal',
+      regex: /通常平均[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g,
+      confidence: 'medium',
+    },
+    {
+      type: 'normal',
+      regex: /フリー[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g,
+      confidence: 'medium',
+    },
+    {
+      type: 'banquet',
+      regex: /宴会[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g,
+      confidence: 'medium',
+    },
+    {
+      type: 'course',
+      regex: /コース[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g,
+      confidence: 'low',
+    },
   ]
 
   for (const { type, regex, confidence } of patterns) {
@@ -212,14 +251,27 @@ function hasMeaningfulBudgetData(store: StoreInput): boolean {
   return (store.tags ?? []).some((tag) => hasMeaningfulBudgetAverage(tag))
 }
 
+/**
+ * store-select 側の一致判定。
+ * - まず station.ts ベースの alias 群で stationName を見る
+ * - broadAreaMode が ON のときだけ areaAliases を追加許容
+ * - access も補助的に使う
+ */
 function isStationOrAreaMatch(store: StoreInput, cond: SelectionConditions): boolean {
   if (!cond.targetStation) return true
-  const aliases = buildAreaAliases(cond.targetStation, cond.broadAreaMode, cond.areaAliases)
+
+  const aliases = buildEffectiveAliases(cond)
   const station = normalizeStationToken(store.stationName ?? '')
   const access = normalizeText(store.access ?? '')
 
   if (station && aliases.includes(station)) return true
-  return aliases.some((alias) => access.includes(`${alias}駅`) || access.includes(alias))
+
+  return aliases.some((alias) => {
+    return (
+      access.includes(`${alias}駅`) ||
+      access.includes(alias)
+    )
+  })
 }
 
 function dedupeIds(ids: string[], validIds: Set<string>, limit = GEMINI_RANK_LIMIT): string[] {
@@ -299,6 +351,27 @@ function scoreBudgetFit(store: StoreInput, priceRange?: string): number {
   return 0
 }
 
+function scoreGenreFit(store: StoreInput, cond: SelectionConditions): number {
+  const text = `${store.genre ?? ''} ${(store.tags ?? []).join(' ')} ${store.name ?? ''}`
+
+  if (cond.genre === '和風・居酒屋') {
+    if (/居酒屋|和食|海鮮|魚|寿司|刺身|炉端|おでん|鍋|鶏料理|串焼|焼き鳥|やきとり/.test(text)) return 12
+    return 0
+  }
+
+  if (cond.genre === '洋食') {
+    if (/イタリアン|フレンチ|ビストロ|バル|スペイン|パエリア|ピザ|パスタ/.test(text)) return 12
+    return 0
+  }
+
+  if (cond.genre === '中華') {
+    if (/中華|四川|上海|広東|餃子|小籠包|火鍋/.test(text)) return 12
+    return 0
+  }
+
+  return 0
+}
+
 function scoreStoreForFallback(store: StoreInput, cond: SelectionConditions): number {
   let score = 0
 
@@ -306,16 +379,7 @@ function scoreStoreForFallback(store: StoreInput, cond: SelectionConditions): nu
   else score -= cond.broadAreaMode ? 14 : 28
 
   score += scoreBudgetFit(store, cond.priceRange)
-
-  const text = `${store.genre ?? ''} ${(store.tags ?? []).join(' ')} ${store.name ?? ''}`
-
-  if (cond.genre === '和風・居酒屋') {
-    if (/居酒屋|和食|海鮮|魚|寿司|刺身|炉端|おでん|鍋|鶏料理|串焼|焼き鳥|やきとり/.test(text)) score += 12
-  } else if (cond.genre === '洋食') {
-    if (/イタリアン|フレンチ|ビストロ|バル|スペイン|パエリア|ピザ|パスタ/.test(text)) score += 12
-  } else if (cond.genre === '中華') {
-    if (/中華|四川|上海|広東|餃子|小籠包|火鍋/.test(text)) score += 12
-  }
+  score += scoreGenreFit(store, cond)
 
   if (store.hasPrivateRoom) score += 2
   if (typeof store.googleRating === 'number') score += Math.max(0, store.googleRating - 3.8) * 2
@@ -342,6 +406,10 @@ function formatReasonFromStore(store: StoreInput, cond?: SelectionConditions): s
     parts.push('個室あり')
   }
 
+  if (!parts.length && cond?.genre) {
+    parts.push(`${cond.genre}系統に近い候補`)
+  }
+
   return parts.slice(0, 2).join('・') || '条件に近い候補です'
 }
 
@@ -351,7 +419,9 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
   const peopleStr = cond.peopleCount ? `${cond.peopleCount}人` : '不明'
   const isLargeGroup = (cond.peopleCount ?? 0) >= 10
   const eventStr = cond.eventType ?? '飲み会'
-  const aliases = buildAreaAliases(cond.targetStation, cond.broadAreaMode, cond.areaAliases)
+
+  const stationCtx = buildStationSearchContext(cond.targetStation)
+  const aliases = buildEffectiveAliases(cond)
 
   const storeList = JSON.stringify(
     stores.map((s) => ({
@@ -381,16 +451,17 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
 - 参加人数: ${peopleStr}${isLargeGroup ? '（大人数。収容力・個室対応をやや重視）' : ''}
 
 ## 確定済み検索条件
-- 開催駅/エリア: ${cond.targetStation}
+- 開催駅/エリア入力: ${cond.targetStation}
+- canonical 駅名: ${stationCtx.canonical}
 - 広域モード: ${cond.broadAreaMode ? 'ON' : 'OFF'}
-- 許容別名: ${aliases.join(' / ')}
+- 許容別名: ${aliases.join(' / ') || stationCtx.canonical}
 - 価格帯: ${budgetStr}
 - 希望系統: ${genreStr}
 
 ## 選定優先順位
 1. 開催駅/エリア一致
-- broadAreaMode が OFF の場合は、station_name が開催駅と一致する店を最優先
-- broadAreaMode が ON の場合のみ、許容別名に含まれる駅を近接エリアとして許容
+- broadAreaMode が OFF の場合は、station_name が canonical 駅名または許容別名と一致する店を最優先
+- broadAreaMode が ON の場合のみ、追加許容 alias を近接エリアとして許容
 - broadAreaMode が OFF のときは、別駅の店を bestStoreId にしない
 - broadAreaMode が ON のときも、まったく別エリアの店を bestStoreId にしない
 
@@ -437,13 +508,15 @@ ${storeList}
 }
 
 function buildFallbackSelection(stores: StoreInput[], cond?: SelectionConditions): GeminiSelection {
+  const safeCond = cond ?? { targetStation: '' }
+
   const ranked = [...stores]
-    .sort((a, b) => scoreStoreForFallback(b, cond ?? { targetStation: '' }) - scoreStoreForFallback(a, cond ?? { targetStation: '' }))
+    .sort((a, b) => scoreStoreForFallback(b, safeCond) - scoreStoreForFallback(a, safeCond))
     .slice(0, GEMINI_RANK_LIMIT)
 
   const reasons = ranked.map((s) => ({
     storeId: s.id,
-    reason: formatReasonFromStore(s, cond),
+    reason: formatReasonFromStore(s, safeCond),
   }))
 
   return {
@@ -502,7 +575,9 @@ function sanitizeSelection(
     return buildFallbackSelection(stores, conditions)
   }
 
-  const fallbackSorted = [...topStores].sort((a, b) => scoreStoreForFallback(b, conditions) - scoreStoreForFallback(a, conditions))
+  const fallbackSorted = [...topStores].sort(
+    (a, b) => scoreStoreForFallback(b, conditions) - scoreStoreForFallback(a, conditions)
+  )
   const fallbackBestId = fallbackSorted[0]?.id ?? bestStoreId
   const bestIsMismatch = !isStationOrAreaMatch(bestStore, conditions)
 
@@ -627,6 +702,8 @@ export async function POST(req: NextRequest) {
 
     console.log('[store-select] selection:', {
       model,
+      canonicalStation: buildStationSearchContext(conditions.targetStation).canonical,
+      aliases: buildEffectiveAliases(conditions),
       best: sanitized.bestStoreId,
       ranked: sanitized.rankedStoreIds.length,
       notes: sanitized.fallbackNotes,

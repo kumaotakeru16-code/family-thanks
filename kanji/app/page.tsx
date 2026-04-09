@@ -1172,10 +1172,10 @@ async function fetchRecommendedStores() {
     if (!hpRes.ok) throw new Error(`HTTP ${hpRes.status}`)
 
     const hpData = await hpRes.json()
-    console.log('[fetchRecommendedStores] hp:', { mode: hpData.searchMode, count: hpData.stores?.length })
+    console.log('[fetchRecommendedStores] hp:', { mode: hpData.searchMode, count: hpData.shops?.length })
 
     // HP が strict 0件を返した場合 → Gemini/Places を呼ばずに即座に空状態へ
-    if ((hpData.stores ?? []).length === 0) {
+    if ((hpData.shops ?? []).length === 0) {
       const msg =
         hpData?.emptyState?.body ??
         hpData?.error ??
@@ -1188,21 +1188,26 @@ async function fetchRecommendedStores() {
       return
     }
 
-    const hpStores: StoreCandidate[] = (hpData.stores ?? []).map((s: any, i: number) => ({
-      id: s.id ?? `hp-store-${i + 1}`,
-      name: s.name ?? `候補${i + 1}`,
-      area: s.area ?? '未設定',
-      access: s.access ?? '',
-      image: s.image ?? undefined,
-      reason: s.reason ?? '条件に合いやすい候補です',
-      link: typeof s.link === 'string' ? s.link : '',
-      tags: Array.isArray(s.tags) ? s.tags.slice(0, 4) : [],
-      stationName: s.stationName ?? '',
-      budgetCode: s.budgetCode ?? '',
-      genre: s.genre ?? '',
-      walkMinutes: s.walkMinutes ?? null,
-      hasPrivateRoom: s.hasPrivateRoom ?? false,
-    }))
+const hpStores: StoreCandidate[] = (hpData.shops ?? []).map((s: any, i: number) => ({
+  id: s.id ?? `hp-store-${i + 1}`,
+  name: s.name ?? `候補${i + 1}`,
+  area: s.area ?? s.station_name ?? '未設定',
+  access: s.access ?? '',
+  image: s.image_url ?? '',
+  reason: s.reason ?? '条件に合いやすい候補です',
+  link: typeof s.url === 'string' ? s.url : '',
+  tags: Array.isArray(s.tags) ? s.tags.slice(0, 4) : [],
+  stationName: s.station_name ?? '',
+  budgetCode: s.budget_code ?? '',
+  genre: s.genre_name ?? '',
+  walkMinutes: s.walkMinutes ?? null,
+  hasPrivateRoom:
+    s.hasPrivateRoom ??
+    (typeof s.private_room === 'string' ? /あり|有|可/.test(s.private_room) : false),
+  googleRating: typeof s.google_rating === 'number' ? s.google_rating : undefined,
+  googleRatingCount:
+    typeof s.google_rating_count === 'number' ? s.google_rating_count : undefined,
+}))
 
     // ── Step 2: Gemini で選定・順位付け・理由生成 ──────────────────────────
     // Gemini が失敗しても HP 順位で続行するため try-catch で囲む

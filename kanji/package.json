@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "generate:stations": "node scripts/generate-station-defs.mjs",
     "lint": "eslint"
+    
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.101.0",

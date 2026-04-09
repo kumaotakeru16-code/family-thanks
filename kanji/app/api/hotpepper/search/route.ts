@@ -1,851 +1,566 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { buildStationSearchContext, isStationMatch } from '../../../lib/station'
+import { adaptHotpepperShopsToStoreSelect } from '../../../lib/store-select-adapter'
 
-const UI_GENRE_TO_SEARCH_CODES: Record<string, string[]> = {
-  '和風・居酒屋': ['G001', 'G004'],
-  '洋食': ['G006'],
-  '中華': ['G007'],
+const HOTPEPPER_API_KEY =
+  process.env.HOTPEPPER_API_KEY || process.env.RECRUIT_API_KEY || ''
+
+type RequestBody = {
+  areas?: string[]
+  targetStation?: string
+  preferredGenres?: string[]
+  priceRange?: string
+  privateRoom?: string
+  allYouCanDrink?: string
+  nonSmoking?: boolean
+  peopleCount?: number
+  eventType?: string
+  broadAreaMode?: boolean
+  areaAliases?: string[]
 }
 
-const ALLOWED_PRIMARY_GENRES = new Set(['G001', 'G006', 'G007'])
-const ALLOWED_PRICE_RANGES = new Set(['指定なし', '4,001〜5,000円', '5,001〜7,000円'])
-
-/**
- * Hot Pepper マスタ由来の駅→area code マップ
- *
- * 重要:
- * - これは「検索母集団を安定させるため」の辞書
- * - 駅の厳密一致を緩めるものではない
- * - shopMatchesStation / isClearlyOtherStation は基本厳密一致
- */
-const STATION_HP_AREA_MAP: Record<string, { middleArea?: string; smallArea?: string }> = {
-  横浜: { middleArea: 'Y135', smallArea: 'X270' },
-  札幌: { middleArea: 'Y505', smallArea: 'X501' },
-  大阪: { middleArea: 'Y300', smallArea: 'X300' },
-  梅田: { middleArea: 'Y300', smallArea: 'X300' },
+type HotpepperGenre = {
+  code?: string
+  name?: string
+  catch?: string
 }
 
-/**
- * 最小限の表記ゆれ吸収だけを行う
- *
- * 重要:
- * - これは都市エリア化ではない
- * - 札幌 = さっぽろ 程度
- * - 大阪 = 梅田 / 大阪梅田 / 東梅田 程度
- * - 梅田 = 大阪梅田 / 東梅田 程度
- * - 大通 / 北新地 / 西梅田 などは今回は含めない
- */
-const STATION_ALIAS_MAP: Record<string, string[]> = {
-  札幌: ['札幌', 'さっぽろ'],
-  大阪: ['大阪', '梅田', '大阪梅田', '東梅田'],
-  梅田: ['梅田', '大阪梅田', '東梅田'],
+type HotpepperBudget = {
+  code?: string
+  name?: string
+  average?: string
 }
 
-type ParsedBudgetAverage = {
-  estimatedMin: number | null
-  estimatedMax: number | null
-  sourceType: 'dinner' | 'normal' | 'banquet' | 'course' | 'generic' | 'unknown'
-  confidence: 'high' | 'medium' | 'low'
-  raw: string
+type HotpepperShop = {
+  id: string
+  name: string
+  address?: string
+  station_name?: string
+  mobile_access?: string
+  logo_image?: string
+  photo?: {
+    mobile?: { l?: string; s?: string }
+    pc?: { l?: string; s?: string }
+  }
+  genre?: HotpepperGenre
+  budget?: HotpepperBudget
+  urls?: {
+    pc?: string
+  }
+  capacity?: number
+  private_room?: string
+  free_drink?: string
+  non_smoking?: string
+  catch?: string
+  open?: string
 }
 
-function normalizeStringArray(input: unknown): string[] {
-  if (!Array.isArray(input)) return []
-  return input.map((v) => (typeof v === 'string' ? v.trim() : '')).filter(Boolean)
+type SearchGenreConfig = {
+  displayGenre: string
+  searchGenreCodes: string[]
+  primaryGenreCode: string
 }
 
-function parseWalkMinutes(access: string): number | null {
-  const m = String(access ?? '').match(/徒歩(\d+)分/)
-  return m ? parseInt(m[1], 10) : null
+type ParsedBudget = {
+  min: number | null
+  max: number | null
+  representative: number | null
 }
 
-function hasPrivateRoom(shop: any): boolean {
-  return shop?.private_room === 'あり' || shop?.private_room === '1'
+type ScoredShop = HotpepperShop & {
+  _debug: {
+    parsedBudget: ParsedBudget
+    stationMatch: boolean
+    priceScore: number
+    genreBoost: number
+    totalScore: number
+  }
 }
 
-function stationNameOf(shop: any): string {
-  return typeof shop?.station_name === 'string' ? shop.station_name.trim() : ''
+const GENRE_MAP: Record<string, SearchGenreConfig> = {
+  '和風・居酒屋': {
+    displayGenre: '和風・居酒屋',
+    searchGenreCodes: ['G001', 'G004'],
+    primaryGenreCode: 'G001',
+  },
+  洋食: {
+    displayGenre: '洋食',
+    searchGenreCodes: ['G006'],
+    primaryGenreCode: 'G006',
+  },
+  中華: {
+    displayGenre: '中華',
+    searchGenreCodes: ['G007'],
+    primaryGenreCode: 'G007',
+  },
 }
 
-function normalizePriceText(text: string): string {
-  return String(text ?? '')
-    .replace(/[【】\[\]]/g, ' ')
-    .replace(/[（(]/g, ' ')
-    .replace(/[）)]/g, ' ')
-    .replace(/[：:]/g, ':')
-    .replace(/[／/]/g, ' / ')
-    .replace(/[〜～~]/g, '〜')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
+function uniqBy<T>(items: T[], getKey: (item: T) => string): T[] {
+  const seen = new Set<string>()
+  const out: T[] = []
 
-function parseYen(value: string): number | null {
-  const digits = value.replace(/[^0-9]/g, '')
-  if (!digits) return null
-  const n = parseInt(digits, 10)
-  return Number.isFinite(n) ? n : null
-}
-
-function extractRange(fragment: string): { min: number; max: number } | null {
-  const text = normalizePriceText(fragment)
-
-  const rangeMatch =
-    text.match(/([0-9,]+)\s*円?\s*[〜\-]\s*([0-9,]+)\s*円?/) ||
-    text.match(/([0-9,]+)\s*[〜\-]\s*([0-9,]+)\s*円?/)
-
-  if (rangeMatch) {
-    const min = parseYen(rangeMatch[1])
-    const max = parseYen(rangeMatch[2])
-    if (min !== null && max !== null) {
-      return { min: Math.min(min, max), max: Math.max(min, max) }
-    }
+  for (const item of items) {
+    const key = getKey(item)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    out.push(item)
   }
 
-  const singleWithPlus = text.match(/([0-9,]+)\s*円?\s*〜/)
-  if (singleWithPlus) {
-    const min = parseYen(singleWithPlus[1])
-    if (min !== null) return { min, max: min + 1500 }
-  }
-
-  const single = text.match(/([0-9,]+)\s*円?/)
-  if (single) {
-    const value = parseYen(single[1])
-    if (value !== null) return { min: value, max: value }
-  }
-
-  return null
+  return out
 }
 
-function parseLabeledBudgetCandidates(text: string) {
-  const normalized = normalizePriceText(text)
-  const candidates: Array<{
-    sourceType: ParsedBudgetAverage['sourceType']
-    confidence: ParsedBudgetAverage['confidence']
-    min: number
-    max: number
-  }> = []
-
-  const patterns: Array<{
-    type: ParsedBudgetAverage['sourceType']
-    regex: RegExp
-    confidence: ParsedBudgetAverage['confidence']
-  }> = [
-    {
-      type: 'dinner',
-      regex: /ディナー[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g,
-      confidence: 'high',
-    },
-    {
-      type: 'normal',
-      regex: /通常平均[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g,
-      confidence: 'medium',
-    },
-    {
-      type: 'normal',
-      regex: /フリー[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g,
-      confidence: 'medium',
-    },
-    {
-      type: 'banquet',
-      regex: /宴会[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g,
-      confidence: 'medium',
-    },
-    {
-      type: 'course',
-      regex: /コース[^0-9]{0,20}([0-9,]+(?:\s*円)?(?:\s*[〜\-]\s*[0-9,]+(?:\s*円)?)?)/g,
-      confidence: 'low',
-    },
-  ]
-
-  for (const { type, regex, confidence } of patterns) {
-    const matches = normalized.matchAll(regex)
-    for (const match of matches) {
-      const parsed = extractRange(match[1])
-      if (!parsed) continue
-      candidates.push({
-        sourceType: type,
-        confidence,
-        min: parsed.min,
-        max: parsed.max,
-      })
-    }
-  }
-
-  return candidates
-}
-
-function parseBudgetAverage(average: string): ParsedBudgetAverage {
-  const text = normalizePriceText(average)
+function parseBudgetAverage(text?: string): ParsedBudget {
   if (!text) {
+    return { min: null, max: null, representative: null }
+  }
+
+  const normalized = text
+    .replace(/税込/g, '')
+    .replace(/円/g, '')
+    .replace(/,/g, '')
+    .replace(/～/g, '-')
+    .replace(/〜/g, '-')
+    .replace(/~+/g, '-')
+
+  const rangeMatch = normalized.match(/(\d{3,5})\s*-\s*(\d{3,5})/)
+  if (rangeMatch) {
+    const min = Number(rangeMatch[1])
+    const max = Number(rangeMatch[2])
     return {
-      estimatedMin: null,
-      estimatedMax: null,
-      sourceType: 'unknown',
-      confidence: 'low',
-      raw: text,
+      min,
+      max,
+      representative: Math.round((min + max) / 2),
     }
   }
 
-  const labeled = parseLabeledBudgetCandidates(text)
-  const priority: ParsedBudgetAverage['sourceType'][] = ['dinner', 'normal', 'banquet', 'course']
-
-  for (const type of priority) {
-    const hit = labeled.find((c) => c.sourceType === type)
-    if (hit) {
-      return {
-        estimatedMin: hit.min,
-        estimatedMax: hit.max,
-        sourceType: hit.sourceType,
-        confidence: hit.confidence,
-        raw: text,
-      }
-    }
-  }
-
-  const genericRange = extractRange(text)
-  if (genericRange) {
+  const singleNumbers = normalized.match(/\d{3,5}/g)
+  if (singleNumbers && singleNumbers.length > 0) {
+    const nums = singleNumbers.map(Number).filter((n) => !Number.isNaN(n))
+    const representative = nums.length > 0 ? Math.max(...nums) : null
     return {
-      estimatedMin: genericRange.min,
-      estimatedMax: genericRange.max,
-      sourceType: 'generic',
-      confidence: 'medium',
-      raw: text,
+      min: representative,
+      max: representative,
+      representative,
     }
   }
 
-  const yenNumbers = (text.match(/[0-9,]+\s*円?/g) || [])
-    .map((m) => parseYen(m))
-    .filter((n): n is number => n !== null && n >= 500 && n <= 30000)
+  return { min: null, max: null, representative: null }
+}
 
-  if (yenNumbers.length === 1) {
-    return {
-      estimatedMin: yenNumbers[0],
-      estimatedMax: yenNumbers[0],
-      sourceType: 'generic',
-      confidence: 'medium',
-      raw: text,
-    }
+function resolveGenre(preferredGenres?: string[]): SearchGenreConfig {
+  const first = preferredGenres?.[0] ?? '和風・居酒屋'
+  return GENRE_MAP[first] ?? GENRE_MAP['和風・居酒屋']
+}
+
+function buildHotpepperUrl(args: {
+  genreCode: string
+  stationContext: ReturnType<typeof buildStationSearchContext>
+  privateRoom?: string
+  allYouCanDrink?: string
+  nonSmoking?: boolean
+  peopleCount?: number
+}): string {
+  const params = new URLSearchParams()
+  params.set('key', HOTPEPPER_API_KEY)
+  params.set('format', 'json')
+  params.set('count', '120')
+  params.set('order', '4')
+  params.set('genre', args.genreCode)
+
+  if (args.stationContext.searchMode === 'area' && args.stationContext.hpArea?.middleArea) {
+    params.set('middle_area', args.stationContext.hpArea.middleArea)
+  } else {
+    params.set('large_service_area', 'SS10')
+    params.set('keyword', args.stationContext.keyword)
   }
 
-  if (yenNumbers.length >= 2) {
-    const sorted = [...yenNumbers].sort((a, b) => a - b)
-    return {
-      estimatedMin: sorted[0],
-      estimatedMax: sorted[sorted.length - 1],
-      sourceType: 'generic',
-      confidence: 'low',
-      raw: text,
-    }
+  if (args.privateRoom) {
+    params.set('private_room', args.privateRoom)
   }
+
+  if (args.allYouCanDrink) {
+    params.set('free_drink', args.allYouCanDrink)
+  }
+
+  if (args.nonSmoking) {
+    params.set('non_smoking', '1')
+  }
+
+  if (args.peopleCount && args.peopleCount > 0) {
+    params.set('party_capacity', String(args.peopleCount))
+  }
+
+  return `https://webservice.recruit.co.jp/hotpepper/gourmet/v1/?${params.toString()}`
+}
+
+async function fetchGenreShops(url: string): Promise<HotpepperShop[]> {
+  const res = await fetch(url, { cache: 'no-store' })
+  if (!res.ok) {
+    throw new Error(`Hot Pepper API request failed: ${res.status}`)
+  }
+
+  const json = await res.json()
+  return json?.results?.shop ?? []
+}
+
+function computeGenreBoost(
+  shop: HotpepperShop,
+  primaryGenreCode: string,
+  displayGenre: string
+): number {
+  const code = shop.genre?.code ?? ''
+
+  if (code === primaryGenreCode) return 18
+
+  if (displayGenre === '和風・居酒屋') {
+    if (code === 'G004') return 10
+    return 8
+  }
+
+  return 10
+}
+
+function computePriceScore(parsed: ParsedBudget, requestedPriceRange: string): number {
+  const value = parsed.representative
+
+  if (value == null) return 8
+
+  if (requestedPriceRange === '4,001〜5,000円') {
+    if (value >= 4001 && value <= 5000) return 40
+    if (value >= 3500 && value <= 5500) return 26
+    return 8
+  }
+
+  if (requestedPriceRange === '5,001〜7,000円') {
+    if (value >= 5001 && value <= 7000) return 40
+    if (value >= 4500 && value <= 7500) return 26
+    return 8
+  }
+
+  // 指定なし
+  if (value >= 4000 && value <= 7000) return 28
+  if (value >= 3500 && value < 4000) return 20
+  if (value > 7000 && value <= 8000) return 16
+  if (value >= 2500 && value < 3500) return 12
+  return 6
+}
+
+function shouldKeepByPrice(parsed: ParsedBudget, requestedPriceRange: string): boolean {
+  const value = parsed.representative
+  if (value == null) return true
+
+  if (requestedPriceRange === '4,001〜5,000円') {
+    return value >= 3200 && value <= 5800
+  }
+
+  if (requestedPriceRange === '5,001〜7,000円') {
+    return value >= 4300 && value <= 7800
+  }
+
+  // 指定なし
+  return value >= 3500 && value <= 8000
+}
+
+function prefilterByPrice(shops: HotpepperShop[], requestedPriceRange: string) {
+  const filtered = shops.filter((shop) => {
+    const parsed = parseBudgetAverage(shop.budget?.average)
+    return shouldKeepByPrice(parsed, requestedPriceRange)
+  })
 
   return {
-    estimatedMin: null,
-    estimatedMax: null,
-    sourceType: 'unknown',
-    confidence: 'low',
-    raw: text,
+    shops: filtered,
+    usedRelaxation: false,
   }
 }
 
-function requestedPriceRangeToNumbers(priceRange: string): { min: number | null; max: number | null } {
-  switch (priceRange) {
-    case '指定なし':
-      return { min: 4000, max: 7000 }
-    case '4,001〜5,000円':
-      return { min: 4001, max: 5000 }
-    case '5,001〜7,000円':
-      return { min: 5001, max: 7000 }
-    default:
-      return { min: null, max: null }
-  }
-}
+function scoreShop(args: {
+  shop: HotpepperShop
+  targetStation: string
+  requestedPriceRange: string
+  primaryGenreCode: string
+  displayGenre: string
+}): ScoredShop {
+  const parsedBudget = parseBudgetAverage(args.shop.budget?.average)
+  const stationMatch = isStationMatch(args.targetStation, args.shop.station_name)
+  const priceScore = computePriceScore(parsedBudget, args.requestedPriceRange)
+  const genreBoost = computeGenreBoost(args.shop, args.primaryGenreCode, args.displayGenre)
 
-function rangeCenter(min: number, max: number): number {
-  return (min + max) / 2
-}
-
-function confidencePenalty(confidence: ParsedBudgetAverage['confidence']): number {
-  if (confidence === 'high') return 0
-  if (confidence === 'medium') return -1
-  return -4
-}
-
-function priceRangeScoreFromAverage(requestedPriceRange: string, average: string): number {
-  const requested = requestedPriceRangeToNumbers(requestedPriceRange)
-  const parsed = parseBudgetAverage(average)
-
-  if (requested.min === null || requested.max === null) return 0
-  if (parsed.estimatedMin === null || parsed.estimatedMax === null) return -16
-
-  const actualMin = parsed.estimatedMin
-  const actualMax = parsed.estimatedMax
-  const overlapMin = Math.max(requested.min, actualMin)
-  const overlapMax = Math.min(requested.max, actualMax)
-  const overlaps = overlapMax >= overlapMin
-
-  const reqCenter = rangeCenter(requested.min, requested.max)
-  const actCenter = rangeCenter(actualMin, actualMax)
-  const centerGap = Math.abs(reqCenter - actCenter)
-
-  if (overlaps) {
-    const requestedWidth = Math.max(1, requested.max - requested.min)
-    const overlapWidth = Math.max(0, overlapMax - overlapMin)
-    const overlapRatio = overlapWidth / requestedWidth
-
-    let score = 0
-    if (overlapRatio >= 0.75 && centerGap <= 350) score = 40
-    else if (overlapRatio >= 0.45 && centerGap <= 700) score = 34
-    else if (centerGap <= 1200) score = 26
-    else score = 18
-
-    if (parsed.sourceType === 'dinner') score += 2
-    return score + confidencePenalty(parsed.confidence)
-  }
-
-  if (actualMax < requested.min) {
-    const gap = requested.min - actualMax
-
-    if (requestedPriceRange === '5,001〜7,000円') {
-      if (gap <= 300) return 2 + confidencePenalty(parsed.confidence)
-      if (gap <= 800) return -8 + confidencePenalty(parsed.confidence)
-      if (gap <= 1500) return -20 + confidencePenalty(parsed.confidence)
-      return -32 + confidencePenalty(parsed.confidence)
-    }
-
-    if (gap <= 300) return 6 + confidencePenalty(parsed.confidence)
-    if (gap <= 800) return -4 + confidencePenalty(parsed.confidence)
-    if (gap <= 1500) return -16 + confidencePenalty(parsed.confidence)
-    if (gap <= 2500) return -28 + confidencePenalty(parsed.confidence)
-    return -40 + confidencePenalty(parsed.confidence)
-  }
-
-  if (actualMin > requested.max) {
-    const gap = actualMin - requested.max
-    if (gap <= 500) return 8 + confidencePenalty(parsed.confidence)
-    if (gap <= 1200) return 1 + confidencePenalty(parsed.confidence)
-    if (gap <= 2500) return -10 + confidencePenalty(parsed.confidence)
-    return -22 + confidencePenalty(parsed.confidence)
-  }
-
-  return confidencePenalty(parsed.confidence)
-}
-
-function textContainsAny(text: string, patterns: RegExp[]): boolean {
-  return patterns.some((pattern) => pattern.test(text))
-}
-
-function buildGenreSignals(shop: any) {
-  const raw = [
-    String(shop?.genre?.name ?? ''),
-    String(shop?.sub_genre?.name ?? ''),
-    String(shop?.catch ?? ''),
-    String(shop?.name ?? ''),
-  ].join(' ')
+  const stationScore = stationMatch ? 35 : 0
+  const totalScore = stationScore + priceScore + genreBoost
 
   return {
-    raw,
-    isJapaneseLike: textContainsAny(raw, [/和食/, /海鮮/, /魚/, /寿司/, /刺身/, /炉端/, /おでん/, /鍋/, /鶏料理/, /串焼/, /焼き鳥/, /やきとり/, /居酒屋/]),
-    isItalianLike: textContainsAny(raw, [/イタリアン/, /フレンチ/, /ビストロ/, /バル/, /スペイン/, /パエリア/, /ピザ/, /パスタ/]),
-    isChineseLike: textContainsAny(raw, [/中華/, /四川/, /上海/, /広東/, /餃子/, /小籠包/, /火鍋/]),
-    hasPrivateRoomWord: /個室/.test(raw),
+    ...args.shop,
+    _debug: {
+      parsedBudget,
+      stationMatch,
+      priceScore,
+      genreBoost,
+      totalScore,
+    },
   }
 }
 
-function buildShopTags(shop: any): string[] {
-  const signals = buildGenreSignals(shop)
-  const tags = new Set<string>()
-  if (signals.isJapaneseLike) tags.add('和風・居酒屋寄り')
-  if (signals.isItalianLike) tags.add('洋食寄り')
-  if (signals.isChineseLike) tags.add('中華寄り')
-  if (signals.hasPrivateRoomWord) tags.add('個室あり')
-  return Array.from(tags)
-}
-
-function buildReason(shop: any): string {
-  const parts: string[] = []
-  const walk = parseWalkMinutes(String(shop?.access ?? ''))
-  if (walk !== null) parts.push(`徒歩${walk}分`)
-  if (shop?.genre?.name) parts.push(shop.genre.name)
-  if (typeof shop?.budget?.average === 'string' && shop.budget.average) parts.push(shop.budget.average)
-  if (hasPrivateRoom(shop)) parts.push('個室あり')
-  if (shop?.catch) return shop.catch
-  return parts.slice(0, 3).join('・') || '条件に合う候補です'
-}
-
-function mapShopToStore(shop: any) {
+function compactShop(shop: ScoredShop) {
   return {
     id: shop.id,
     name: shop.name,
-    area: shop.small_area?.name ?? shop.middle_area?.name ?? shop.address ?? '',
-    access: shop.access ?? '',
-    image: shop.photo?.pc?.l ?? shop.photo?.pc?.m ?? undefined,
-    link: shop.urls?.pc ?? '',
-    reason: buildReason(shop),
+    address: shop.address ?? '',
+    station_name: shop.station_name ?? '',
+    access: shop.mobile_access ?? shop.address ?? '',
+    image_url:
+      shop.photo?.mobile?.l ??
+      shop.photo?.pc?.l ??
+      shop.logo_image ??
+      '',
+    genre_code: shop.genre?.code ?? '',
+    genre_name: shop.genre?.name ?? '',
+    budget_code: shop.budget?.code ?? '',
+    budget_average: shop.budget?.average ?? '',
+    private_room: shop.private_room ?? '',
+    free_drink: shop.free_drink ?? '',
+    non_smoking: shop.non_smoking ?? '',
+    catch: shop.catch ?? '',
+    open: shop.open ?? '',
+    url: shop.urls?.pc ?? '',
     tags: [
-      shop.genre?.name,
-      typeof shop?.budget?.average === 'string' ? shop.budget.average : undefined,
-      hasPrivateRoom(shop) ? '個室あり' : undefined,
-      shop.wifi === 'あり' ? 'WiFiあり' : undefined,
-      ...buildShopTags(shop),
-    ].filter((t): t is string => Boolean(t)).slice(0, 6),
-    stationName: stationNameOf(shop),
-    budgetCode: typeof shop?.budget?.code === 'string' ? shop.budget.code : '',
-    budgetAverage: typeof shop?.budget?.average === 'string' ? shop.budget.average : '',
-    genre: shop.genre?.name ?? '',
-    walkMinutes: parseWalkMinutes(shop.access ?? ''),
-    hasPrivateRoom: hasPrivateRoom(shop),
-    googleRating: null,
-    googleRatingCount: null,
+      shop.genre?.name ?? '',
+      shop.catch ?? '',
+      shop.open ?? '',
+      shop.budget?.average ?? '',
+      shop.private_room ? `個室:${shop.private_room}` : '',
+      shop.free_drink ? `飲み放題:${shop.free_drink}` : '',
+      shop.non_smoking ? `禁煙:${shop.non_smoking}` : '',
+    ].filter(Boolean),
+    _debug: shop._debug,
   }
 }
 
-async function fetchHotpepper(params: URLSearchParams) {
-  const url = `https://webservice.recruit.co.jp/hotpepper/gourmet/v1/?${params.toString()}`
-  const res = await fetch(url, { cache: 'no-store' })
-  if (!res.ok) throw new Error(`Hot Pepper API error: HTTP ${res.status}`)
-  const data = await res.json()
-  const shops: any[] = data?.results?.shop ?? []
-  return { url, data, shops }
-}
-
-function baseAreaParams(apiKey: string, targetStation: string) {
-  const params = new URLSearchParams({
-    key: apiKey,
-    format: 'json',
-    count: '120',
-    order: '4',
-  })
-
-  const hpArea = STATION_HP_AREA_MAP[targetStation]
-
-  if (hpArea?.middleArea) {
-    params.set('middle_area', hpArea.middleArea)
-    return params
+async function callStoreSelect(args: {
+  shops: ReturnType<typeof compactShop>[]
+  conditions: {
+    targetStation: string
+    budgetCode?: string
+    budgetLabel?: string
+    priceRange?: string
+    genre?: string
+    peopleCount?: number
+    eventType?: string
+    broadAreaMode?: boolean
+    areaAliases?: string[]
   }
-
-  if (hpArea?.smallArea) {
-    params.set('small_area', hpArea.smallArea)
-    return params
-  }
-
-  params.set('large_service_area', 'SS10')
-  if (targetStation) {
-    params.set('keyword', targetStation.endsWith('駅') ? targetStation : `${targetStation}駅`)
-  }
-
-  return params
-}
-
-function withOptionalCommonFilters(
-  params: URLSearchParams,
-  args: { privateRoom: string; allYouCanDrink: string; nonSmoking?: boolean; peopleCount?: number }
-) {
-  const next = new URLSearchParams(params)
-  if (args.privateRoom === '個室あり') next.set('private_room', '1')
-  if (args.allYouCanDrink === '希望') next.set('free_drink', '1')
-  if (args.nonSmoking) next.set('non_smoking', '1')
-  if (args.peopleCount && args.peopleCount >= 10) next.set('party_capacity', String(args.peopleCount))
-  return next
-}
-
-function stationAliases(targetStation: string): string[] {
-  return STATION_ALIAS_MAP[targetStation] ?? [targetStation]
-}
-
-function shopMatchesStation(shop: any, targetStation: string): boolean {
-  if (!targetStation) return true
-
-  const stationName = stationNameOf(shop)
-  const aliases = stationAliases(targetStation)
-
-  if (stationName) return aliases.includes(stationName)
-
-  const access = String(shop?.access ?? '')
-  return aliases.some((alias) => access.includes(`${alias}駅`))
-}
-
-function isClearlyOtherStation(shop: any, targetStation: string): boolean {
-  if (!targetStation) return false
-
-  const stationName = stationNameOf(shop)
-  if (!stationName) return false
-
-  const aliases = stationAliases(targetStation)
-  return !aliases.includes(stationName)
-}
-
-function genreSpecificBoost(shop: any, requestedPrimaryGenreCode: string | null): number {
-  if (!requestedPrimaryGenreCode) return 0
-
-  const shopGenreCode = typeof shop?.genre?.code === 'string' ? shop.genre.code : ''
-  const signals = buildGenreSignals(shop)
-
-  if (requestedPrimaryGenreCode === 'G001') {
-    if (shopGenreCode === 'G001') return 18
-    if (shopGenreCode === 'G004' && signals.isJapaneseLike) return 10
-    if (signals.isJapaneseLike) return 8
-    return shopGenreCode ? -10 : -4
-  }
-
-  if (requestedPrimaryGenreCode === 'G006') {
-    if (shopGenreCode === 'G006') return 18
-    if (signals.isItalianLike) return 10
-    return shopGenreCode ? -10 : -4
-  }
-
-  if (requestedPrimaryGenreCode === 'G007') {
-    if (shopGenreCode === 'G007') return 18
-    if (signals.isChineseLike) return 10
-    return shopGenreCode ? -10 : -4
-  }
-
-  return 0
-}
-
-function applyPricePrefilter(shops: any[], priceRange: string) {
-  if (!ALLOWED_PRICE_RANGES.has(priceRange)) {
-    return { shops: shops.slice(0, 24), usedRelaxation: true }
-  }
-
-  const scored = shops.map((shop) => {
-    const average = typeof shop?.budget?.average === 'string' ? shop.budget.average : ''
-    const priceScore = priceRangeScoreFromAverage(priceRange, average)
-    return { shop, priceScore }
-  })
-
-  if (priceRange === '指定なし') {
-    const natural = scored.filter((s) => s.priceScore >= 18).map((s) => s.shop)
-    if (natural.length >= 8) return { shops: natural.slice(0, 40), usedRelaxation: false }
-
-    const wide = scored.filter((s) => s.priceScore >= 8).map((s) => s.shop)
-    if (wide.length >= 8) return { shops: wide.slice(0, 36), usedRelaxation: true }
-
-    const sorted = [...scored].sort((a, b) => b.priceScore - a.priceScore).slice(0, 28).map((s) => s.shop)
-    return { shops: sorted, usedRelaxation: true }
-  }
-
-  const exact = scored.filter((s) => s.priceScore >= 30).map((s) => s.shop)
-  if (exact.length >= 6) return { shops: exact.slice(0, 36), usedRelaxation: false }
-
-  const near = scored.filter((s) => s.priceScore >= 10).map((s) => s.shop)
-  if (near.length >= 6) return { shops: near.slice(0, 30), usedRelaxation: true }
-
-  const floor = scored.filter((s) => s.priceScore >= 0).map((s) => s.shop)
-  if (floor.length >= 6) return { shops: floor.slice(0, 24), usedRelaxation: true }
-
-  const sorted = [...scored].sort((a, b) => b.priceScore - a.priceScore).slice(0, 18).map((s) => s.shop)
-  return { shops: sorted, usedRelaxation: true }
-}
-
-function scoreStoreForSelection(
-  shop: any,
-  targetStation: string,
-  priceRange: string,
-  requestedPrimaryGenreCode: string | null
-): number {
-  let score = 0
-
-  const stationMatch = shopMatchesStation(shop, targetStation)
-  const clearlyOtherStation = isClearlyOtherStation(shop, targetStation)
-
-  if (stationMatch) score += 28
-  if (clearlyOtherStation) score -= 40
-
-  const budgetAverage = typeof shop?.budget?.average === 'string' ? shop.budget.average : ''
-  score += priceRangeScoreFromAverage(priceRange, budgetAverage)
-  score += genreSpecificBoost(shop, requestedPrimaryGenreCode)
-
-  const walk = parseWalkMinutes(String(shop?.access ?? ''))
-  if (walk !== null) {
-    score += Math.max(0, 7 - walk)
-  }
-
-  if (hasPrivateRoom(shop)) score += 2
-
-  return score
-}
-
-function compressBeforeGemini(args: {
-  shops: any[]
-  targetStation: string
-  priceRange: string
-  requestedPrimaryGenreCode: string | null
-  limit?: number
 }) {
-  const { shops, targetStation, priceRange, requestedPrimaryGenreCode, limit = 12 } = args
+  const stores = adaptHotpepperShopsToStoreSelect(args.shops)
 
-  const scored = shops.map((shop) => {
-    const stationMatch = shopMatchesStation(shop, targetStation)
-    const clearlyOtherStation = isClearlyOtherStation(shop, targetStation)
-    const priceScore = priceRangeScoreFromAverage(
-      priceRange,
-      typeof shop?.budget?.average === 'string' ? shop.budget.average : ''
-    )
+  const baseUrl =
+    process.env.APP_BASE_URL ||
+    process.env.NEXT_PUBLIC_APP_BASE_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    'http://localhost:3000'
 
-    return {
-      shop,
-      stationMatch,
-      clearlyOtherStation,
-      priceScore,
-      score: scoreStoreForSelection(shop, targetStation, priceRange, requestedPrimaryGenreCode),
-    }
+  const res = await fetch(`${baseUrl}/api/store-select`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      stores,
+      conditions: args.conditions,
+    }),
+    cache: 'no-store',
   })
 
-  const stationMatched = scored.filter((s) => s.stationMatch)
-  const nonOther = scored.filter((s) => !s.clearlyOtherStation)
-  const baseStationPool = stationMatched.length >= 4 ? stationMatched : (nonOther.length >= 4 ? nonOther : scored)
-
-  const exactPrice = baseStationPool.filter((s) => s.priceScore >= 30)
-  const nearPrice = baseStationPool.filter((s) => s.priceScore >= 10)
-  const loosePrice = baseStationPool.filter((s) => s.priceScore >= 0)
-
-  let pricePool = exactPrice
-  let usedRelaxation = false
-
-  if (pricePool.length < 5) {
-    pricePool = nearPrice
-    usedRelaxation = true
-  }
-  if (pricePool.length < 5) {
-    pricePool = loosePrice
-    usedRelaxation = true
-  }
-  if (pricePool.length < 5) {
-    pricePool = [...baseStationPool]
-      .sort((a, b) => {
-        if (a.stationMatch !== b.stationMatch) return Number(b.stationMatch) - Number(a.stationMatch)
-        if (a.clearlyOtherStation !== b.clearlyOtherStation) return Number(a.clearlyOtherStation) - Number(b.clearlyOtherStation)
-        if (a.priceScore !== b.priceScore) return b.priceScore - a.priceScore
-        return b.score - a.score
-      })
-      .slice(0, 18)
-    usedRelaxation = true
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`store-select failed: ${res.status} ${text.slice(0, 200)}`)
   }
 
-  const merged = [...pricePool]
-    .sort((a, b) => {
-      if (a.stationMatch !== b.stationMatch) return Number(b.stationMatch) - Number(a.stationMatch)
-      if (a.clearlyOtherStation !== b.clearlyOtherStation) return Number(a.clearlyOtherStation) - Number(b.clearlyOtherStation)
-      if (a.priceScore !== b.priceScore) return b.priceScore - a.priceScore
-      return b.score - a.score
-    })
-    .slice(0, limit)
-
-  const hasOverlappingPrice = merged.some((s) => s.priceScore >= 30)
-
-  return {
-    shops: merged.map((s) => s.shop),
-    budgetRelaxedForBest: !hasOverlappingPrice || usedRelaxation,
-  }
-}
-
-function buildGenreQueriesFromPreference(preferredGenres: string[]): {
-  displayGenre: string
-  primaryGenreCode: string | null
-  searchGenreCodes: string[]
-} {
-  const first = preferredGenres[0]?.trim()
-  if (!first) {
-    return {
-      displayGenre: '',
-      primaryGenreCode: null,
-      searchGenreCodes: [],
-    }
-  }
-
-  const codes = UI_GENRE_TO_SEARCH_CODES[first] ?? []
-  const primaryGenreCode = codes.find((code) => ALLOWED_PRIMARY_GENRES.has(code)) ?? codes[0] ?? null
-
-  return {
-    displayGenre: first,
-    primaryGenreCode,
-    searchGenreCodes: codes,
-  }
-}
-
-async function fetchGenrePools(args: {
-  apiKey: string
-  targetStation: string
-  privateRoom: string
-  allYouCanDrink: string
-  nonSmoking?: boolean
-  peopleCount?: number
-  searchGenreCodes: string[]
-}) {
-  const areaBase = baseAreaParams(args.apiKey, args.targetStation)
-  const commonBase = withOptionalCommonFilters(areaBase, {
-    privateRoom: args.privateRoom,
-    allYouCanDrink: args.allYouCanDrink,
-    nonSmoking: args.nonSmoking,
-    peopleCount: args.peopleCount,
-  })
-
-  const allShops: any[] = []
-  const queryLogs: any[] = []
-
-  for (const genreCode of args.searchGenreCodes) {
-    const params = new URLSearchParams(commonBase)
-    params.set('genre', genreCode)
-
-    const result = await fetchHotpepper(params)
-    queryLogs.push({
-      genre: genreCode,
-      url: result.url,
-      resultCount: result.shops.length,
-    })
-
-    allShops.push(...result.shops)
-  }
-
-  const deduped = Array.from(new Map(allShops.map((shop) => [shop.id, shop])).values())
-  return { shops: deduped, queryLogs }
+  return await res.json()
 }
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.RECRUIT_API_KEY
-  if (!apiKey) {
-    return NextResponse.json(
-      { stores: [], fallback: false, error: 'RECRUIT_API_KEY is not set' },
-      { status: 500 }
-    )
-  }
-
   try {
-    const body = await req.json()
-    const prefs = body?.orgPrefs ?? body ?? {}
+    if (!HOTPEPPER_API_KEY) {
+      return NextResponse.json(
+        { error: 'HOTPEPPER_API_KEY が設定されていません。' },
+        { status: 500 }
+      )
+    }
 
-    const areas = normalizeStringArray(prefs?.areas)
-    const targetStation = areas[0]?.trim() ?? ''
-    const hpArea = STATION_HP_AREA_MAP[targetStation] ?? null
+    const body = (await req.json()) as RequestBody
 
-    const preferredGenres = normalizeStringArray(body?.genreLabels ?? prefs?.genres)
-    const genreQuery = buildGenreQueriesFromPreference(preferredGenres)
+    const areas = body.areas ?? []
+    const rawTargetStation = body.targetStation || areas[0] || ''
+    const stationContext = buildStationSearchContext(rawTargetStation)
 
-    const priceRangeRaw = typeof prefs?.priceRange === 'string' ? prefs.priceRange : '指定なし'
-    const priceRange = ALLOWED_PRICE_RANGES.has(priceRangeRaw) ? priceRangeRaw : '指定なし'
-
-    const privateRoom = typeof prefs?.privateRoom === 'string' ? prefs.privateRoom : 'こだわらない'
-    const allYouCanDrink = typeof body?.allYouCanDrink === 'string' ? body.allYouCanDrink : ''
-    const nonSmoking = body?.nonSmoking === true
-    const peopleCount = typeof body?.peopleCount === 'number' ? body.peopleCount : undefined
-
-    const fallbackGenreCodes = ['G001']
-    const searchGenreCodes =
-      genreQuery.searchGenreCodes.length > 0
-        ? genreQuery.searchGenreCodes
-        : fallbackGenreCodes
+    const genreConfig = resolveGenre(body.preferredGenres)
+    const priceRange = body.priceRange ?? '指定なし'
+    const privateRoom = body.privateRoom ?? ''
+    const allYouCanDrink = body.allYouCanDrink ?? ''
+    const nonSmoking = !!body.nonSmoking
+    const peopleCount = body.peopleCount ?? 0
+    const eventType = body.eventType ?? '飲み会'
+    const broadAreaMode = !!body.broadAreaMode
 
     console.log('[hotpepper/search] request:', {
       areas,
-      targetStation,
-      hpArea,
-      aliases: stationAliases(targetStation),
-      preferredGenres,
-      searchGenreCodes,
-      displayGenre: genreQuery.displayGenre || '(未指定)',
-      primaryGenreCode: genreQuery.primaryGenreCode ?? '(なし)',
+      targetStation: rawTargetStation,
+      canonicalStation: stationContext.canonical,
+      hpArea: stationContext.hpArea,
+      aliases: stationContext.aliases,
+      matchedBy: stationContext.matchedBy,
+      searchMode: stationContext.searchMode,
+      preferredGenres: body.preferredGenres ?? [],
+      searchGenreCodes: genreConfig.searchGenreCodes,
+      displayGenre: genreConfig.displayGenre,
+      primaryGenreCode: genreConfig.primaryGenreCode,
       priceRange,
       privateRoom,
       allYouCanDrink,
       nonSmoking,
       peopleCount,
+      eventType,
+      broadAreaMode,
     })
 
-    const fetched = await fetchGenrePools({
-      apiKey,
-      targetStation,
-      privateRoom,
-      allYouCanDrink,
-      nonSmoking,
-      peopleCount,
-      searchGenreCodes,
-    })
+    const genreLogs: Array<{
+      genre: string
+      url: string
+      resultCount: number
+    }> = []
 
-    console.log('[hotpepper/search] multi-genre query logs:', fetched.queryLogs)
+    const allGenreResults: HotpepperShop[] = []
 
-    const allShops = fetched.shops
+    for (const genreCode of genreConfig.searchGenreCodes) {
+      const url = buildHotpepperUrl({
+        genreCode,
+        stationContext,
+        privateRoom,
+        allYouCanDrink,
+        nonSmoking,
+        peopleCount,
+      })
 
-    if (allShops.length === 0) {
-      return NextResponse.json({
-        stores: [],
-        fallback: false,
-        searchMode: 'strict-station-with-master-map-and-min-alias',
-        budgetRelaxedForBest: false,
-        emptyState: {
-          title: '条件に合う候補が見つかりませんでした',
-          body: 'Hot Pepper の条件一致結果が0件でした。条件を見直してください。',
-          cta: '条件を調整する',
-        },
+      const shops = await fetchGenreShops(url)
+      allGenreResults.push(...shops)
+
+      genreLogs.push({
+        genre: genreCode,
+        url,
+        resultCount: shops.length,
       })
     }
 
-    const prefiltered = applyPricePrefilter(allShops, priceRange)
+    console.log('[hotpepper/search] multi-genre query logs:', genreLogs)
+
+    const deduped = uniqBy(allGenreResults, (shop) => shop.id)
+
+    const pricePrefilter = prefilterByPrice(deduped, priceRange)
+    const afterPrice = pricePrefilter.shops
 
     console.log('[hotpepper/search] price prefilter:', {
       requestedPriceRange: priceRange,
-      beforeCount: allShops.length,
-      afterCount: prefiltered.shops.length,
-      usedRelaxation: prefiltered.usedRelaxation,
+      beforeCount: deduped.length,
+      afterCount: afterPrice.length,
+      usedRelaxation: pricePrefilter.usedRelaxation,
     })
+
+    const scored = afterPrice
+      .map((shop) =>
+        scoreShop({
+          shop,
+          targetStation: stationContext.canonical,
+          requestedPriceRange: priceRange,
+          primaryGenreCode: genreConfig.primaryGenreCode,
+          displayGenre: genreConfig.displayGenre,
+        })
+      )
+      .sort((a, b) => b._debug.totalScore - a._debug.totalScore)
+
+    const stationMatchCount = scored.filter((shop) => shop._debug.stationMatch).length
+    const stationMatchRate =
+      scored.length > 0 ? `${Math.round((stationMatchCount / scored.length) * 100)}%` : '0%'
 
     console.log('[hotpepper/search] shop diagnostics:', {
-      station: targetStation || '(未設定)',
-      aliases: stationAliases(targetStation),
+      station: stationContext.canonical,
+      aliases: stationContext.aliases,
       requestedPriceRange: priceRange,
-      displayGenre: genreQuery.displayGenre || '(未指定)',
-      primaryGenreCode: genreQuery.primaryGenreCode ?? '(なし)',
-      shops: prefiltered.shops.map((s) => {
-        const average = typeof s?.budget?.average === 'string' ? s.budget.average : ''
-        const parsedBudget = parseBudgetAverage(average)
-
-        return {
-          name: s.name,
-          station_name: s.station_name ?? '(なし)',
-          budget_code: s?.budget?.code ?? '(なし)',
-          budget_average: average || '(なし)',
-          parsed_budget: {
-            min: parsedBudget.estimatedMin,
-            max: parsedBudget.estimatedMax,
-            sourceType: parsedBudget.sourceType,
-            confidence: parsedBudget.confidence,
-          },
-          genre_code: s?.genre?.code ?? '(なし)',
-          stationMatch: shopMatchesStation(s, targetStation),
-          priceScore: priceRangeScoreFromAverage(priceRange, average),
-          genreBoost: genreSpecificBoost(s, genreQuery.primaryGenreCode),
-        }
-      }),
+      displayGenre: genreConfig.displayGenre,
+      primaryGenreCode: genreConfig.primaryGenreCode,
+      shops: scored.slice(0, 30).map((shop) => ({
+        name: shop.name,
+        station_name: shop.station_name,
+        budget_code: shop.budget?.code,
+        budget_average: shop.budget?.average,
+        parsed_budget: shop._debug.parsedBudget,
+        genre_code: shop.genre?.code,
+        stationMatch: shop._debug.stationMatch,
+        priceScore: shop._debug.priceScore,
+        genreBoost: shop._debug.genreBoost,
+      })),
     })
 
-    const matchCount = prefiltered.shops.filter((s) => shopMatchesStation(s, targetStation)).length
-    const matchRate = prefiltered.shops.length > 0 ? matchCount / prefiltered.shops.length : 0
     console.log('[hotpepper/search] station match rate:', {
-      station: targetStation,
-      aliases: stationAliases(targetStation),
-      matchCount,
-      total: prefiltered.shops.length,
-      rate: `${Math.round(matchRate * 100)}%`,
+      station: stationContext.canonical,
+      aliases: stationContext.aliases,
+      matchCount: stationMatchCount,
+      total: scored.length,
+      rate: stationMatchRate,
     })
 
-    const compressed = compressBeforeGemini({
-      shops: prefiltered.shops,
-      targetStation,
-      priceRange,
-      requestedPrimaryGenreCode: genreQuery.primaryGenreCode,
-      limit: 12,
-    })
+    const shops = scored.map(compactShop)
+
+    let selection: unknown = null
+    let selectionUsedFallback = true
+    let selectionError: string | null = null
+
+    try {
+      const selectionResult = await callStoreSelect({
+        shops,
+        conditions: {
+          targetStation: stationContext.canonical,
+          priceRange,
+          genre: genreConfig.displayGenre,
+          peopleCount,
+          eventType,
+          broadAreaMode,
+          areaAliases: broadAreaMode
+            ? Array.from(
+                new Set([
+                  ...stationContext.aliases,
+                  ...(body.areaAliases ?? []),
+                ])
+              )
+            : stationContext.aliases,
+        },
+      })
+
+      selection = selectionResult?.selection ?? null
+      selectionUsedFallback = !!selectionResult?.usedFallback
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'store_select_failed'
+      selectionError = message
+      console.error('[hotpepper/search] store-select error:', message)
+    }
 
     return NextResponse.json({
-      stores: compressed.shops.map(mapShopToStore),
-      fallback: false,
-      searchMode: 'strict-station-with-master-map-and-min-alias',
-      budgetRelaxedForBest: compressed.budgetRelaxedForBest,
-      normalizedGenre: genreQuery.displayGenre || '',
-      normalizedPriceRange: priceRange,
+      station: stationContext.canonical,
+      aliases: stationContext.aliases,
+      hpArea: stationContext.hpArea,
+      displayGenre: genreConfig.displayGenre,
+      primaryGenreCode: genreConfig.primaryGenreCode,
+      requestedPriceRange: priceRange,
+      count: shops.length,
+      shops,
+      selection,
+      selectionUsedFallback,
+      selectionError,
     })
-  } catch (e: any) {
-    console.error('[hotpepper/search] error:', e?.message ?? e)
+  } catch (error) {
+    console.error('[hotpepper/search] error:', error)
+
     return NextResponse.json(
-      { stores: [], fallback: false, error: e?.message ?? 'unknown error' },
+      {
+        error: '店検索に失敗しました。',
+        detail: error instanceof Error ? error.message : 'unknown error',
+      },
       { status: 500 }
     )
   }
