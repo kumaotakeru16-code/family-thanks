@@ -7,16 +7,6 @@ const MIDDLE_AREA_JSON = path.join(ROOT, 'data/hotpepper-middle-area.json')
 const SMALL_AREA_JSON = path.join(ROOT, 'data/hotpepper-small-area.json')
 const OUTPUT_TS = path.join(ROOT, 'app/lib/station-defs.ts')
 
-const MANUAL_ALIASES = {
-  札幌: ['札幌', 'さっぽろ'],
-  梅田: ['梅田', '大阪梅田', '東梅田'],
-  難波: ['難波', 'なんば', '大阪難波'],
-  三宮: ['三宮', '神戸三宮'],
-  天神: ['天神', '西鉄福岡'],
-  秋葉原: ['秋葉原', '秋葉原駅'],
-  静岡: ['静岡'],
-}
-
 const MANUAL_HP_AREA = {
   横浜: { middleArea: 'Y135', smallArea: 'X270' },
   札幌: { middleArea: 'Y505', smallArea: 'X501' },
@@ -24,6 +14,23 @@ const MANUAL_HP_AREA = {
   梅田: { middleArea: 'Y300', smallArea: 'X300' },
   品川: { middleArea: 'Y025', smallArea: 'X075' },
   静岡: { middleArea: 'Y230', smallArea: 'X495' },
+  東京: { middleArea: 'Y010', smallArea: 'X030' },
+  新宿: { middleArea: 'Y055', smallArea: 'X160' },
+  池袋: { middleArea: 'Y050', smallArea: 'X145' },
+}
+
+const MANUAL_ALIASES = {
+  札幌: ['札幌', 'さっぽろ'],
+  梅田: ['梅田', '大阪梅田', '東梅田'],
+  難波: ['難波', 'なんば', '大阪難波'],
+  三宮: ['三宮', '神戸三宮'],
+  天神: ['天神', '西鉄福岡'],
+  秋葉原: ['秋葉原', '秋葉原駅'],
+  静岡: ['静岡', '静岡駅周辺', '駅南'],
+  横浜: ['横浜', '横浜駅'],
+  東京: ['東京', '丸の内', '八重洲', '日本橋'],
+  新宿: ['新宿', '新宿西口', '歌舞伎町'],
+  池袋: ['池袋', '池袋東口'],
 }
 
 function readJson(filePath) {
