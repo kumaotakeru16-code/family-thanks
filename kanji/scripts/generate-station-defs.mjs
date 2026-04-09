@@ -13,10 +13,23 @@ const MANUAL_HP_AREA = {
   大阪: { middleArea: 'Y300', smallArea: 'X300' },
   梅田: { middleArea: 'Y300', smallArea: 'X300' },
   品川: { middleArea: 'Y025', smallArea: 'X075' },
+
   静岡: { middleArea: 'Y230', smallArea: 'X495' },
+  富士: { middleArea: 'Y997', smallArea: 'X921' },
+  沼津: { middleArea: 'Y997', smallArea: 'X922' },
+  御殿場: { middleArea: 'Y997', smallArea: 'X920' },
+
   東京: { middleArea: 'Y010', smallArea: 'X030' },
   新宿: { middleArea: 'Y055', smallArea: 'X160' },
   池袋: { middleArea: 'Y050', smallArea: 'X145' },
+
+  // draft から採用してよい
+  横須賀中央: { middleArea: 'Y855', smallArea: 'X883' },
+  久里浜: { middleArea: 'Y855', smallArea: 'XAH3' },
+  中洲川端: { middleArea: 'Y705', smallArea: 'X703' },
+  伏見桃山: { middleArea: 'Y437', smallArea: 'X436' },
+  藤が丘: { middleArea: 'Y222', smallArea: 'X451' },
+  日光: { middleArea: 'Y863', smallArea: 'X896' },
 }
 
 const MANUAL_ALIASES = {
@@ -26,11 +39,20 @@ const MANUAL_ALIASES = {
   三宮: ['三宮', '神戸三宮'],
   天神: ['天神', '西鉄福岡'],
   秋葉原: ['秋葉原', '秋葉原駅'],
+
   静岡: ['静岡', '静岡駅周辺', '駅南'],
+  富士: ['富士', '富士市'],
+  沼津: ['沼津'],
+  御殿場: ['御殿場'],
+
   横浜: ['横浜', '横浜駅'],
   東京: ['東京', '丸の内', '八重洲', '日本橋'],
   新宿: ['新宿', '新宿西口', '歌舞伎町'],
   池袋: ['池袋', '池袋東口'],
+
+  横須賀: ['横須賀', '横須賀中央', '汐入'],
+  横須賀中央: ['横須賀中央', '横須賀'],
+  久里浜: ['久里浜', '京急久里浜', '北久里浜'],
 }
 
 function readJson(filePath) {

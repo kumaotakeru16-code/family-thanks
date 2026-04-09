@@ -1172,7 +1172,10 @@ async function fetchRecommendedStores() {
     if (!hpRes.ok) throw new Error(`HTTP ${hpRes.status}`)
 
     const hpData = await hpRes.json()
-    console.log('[fetchRecommendedStores] hp:', { mode: hpData.searchMode, count: hpData.shops?.length })
+    console.log('[fetchRecommendedStores] hp:', {
+      mode: hpData.searchMode,
+      count: hpData.shops?.length,
+    })
 
     // HP が strict 0件を返した場合 → Gemini/Places を呼ばずに即座に空状態へ
     if ((hpData.shops ?? []).length === 0) {
@@ -1188,26 +1191,26 @@ async function fetchRecommendedStores() {
       return
     }
 
-const hpStores: StoreCandidate[] = (hpData.shops ?? []).map((s: any, i: number) => ({
-  id: s.id ?? `hp-store-${i + 1}`,
-  name: s.name ?? `候補${i + 1}`,
-  area: s.area ?? s.station_name ?? '未設定',
-  access: s.access ?? '',
-  image: s.image_url ?? '',
-  reason: s.reason ?? '条件に合いやすい候補です',
-  link: typeof s.url === 'string' ? s.url : '',
-  tags: Array.isArray(s.tags) ? s.tags.slice(0, 4) : [],
-  stationName: s.station_name ?? '',
-  budgetCode: s.budget_code ?? '',
-  genre: s.genre_name ?? '',
-  walkMinutes: s.walkMinutes ?? null,
-  hasPrivateRoom:
-    s.hasPrivateRoom ??
-    (typeof s.private_room === 'string' ? /あり|有|可/.test(s.private_room) : false),
-  googleRating: typeof s.google_rating === 'number' ? s.google_rating : undefined,
-  googleRatingCount:
-    typeof s.google_rating_count === 'number' ? s.google_rating_count : undefined,
-}))
+    const hpStores: StoreCandidate[] = (hpData.shops ?? []).map((s: any, i: number) => ({
+      id: s.id ?? `hp-store-${i + 1}`,
+      name: s.name ?? `候補${i + 1}`,
+      area: s.area ?? s.station_name ?? '未設定',
+      access: s.access ?? '',
+      image: s.image_url ?? '',
+      reason: s.reason ?? '条件に合いやすい候補です',
+      link: typeof s.url === 'string' ? s.url : '',
+      tags: Array.isArray(s.tags) ? s.tags.slice(0, 4) : [],
+      stationName: s.station_name ?? '',
+      budgetCode: s.budget_code ?? '',
+      genre: s.genre_name ?? '',
+      walkMinutes: s.walkMinutes ?? null,
+      hasPrivateRoom:
+        s.hasPrivateRoom ??
+        (typeof s.private_room === 'string' ? /あり|有|可/.test(s.private_room) : false),
+      googleRating: typeof s.google_rating === 'number' ? s.google_rating : undefined,
+      googleRatingCount:
+        typeof s.google_rating_count === 'number' ? s.google_rating_count : undefined,
+    }))
 
     // ── Step 2: Gemini で選定・順位付け・理由生成 ──────────────────────────
     // Gemini が失敗しても HP 順位で続行するため try-catch で囲む
@@ -1241,6 +1244,7 @@ const hpStores: StoreCandidate[] = (hpData.shops ?? []).map((s: any, i: number) 
             const reordered = (sel.rankedStoreIds as string[])
               .map(id => byId.get(id))
               .filter((s): s is StoreCandidate => !!s)
+
             // Gemini が選ばなかった店は末尾に（フォールバック用）
             const selectedIds = new Set(sel.rankedStoreIds as string[])
             const leftover = hpStores.filter(s => !selectedIds.has(s.id))
@@ -1264,45 +1268,8 @@ const hpStores: StoreCandidate[] = (hpData.shops ?? []).map((s: any, i: number) 
       }
     }
 
-    // ── Step 2.5: クライアント側で駅フィルタを再適用 ─────────────────────
-    // Gemini が駅条件を守り損ねた場合や leftover に別駅店が混ざる場合の保険。
-    // stationName が空文字（HP が駅情報を返さなかった店）は除外しない。
-    const targetStation = orgPrefs.areas[0] ?? ''
-    if (targetStation) {
-      // Pass: exact station match
-      // Pass: stationName empty AND access contains "${targetStation}駅" (HP sometimes omits station_name)
-      // Fail: stationName non-empty but != targetStation (confirmed different station)
-      // Fail: stationName empty AND access doesn't mention targetStation (unknown provenance)
-      const stationFiltered = rankedStores.filter(s => {
-        if (s.stationName === targetStation) return true
-        if (s.stationName && s.stationName !== targetStation) return false
-        return (s.access ?? '').includes(`${targetStation}駅`)
-      })
-      console.log('[fetchRecommendedStores] station filter:', {
-        target: targetStation,
-        before: rankedStores.length,
-        after: stationFiltered.length,
-        excluded: rankedStores
-          .filter(s => {
-            if (s.stationName === targetStation) return false
-            if (s.stationName && s.stationName !== targetStation) return true
-            return !(s.access ?? '').includes(`${targetStation}駅`)
-          })
-          .map(s => ({ name: s.name, stationName: s.stationName, access: s.access?.slice(0, 40) })),
-      })
-      if (stationFiltered.length === 0) {
-        // 駅一致候補が0件 → 別駅候補を出さない
-        setStoreFetchError('指定駅に近い候補が見つかりませんでした。条件を変えてお試しください。')
-        setRecommendedStores([])
-        setSelectedStoreId('')
-        setStoreSelectNotes([])
-        setStep('storeSuggestion')
-        return
-      }
-      rankedStores = stationFiltered
-    }
-
     // ── Step 3: 表示件数を絞る（Best + 他 4件 = 最大 5件）────────────────
+    // 駅一致の再フィルタは backend 側で実施済みなので、ここでは順序だけ信じる
     const displayStores = rankedStores.slice(0, PLACES_ENRICH_LIMIT)
 
     // ── Step 4: Google Places enrich — best 候補 1件のみ ─────────────────
@@ -1312,20 +1279,32 @@ const hpStores: StoreCandidate[] = (hpData.shops ?? []).map((s: any, i: number) 
     //   - 失敗・quota・キーなし → 評価なしで続行（アプリは止めない）。
     let bestRating: { rating: number; userRatingCount: number } | null = null
     const bestStore = displayStores[0]
+
     if (bestStore) {
       try {
         const enrichRes = await fetch('/api/places/enrich', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            stores: [{ id: bestStore.id, name: bestStore.name, area: bestStore.area, access: bestStore.access }],
+            stores: [
+              {
+                id: bestStore.id,
+                name: bestStore.name,
+                area: bestStore.area,
+                access: bestStore.access,
+              },
+            ],
           }),
         })
+
         if (enrichRes.ok) {
           const enrichData = await enrichRes.json()
           const found = (enrichData.enriched ?? []).find((e: any) => e.id === bestStore.id)
           if (found?.rating) {
-            bestRating = { rating: found.rating, userRatingCount: found.userRatingCount ?? 0 }
+            bestRating = {
+              rating: found.rating,
+              userRatingCount: found.userRatingCount ?? 0,
+            }
           }
           console.log('[fetchRecommendedStores] Places:', {
             reason: enrichData.reason,
@@ -1350,7 +1329,9 @@ const hpStores: StoreCandidate[] = (hpData.shops ?? []).map((s: any, i: number) 
     setStoreSelectNotes(selectNotes)
 
     if (hpData?.fallback) {
-      setStoreFetchError(hpData?.error ?? '条件に合う店が見つからなかったため、参考候補を表示しています。')
+      setStoreFetchError(
+        hpData?.error ?? '条件に合う店が見つからなかったため、参考候補を表示しています。'
+      )
     } else {
       setStoreFetchError('')
     }

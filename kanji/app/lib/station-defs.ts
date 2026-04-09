@@ -405,7 +405,16 @@ export const STATION_DEFS: Record<string, StationDef> = {
   "横須賀": {
     canonical: "横須賀",
     displayName: "横須賀",
-    aliases: ["横須賀"],
+    aliases: ["横須賀","横須賀中央","汐入"],
+    hpArea: {
+      middleArea: "Y855",
+      smallArea: "X883",
+    },
+  },
+  "横須賀中央": {
+    canonical: "横須賀中央",
+    displayName: "横須賀中央",
+    aliases: ["横須賀中央","横須賀"],
     hpArea: {
       middleArea: "Y855",
       smallArea: "X883",
@@ -423,7 +432,7 @@ export const STATION_DEFS: Record<string, StationDef> = {
   "横浜": {
     canonical: "横浜",
     displayName: "横浜",
-    aliases: ["横浜"],
+    aliases: ["横浜","横浜駅"],
     hpArea: {
       middleArea: "Y135",
       smallArea: "X270",
@@ -958,6 +967,15 @@ export const STATION_DEFS: Record<string, StationDef> = {
     hpArea: {
       middleArea: "Y112",
       smallArea: "XA8W",
+    },
+  },
+  "久里浜": {
+    canonical: "久里浜",
+    displayName: "久里浜",
+    aliases: ["久里浜","京急久里浜","北久里浜"],
+    hpArea: {
+      middleArea: "Y855",
+      smallArea: "XAH3",
     },
   },
   "宮の坂": {
@@ -2787,6 +2805,15 @@ export const STATION_DEFS: Record<string, StationDef> = {
       smallArea: "X508",
     },
   },
+  "新宿": {
+    canonical: "新宿",
+    displayName: "新宿",
+    aliases: ["新宿","新宿西口","歌舞伎町"],
+    hpArea: {
+      middleArea: "Y055",
+      smallArea: "X160",
+    },
+  },
   "新宿御苑": {
     canonical: "新宿御苑",
     displayName: "新宿御苑",
@@ -3501,7 +3528,7 @@ export const STATION_DEFS: Record<string, StationDef> = {
   "静岡": {
     canonical: "静岡",
     displayName: "静岡",
-    aliases: ["静岡"],
+    aliases: ["静岡","静岡駅周辺","駅南"],
     hpArea: {
       middleArea: "Y230",
       smallArea: "X495",
@@ -4191,6 +4218,15 @@ export const STATION_DEFS: Record<string, StationDef> = {
       smallArea: "X146",
     },
   },
+  "池袋": {
+    canonical: "池袋",
+    displayName: "池袋",
+    aliases: ["池袋","池袋東口"],
+    hpArea: {
+      middleArea: "Y050",
+      smallArea: "X145",
+    },
+  },
   "池袋西口": {
     canonical: "池袋西口",
     displayName: "池袋西口",
@@ -4312,6 +4348,15 @@ export const STATION_DEFS: Record<string, StationDef> = {
     canonical: "中洲",
     displayName: "中洲",
     aliases: ["中洲"],
+    hpArea: {
+      middleArea: "Y705",
+      smallArea: "X703",
+    },
+  },
+  "中洲川端": {
+    canonical: "中洲川端",
+    displayName: "中洲川端",
+    aliases: ["中洲川端"],
     hpArea: {
       middleArea: "Y705",
       smallArea: "X703",
@@ -4686,6 +4731,15 @@ export const STATION_DEFS: Record<string, StationDef> = {
       smallArea: "XA8U",
     },
   },
+  "東京": {
+    canonical: "東京",
+    displayName: "東京",
+    aliases: ["東京","丸の内","八重洲","日本橋"],
+    hpArea: {
+      middleArea: "Y010",
+      smallArea: "X030",
+    },
+  },
   "東銀座": {
     canonical: "東銀座",
     displayName: "東銀座",
@@ -4902,6 +4956,15 @@ export const STATION_DEFS: Record<string, StationDef> = {
       smallArea: "X970",
     },
   },
+  "藤が丘": {
+    canonical: "藤が丘",
+    displayName: "藤が丘",
+    aliases: ["藤が丘"],
+    hpArea: {
+      middleArea: "Y222",
+      smallArea: "X451",
+    },
+  },
   "藤沢": {
     canonical: "藤沢",
     displayName: "藤沢",
@@ -5080,6 +5143,15 @@ export const STATION_DEFS: Record<string, StationDef> = {
     hpArea: {
       middleArea: "Y085",
       smallArea: "X578",
+    },
+  },
+  "日光": {
+    canonical: "日光",
+    displayName: "日光",
+    aliases: ["日光"],
+    hpArea: {
+      middleArea: "Y863",
+      smallArea: "X896",
     },
   },
   "日比谷": {
@@ -5505,6 +5577,15 @@ export const STATION_DEFS: Record<string, StationDef> = {
       smallArea: "X684",
     },
   },
+  "富士": {
+    canonical: "富士",
+    displayName: "富士",
+    aliases: ["富士","富士市"],
+    hpArea: {
+      middleArea: "Y997",
+      smallArea: "X921",
+    },
+  },
   "富士吉田": {
     canonical: "富士吉田",
     displayName: "富士吉田",
@@ -5617,6 +5698,15 @@ export const STATION_DEFS: Record<string, StationDef> = {
     canonical: "伏見",
     displayName: "伏見",
     aliases: ["伏見"],
+    hpArea: {
+      middleArea: "Y437",
+      smallArea: "X436",
+    },
+  },
+  "伏見桃山": {
+    canonical: "伏見桃山",
+    displayName: "伏見桃山",
+    aliases: ["伏見桃山"],
     hpArea: {
       middleArea: "Y437",
       smallArea: "X436",

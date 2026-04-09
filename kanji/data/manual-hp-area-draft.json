@@ -1,0 +1,3447 @@
+{
+  "draft": {
+    "青森東部": {
+      "middleArea": "Y977",
+      "smallArea": "X990",
+      "_meta": {
+        "middleAreaName": "むつ市・青森東部",
+        "pickedFrom": "青森東部その他",
+        "confidenceScore": 80
+      }
+    },
+    "伊豆": {
+      "middleArea": "Y848",
+      "smallArea": "X918",
+      "_meta": {
+        "middleAreaName": "伊豆・伊東・下田",
+        "pickedFrom": "伊豆高原",
+        "confidenceScore": 80
+      }
+    },
+    "横須賀中央": {
+      "middleArea": "Y855",
+      "smallArea": "X883",
+      "_meta": {
+        "middleAreaName": "横須賀中央・三浦・久里浜・汐入",
+        "pickedFrom": "横須賀",
+        "confidenceScore": 70
+      }
+    },
+    "久里浜": {
+      "middleArea": "Y855",
+      "smallArea": "XAH3",
+      "_meta": {
+        "middleAreaName": "横須賀中央・三浦・久里浜・汐入",
+        "pickedFrom": "北久里浜",
+        "confidenceScore": 50
+      }
+    },
+    "河原町": {
+      "middleArea": "Y432",
+      "smallArea": "X864",
+      "_meta": {
+        "middleAreaName": "河原町・木屋町",
+        "pickedFrom": "河原町三条",
+        "confidenceScore": 80
+      }
+    },
+    "大田区": {
+      "middleArea": "Y026",
+      "smallArea": "X284",
+      "_meta": {
+        "middleAreaName": "蒲田・大森・大田区",
+        "pickedFrom": "大田区その他",
+        "confidenceScore": 80
+      }
+    },
+    "近江八幡市": {
+      "middleArea": "Y948",
+      "smallArea": "X797",
+      "_meta": {
+        "middleAreaName": "近江八幡市・東近江市",
+        "pickedFrom": "近江八幡",
+        "confidenceScore": 70
+      }
+    },
+    "山科区": {
+      "middleArea": "Y430",
+      "smallArea": "X437",
+      "_meta": {
+        "middleAreaName": "左京区・山科区",
+        "pickedFrom": "山科",
+        "confidenceScore": 70
+      }
+    },
+    "札幌（札幌": {
+      "middleArea": "Y505",
+      "smallArea": "X501",
+      "_meta": {
+        "middleAreaName": "札幌（札幌駅・大通）",
+        "pickedFrom": "札幌駅",
+        "confidenceScore": 70
+      }
+    },
+    "中央": {
+      "middleArea": "Y780",
+      "smallArea": "X781",
+      "_meta": {
+        "middleAreaName": "鹿児島市　天文館・中央駅・ふ頭",
+        "pickedFrom": "鹿児島中央",
+        "confidenceScore": 50
+      }
+    },
+    "ふ頭": {
+      "middleArea": "Y780",
+      "smallArea": "X783",
+      "_meta": {
+        "middleAreaName": "鹿児島市　天文館・中央駅・ふ頭",
+        "pickedFrom": "ふ頭・ベイサイド",
+        "confidenceScore": 80
+      }
+    },
+    "札幌近郊": {
+      "middleArea": "Y884",
+      "smallArea": "X858",
+      "_meta": {
+        "middleAreaName": "小樽・千歳・苫小牧・札幌近郊",
+        "pickedFrom": "札幌近郊その他",
+        "confidenceScore": 80
+      }
+    },
+    "青梅線沿線": {
+      "middleArea": "Y089",
+      "smallArea": "XA98",
+      "_meta": {
+        "middleAreaName": "青梅・昭島・小作・青梅線沿線",
+        "pickedFrom": "青梅",
+        "confidenceScore": 70
+      }
+    },
+    "青葉": {
+      "middleArea": "Y555",
+      "smallArea": "X555",
+      "_meta": {
+        "middleAreaName": "青葉・宮城野・若林",
+        "pickedFrom": "青葉区",
+        "confidenceScore": 80
+      }
+    },
+    "宮城野": {
+      "middleArea": "Y555",
+      "smallArea": "X556",
+      "_meta": {
+        "middleAreaName": "青葉・宮城野・若林",
+        "pickedFrom": "宮城野区",
+        "confidenceScore": 80
+      }
+    },
+    "葵区": {
+      "middleArea": "Y230",
+      "smallArea": "X496",
+      "_meta": {
+        "middleAreaName": "静岡駅周辺・葵区・駿河区",
+        "pickedFrom": "葵区郊外",
+        "confidenceScore": 80
+      }
+    },
+    "中洲川端": {
+      "middleArea": "Y705",
+      "smallArea": "X703",
+      "_meta": {
+        "middleAreaName": "中洲・中洲川端",
+        "pickedFrom": "中洲",
+        "confidenceScore": 70
+      }
+    },
+    "長浜市": {
+      "middleArea": "Y947",
+      "smallArea": "X795",
+      "_meta": {
+        "middleAreaName": "長浜市・彦根市",
+        "pickedFrom": "長浜",
+        "confidenceScore": 70
+      }
+    },
+    "彦根市": {
+      "middleArea": "Y947",
+      "smallArea": "X796",
+      "_meta": {
+        "middleAreaName": "長浜市・彦根市",
+        "pickedFrom": "彦根",
+        "confidenceScore": 70
+      }
+    },
+    "徳島市": {
+      "middleArea": "Y660",
+      "smallArea": "X660",
+      "_meta": {
+        "middleAreaName": "徳島市・徳島市周辺部",
+        "pickedFrom": "徳島駅",
+        "confidenceScore": 70
+      }
+    },
+    "徳島市周辺部": {
+      "middleArea": "Y660",
+      "smallArea": "X660",
+      "_meta": {
+        "middleAreaName": "徳島市・徳島市周辺部",
+        "pickedFrom": "徳島駅",
+        "confidenceScore": 70
+      }
+    },
+    "塩原": {
+      "middleArea": "Y864",
+      "smallArea": "X897",
+      "_meta": {
+        "middleAreaName": "那須・塩原",
+        "pickedFrom": "那須塩原",
+        "confidenceScore": 50
+      }
+    },
+    "新札幌白石": {
+      "middleArea": "Y511",
+      "smallArea": "X508",
+      "_meta": {
+        "middleAreaName": "南郷・新札幌　白石・厚別・清田",
+        "pickedFrom": "新札幌",
+        "confidenceScore": 70
+      }
+    },
+    "清田": {
+      "middleArea": "Y511",
+      "smallArea": "X509",
+      "_meta": {
+        "middleAreaName": "南郷・新札幌　白石・厚別・清田",
+        "pickedFrom": "清田区",
+        "confidenceScore": 80
+      }
+    },
+    "日光": {
+      "middleArea": "Y863",
+      "smallArea": "X896",
+      "_meta": {
+        "middleAreaName": "日光・鹿沼",
+        "pickedFrom": "日光その他",
+        "confidenceScore": 80
+      }
+    },
+    "伏見桃山": {
+      "middleArea": "Y437",
+      "smallArea": "X436",
+      "_meta": {
+        "middleAreaName": "伏見桃山・伏見区・京都市郊外",
+        "pickedFrom": "伏見",
+        "confidenceScore": 70
+      }
+    },
+    "伏見区": {
+      "middleArea": "Y437",
+      "smallArea": "X436",
+      "_meta": {
+        "middleAreaName": "伏見桃山・伏見区・京都市郊外",
+        "pickedFrom": "伏見",
+        "confidenceScore": 70
+      }
+    },
+    "澄川（豊平区": {
+      "middleArea": "Y513",
+      "smallArea": "X512",
+      "_meta": {
+        "middleAreaName": "平岸・澄川（豊平区・南区）",
+        "pickedFrom": "澄川",
+        "confidenceScore": 70
+      }
+    },
+    "葛飾": {
+      "middleArea": "Y016",
+      "smallArea": "X186",
+      "_meta": {
+        "middleAreaName": "北千住・日暮里・葛飾・荒川",
+        "pickedFrom": "葛飾区その他",
+        "confidenceScore": 80
+      }
+    },
+    "荒川": {
+      "middleArea": "Y016",
+      "smallArea": "XA4Q",
+      "_meta": {
+        "middleAreaName": "北千住・日暮里・葛飾・荒川",
+        "pickedFrom": "荒川区その他",
+        "confidenceScore": 80
+      }
+    },
+    "藤が丘": {
+      "middleArea": "Y222",
+      "smallArea": "X451",
+      "_meta": {
+        "middleAreaName": "本山・覚王山・藤が丘",
+        "pickedFrom": "藤が丘(名古屋)",
+        "confidenceScore": 80
+      }
+    },
+    "北24条（北区": {
+      "middleArea": "Y510",
+      "smallArea": "X507",
+      "_meta": {
+        "middleAreaName": "麻生・北24条（北区・東区）",
+        "pickedFrom": "北24条",
+        "confidenceScore": 70
+      }
+    }
+  },
+  "review": [
+    {
+      "station": "むつ市",
+      "middleAreaCode": "Y977",
+      "middleAreaName": "むつ市・青森東部",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "青森東部その他",
+          "smallAreaCode": "X990",
+          "expectedCandidates": [
+            "青森東部その他"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "青森東部",
+      "middleAreaCode": "Y977",
+      "middleAreaName": "むつ市・青森東部",
+      "pickedSmallAreaName": "青森東部その他",
+      "pickedSmallAreaCode": "X990",
+      "confidenceScore": 80,
+      "alternatives": [
+        {
+          "smallAreaName": "青森東部その他",
+          "smallAreaCode": "X990",
+          "score": 80
+        }
+      ]
+    },
+    {
+      "station": "玉村",
+      "middleAreaCode": "Y967",
+      "middleAreaName": "伊勢崎・玉村",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "伊勢崎",
+          "smallAreaCode": "X728",
+          "expectedCandidates": [
+            "伊勢崎"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "伊豆",
+      "middleAreaCode": "Y848",
+      "middleAreaName": "伊豆・伊東・下田",
+      "pickedSmallAreaName": "伊豆高原",
+      "pickedSmallAreaCode": "X918",
+      "confidenceScore": 80,
+      "alternatives": [
+        {
+          "smallAreaName": "伊豆高原",
+          "smallAreaCode": "X918",
+          "score": 80
+        }
+      ]
+    },
+    {
+      "station": "烏丸五条",
+      "middleAreaCode": "Y435",
+      "middleAreaName": "烏丸五条・京都駅周辺",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "京都駅",
+          "smallAreaCode": "X434",
+          "expectedCandidates": [
+            "京都"
+          ]
+        },
+        {
+          "smallAreaName": "五条",
+          "smallAreaCode": "X867",
+          "expectedCandidates": [
+            "五条"
+          ]
+        },
+        {
+          "smallAreaName": "西大路",
+          "smallAreaCode": "X870",
+          "expectedCandidates": [
+            "西大路"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "武蔵浦和",
+      "middleAreaCode": "Y132",
+      "middleAreaName": "浦和・武蔵浦和",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "浦和駅",
+          "smallAreaCode": "X261",
+          "expectedCandidates": [
+            "浦和"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "横須賀中央",
+      "middleAreaCode": "Y855",
+      "middleAreaName": "横須賀中央・三浦・久里浜・汐入",
+      "pickedSmallAreaName": "横須賀",
+      "pickedSmallAreaCode": "X883",
+      "confidenceScore": 70,
+      "alternatives": [
+        {
+          "smallAreaName": "横須賀",
+          "smallAreaCode": "X883",
+          "score": 70
+        }
+      ]
+    },
+    {
+      "station": "久里浜",
+      "middleAreaCode": "Y855",
+      "middleAreaName": "横須賀中央・三浦・久里浜・汐入",
+      "pickedSmallAreaName": "北久里浜",
+      "pickedSmallAreaCode": "XAH3",
+      "confidenceScore": 50,
+      "alternatives": [
+        {
+          "smallAreaName": "北久里浜",
+          "smallAreaCode": "XAH3",
+          "score": 50
+        }
+      ]
+    },
+    {
+      "station": "汐入",
+      "middleAreaCode": "Y855",
+      "middleAreaName": "横須賀中央・三浦・久里浜・汐入",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "横須賀",
+          "smallAreaCode": "X883",
+          "expectedCandidates": [
+            "横須賀"
+          ]
+        },
+        {
+          "smallAreaName": "三浦",
+          "smallAreaCode": "X884",
+          "expectedCandidates": [
+            "三浦"
+          ]
+        },
+        {
+          "smallAreaName": "横須賀堀ノ内",
+          "smallAreaCode": "XAH2",
+          "expectedCandidates": [
+            "横須賀堀ノ内"
+          ]
+        },
+        {
+          "smallAreaName": "北久里浜",
+          "smallAreaCode": "XAH3",
+          "expectedCandidates": [
+            "北久里浜"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "沖縄市",
+      "middleAreaCode": "Y976",
+      "middleAreaName": "沖縄市・うるま・西原・北中城",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "北中城・中城",
+          "smallAreaCode": "X127",
+          "expectedCandidates": [
+            "北中城・中城",
+            "北中城",
+            "中城"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "うるま",
+      "middleAreaCode": "Y976",
+      "middleAreaName": "沖縄市・うるま・西原・北中城",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "北中城・中城",
+          "smallAreaCode": "X127",
+          "expectedCandidates": [
+            "北中城・中城",
+            "北中城",
+            "中城"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "西原",
+      "middleAreaCode": "Y976",
+      "middleAreaName": "沖縄市・うるま・西原・北中城",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "北中城・中城",
+          "smallAreaCode": "X127",
+          "expectedCandidates": [
+            "北中城・中城",
+            "北中城",
+            "中城"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "河原町",
+      "middleAreaCode": "Y432",
+      "middleAreaName": "河原町・木屋町",
+      "pickedSmallAreaName": "河原町三条",
+      "pickedSmallAreaCode": "X864",
+      "confidenceScore": 80,
+      "alternatives": [
+        {
+          "smallAreaName": "河原町三条",
+          "smallAreaCode": "X864",
+          "score": 80
+        },
+        {
+          "smallAreaName": "四条河原町",
+          "smallAreaCode": "X430",
+          "score": 50
+        }
+      ]
+    },
+    {
+      "station": "北上",
+      "middleAreaCode": "Y916",
+      "middleAreaName": "花巻・北上・奥州・一関",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "花巻",
+          "smallAreaCode": "X992",
+          "expectedCandidates": [
+            "花巻"
+          ]
+        },
+        {
+          "smallAreaName": "一関",
+          "smallAreaCode": "X993",
+          "expectedCandidates": [
+            "一関"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "奥州",
+      "middleAreaCode": "Y916",
+      "middleAreaName": "花巻・北上・奥州・一関",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "花巻",
+          "smallAreaCode": "X992",
+          "expectedCandidates": [
+            "花巻"
+          ]
+        },
+        {
+          "smallAreaName": "一関",
+          "smallAreaCode": "X993",
+          "expectedCandidates": [
+            "一関"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "大田区",
+      "middleAreaCode": "Y026",
+      "middleAreaName": "蒲田・大森・大田区",
+      "pickedSmallAreaName": "大田区その他",
+      "pickedSmallAreaCode": "X284",
+      "confidenceScore": 80,
+      "alternatives": [
+        {
+          "smallAreaName": "大田区その他",
+          "smallAreaCode": "X284",
+          "score": 80
+        }
+      ]
+    },
+    {
+      "station": "江の島",
+      "middleAreaCode": "Y853",
+      "middleAreaName": "鎌倉・江の島",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "鎌倉駅",
+          "smallAreaCode": "X876",
+          "expectedCandidates": [
+            "鎌倉"
+          ]
+        },
+        {
+          "smallAreaName": "由比ガ浜",
+          "smallAreaCode": "X877",
+          "expectedCandidates": [
+            "由比ガ浜"
+          ]
+        },
+        {
+          "smallAreaName": "七里ガ浜",
+          "smallAreaCode": "X878",
+          "expectedCandidates": [
+            "七里ガ浜"
+          ]
+        },
+        {
+          "smallAreaName": "北鎌倉",
+          "smallAreaCode": "X879",
+          "expectedCandidates": [
+            "北鎌倉"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "柳ヶ瀬",
+      "middleAreaCode": "Y810",
+      "middleAreaName": "岐阜駅周辺・柳ヶ瀬・市役所",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "岐阜駅",
+          "smallAreaCode": "X810",
+          "expectedCandidates": [
+            "岐阜"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "吉塚",
+      "middleAreaCode": "Y711",
+      "middleAreaName": "吉塚・香椎・その他東エリア",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "福岡市東区",
+          "smallAreaCode": "X706",
+          "expectedCandidates": [
+            "福岡市東区"
+          ]
+        },
+        {
+          "smallAreaName": "博多区その他",
+          "smallAreaCode": "X997",
+          "expectedCandidates": [
+            "博多区その他"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "香椎",
+      "middleAreaCode": "Y711",
+      "middleAreaName": "吉塚・香椎・その他東エリア",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "福岡市東区",
+          "smallAreaCode": "X706",
+          "expectedCandidates": [
+            "福岡市東区"
+          ]
+        },
+        {
+          "smallAreaName": "博多区その他",
+          "smallAreaCode": "X997",
+          "expectedCandidates": [
+            "博多区その他"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "天満",
+      "middleAreaCode": "Y310",
+      "middleAreaName": "京橋・天満・天六・南森町",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "天神橋筋六丁目",
+          "smallAreaCode": "X330",
+          "expectedCandidates": [
+            "天神橋筋六丁目"
+          ]
+        },
+        {
+          "smallAreaName": "京橋",
+          "smallAreaCode": "X345",
+          "expectedCandidates": [
+            "京橋"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "天六",
+      "middleAreaCode": "Y310",
+      "middleAreaName": "京橋・天満・天六・南森町",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "天神橋筋六丁目",
+          "smallAreaCode": "X330",
+          "expectedCandidates": [
+            "天神橋筋六丁目"
+          ]
+        },
+        {
+          "smallAreaName": "京橋",
+          "smallAreaCode": "X345",
+          "expectedCandidates": [
+            "京橋"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "南森町",
+      "middleAreaCode": "Y310",
+      "middleAreaName": "京橋・天満・天六・南森町",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "天神橋筋六丁目",
+          "smallAreaCode": "X330",
+          "expectedCandidates": [
+            "天神橋筋六丁目"
+          ]
+        },
+        {
+          "smallAreaName": "京橋",
+          "smallAreaCode": "X345",
+          "expectedCandidates": [
+            "京橋"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "円山公園中央",
+      "middleAreaCode": "Y512",
+      "middleAreaName": "琴似・円山公園　中央・西・手稲",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "札幌市中央区",
+          "smallAreaCode": "X505",
+          "expectedCandidates": [
+            "札幌市中央区"
+          ]
+        },
+        {
+          "smallAreaName": "琴似",
+          "smallAreaCode": "X510",
+          "expectedCandidates": [
+            "琴似"
+          ]
+        },
+        {
+          "smallAreaName": "手稲",
+          "smallAreaCode": "X511",
+          "expectedCandidates": [
+            "手稲"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "西",
+      "middleAreaCode": "Y512",
+      "middleAreaName": "琴似・円山公園　中央・西・手稲",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "札幌市中央区",
+          "smallAreaCode": "X505",
+          "expectedCandidates": [
+            "札幌市中央区"
+          ]
+        },
+        {
+          "smallAreaName": "琴似",
+          "smallAreaCode": "X510",
+          "expectedCandidates": [
+            "琴似"
+          ]
+        },
+        {
+          "smallAreaName": "手稲",
+          "smallAreaCode": "X511",
+          "expectedCandidates": [
+            "手稲"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "近江八幡市",
+      "middleAreaCode": "Y948",
+      "middleAreaName": "近江八幡市・東近江市",
+      "pickedSmallAreaName": "近江八幡",
+      "pickedSmallAreaCode": "X797",
+      "confidenceScore": 70,
+      "alternatives": [
+        {
+          "smallAreaName": "近江八幡",
+          "smallAreaCode": "X797",
+          "score": 70
+        }
+      ]
+    },
+    {
+      "station": "東近江市",
+      "middleAreaCode": "Y948",
+      "middleAreaName": "近江八幡市・東近江市",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "近江八幡",
+          "smallAreaCode": "X797",
+          "expectedCandidates": [
+            "近江八幡"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "神宮前",
+      "middleAreaCode": "Y215",
+      "middleAreaName": "金山・神宮前・熱田区",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "金山",
+          "smallAreaCode": "X480",
+          "expectedCandidates": [
+            "金山"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "熱田区",
+      "middleAreaCode": "Y215",
+      "middleAreaName": "金山・神宮前・熱田区",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "金山",
+          "smallAreaCode": "X480",
+          "expectedCandidates": [
+            "金山"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "金沢市他",
+      "middleAreaCode": "Y842",
+      "middleAreaName": "金沢市他・野々市・白山・内灘",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "石川県庁",
+          "smallAreaCode": "X842",
+          "expectedCandidates": [
+            "石川県庁"
+          ]
+        },
+        {
+          "smallAreaName": "田上・もりの里",
+          "smallAreaCode": "X843",
+          "expectedCandidates": [
+            "田上・もりの里",
+            "田上",
+            "もりの里"
+          ]
+        },
+        {
+          "smallAreaName": "金沢西インター・玉鉾",
+          "smallAreaCode": "X844",
+          "expectedCandidates": [
+            "金沢西インター・玉鉾",
+            "金沢西インター",
+            "玉鉾"
+          ]
+        },
+        {
+          "smallAreaName": "高尾",
+          "smallAreaCode": "X845",
+          "expectedCandidates": [
+            "高尾"
+          ]
+        },
+        {
+          "smallAreaName": "野々市",
+          "smallAreaCode": "X846",
+          "expectedCandidates": [
+            "野々市",
+            "野々"
+          ]
+        },
+        {
+          "smallAreaName": "白山市",
+          "smallAreaCode": "X847",
+          "expectedCandidates": [
+            "白山市",
+            "白山"
+          ]
+        },
+        {
+          "smallAreaName": "内灘",
+          "smallAreaCode": "X848",
+          "expectedCandidates": [
+            "内灘"
+          ]
+        },
+        {
+          "smallAreaName": "金沢市その他",
+          "smallAreaCode": "X849",
+          "expectedCandidates": [
+            "金沢市その他"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "県庁～岐南",
+      "middleAreaCode": "Y812",
+      "middleAreaName": "県庁～岐南・柳津・岐阜駅以南",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "岐南",
+          "smallAreaCode": "X812",
+          "expectedCandidates": [
+            "岐南"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "柳津",
+      "middleAreaCode": "Y812",
+      "middleAreaName": "県庁～岐南・柳津・岐阜駅以南",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "岐南",
+          "smallAreaCode": "X812",
+          "expectedCandidates": [
+            "岐南"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "岐阜駅以南",
+      "middleAreaCode": "Y812",
+      "middleAreaName": "県庁～岐南・柳津・岐阜駅以南",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "岐南",
+          "smallAreaCode": "X812",
+          "expectedCandidates": [
+            "岐南"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "青森西部",
+      "middleAreaCode": "Y913",
+      "middleAreaName": "五所川原・青森西部",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "五所川原",
+          "smallAreaCode": "X987",
+          "expectedCandidates": [
+            "五所川原"
+          ]
+        },
+        {
+          "smallAreaName": "青森県西部その他",
+          "smallAreaCode": "X988",
+          "expectedCandidates": [
+            "青森県西部その他"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "三島",
+      "middleAreaCode": "Y997",
+      "middleAreaName": "御殿場・富士・沼津・三島",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "御殿場",
+          "smallAreaCode": "X920",
+          "expectedCandidates": [
+            "御殿場"
+          ]
+        },
+        {
+          "smallAreaName": "富士市",
+          "smallAreaCode": "X921",
+          "expectedCandidates": [
+            "富士市",
+            "富士"
+          ]
+        },
+        {
+          "smallAreaName": "沼津",
+          "smallAreaCode": "X922",
+          "expectedCandidates": [
+            "沼津"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "横川",
+      "middleAreaCode": "Y605",
+      "middleAreaName": "広島駅・横川・その他広島市内",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "広島駅",
+          "smallAreaCode": "X604",
+          "expectedCandidates": [
+            "広島"
+          ]
+        },
+        {
+          "smallAreaName": "広島市中区",
+          "smallAreaCode": "X605",
+          "expectedCandidates": [
+            "広島市中区"
+          ]
+        },
+        {
+          "smallAreaName": "安佐南区",
+          "smallAreaCode": "X606",
+          "expectedCandidates": [
+            "安佐南区"
+          ]
+        },
+        {
+          "smallAreaName": "広島市内その他",
+          "smallAreaCode": "X954",
+          "expectedCandidates": [
+            "広島市内その他"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "中津川",
+      "middleAreaCode": "Y879",
+      "middleAreaName": "高山・中津川",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "高山",
+          "smallAreaCode": "X924",
+          "expectedCandidates": [
+            "高山"
+          ]
+        },
+        {
+          "smallAreaName": "飛騨",
+          "smallAreaCode": "X925",
+          "expectedCandidates": [
+            "飛騨"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "左京区",
+      "middleAreaCode": "Y430",
+      "middleAreaName": "左京区・山科区",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "山科",
+          "smallAreaCode": "X437",
+          "expectedCandidates": [
+            "山科"
+          ]
+        },
+        {
+          "smallAreaName": "一乗寺",
+          "smallAreaCode": "X861",
+          "expectedCandidates": [
+            "一乗寺"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "山科区",
+      "middleAreaCode": "Y430",
+      "middleAreaName": "左京区・山科区",
+      "pickedSmallAreaName": "山科",
+      "pickedSmallAreaCode": "X437",
+      "confidenceScore": 70,
+      "alternatives": [
+        {
+          "smallAreaName": "山科",
+          "smallAreaCode": "X437",
+          "score": 70
+        }
+      ]
+    },
+    {
+      "station": "高石市",
+      "middleAreaCode": "Y350",
+      "middleAreaName": "堺・高石市・和泉市",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "堺",
+          "smallAreaCode": "X400",
+          "expectedCandidates": [
+            "堺"
+          ]
+        },
+        {
+          "smallAreaName": "鳳",
+          "smallAreaCode": "X401",
+          "expectedCandidates": [
+            "鳳"
+          ]
+        },
+        {
+          "smallAreaName": "中百舌鳥",
+          "smallAreaCode": "X402",
+          "expectedCandidates": [
+            "中百舌鳥"
+          ]
+        },
+        {
+          "smallAreaName": "深井",
+          "smallAreaCode": "X403",
+          "expectedCandidates": [
+            "深井"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "和泉市",
+      "middleAreaCode": "Y350",
+      "middleAreaName": "堺・高石市・和泉市",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "堺",
+          "smallAreaCode": "X400",
+          "expectedCandidates": [
+            "堺"
+          ]
+        },
+        {
+          "smallAreaName": "鳳",
+          "smallAreaCode": "X401",
+          "expectedCandidates": [
+            "鳳"
+          ]
+        },
+        {
+          "smallAreaName": "中百舌鳥",
+          "smallAreaCode": "X402",
+          "expectedCandidates": [
+            "中百舌鳥"
+          ]
+        },
+        {
+          "smallAreaName": "深井",
+          "smallAreaCode": "X403",
+          "expectedCandidates": [
+            "深井"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "札幌（札幌",
+      "middleAreaCode": "Y505",
+      "middleAreaName": "札幌（札幌駅・大通）",
+      "pickedSmallAreaName": "札幌駅",
+      "pickedSmallAreaCode": "X501",
+      "confidenceScore": 70,
+      "alternatives": [
+        {
+          "smallAreaName": "札幌駅",
+          "smallAreaCode": "X501",
+          "score": 70
+        }
+      ]
+    },
+    {
+      "station": "大通）",
+      "middleAreaCode": "Y505",
+      "middleAreaName": "札幌（札幌駅・大通）",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "札幌駅",
+          "smallAreaCode": "X501",
+          "expectedCandidates": [
+            "札幌"
+          ]
+        },
+        {
+          "smallAreaName": "札幌大通",
+          "smallAreaCode": "X502",
+          "expectedCandidates": [
+            "札幌大通"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "右京区",
+      "middleAreaCode": "Y434",
+      "middleAreaName": "四条大宮・西院・右京区・西京区",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "西院",
+          "smallAreaCode": "X435",
+          "expectedCandidates": [
+            "西院"
+          ]
+        },
+        {
+          "smallAreaName": "四条大宮",
+          "smallAreaCode": "X866",
+          "expectedCandidates": [
+            "四条大宮"
+          ]
+        },
+        {
+          "smallAreaName": "嵐山",
+          "smallAreaCode": "X868",
+          "expectedCandidates": [
+            "嵐山"
+          ]
+        },
+        {
+          "smallAreaName": "桂",
+          "smallAreaCode": "X869",
+          "expectedCandidates": [
+            "桂"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "西京区",
+      "middleAreaCode": "Y434",
+      "middleAreaName": "四条大宮・西院・右京区・西京区",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "西院",
+          "smallAreaCode": "X435",
+          "expectedCandidates": [
+            "西院"
+          ]
+        },
+        {
+          "smallAreaName": "四条大宮",
+          "smallAreaCode": "X866",
+          "expectedCandidates": [
+            "四条大宮"
+          ]
+        },
+        {
+          "smallAreaName": "嵐山",
+          "smallAreaCode": "X868",
+          "expectedCandidates": [
+            "嵐山"
+          ]
+        },
+        {
+          "smallAreaName": "桂",
+          "smallAreaCode": "X869",
+          "expectedCandidates": [
+            "桂"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "鹿児島市天文館",
+      "middleAreaCode": "Y780",
+      "middleAreaName": "鹿児島市　天文館・中央駅・ふ頭",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "天文館",
+          "smallAreaCode": "X780",
+          "expectedCandidates": [
+            "天文館"
+          ]
+        },
+        {
+          "smallAreaName": "鹿児島中央",
+          "smallAreaCode": "X781",
+          "expectedCandidates": [
+            "鹿児島中央"
+          ]
+        },
+        {
+          "smallAreaName": "ふ頭・ベイサイド",
+          "smallAreaCode": "X783",
+          "expectedCandidates": [
+            "ふ頭・ベイサイド",
+            "ふ頭",
+            "ベイサイド"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "中央",
+      "middleAreaCode": "Y780",
+      "middleAreaName": "鹿児島市　天文館・中央駅・ふ頭",
+      "pickedSmallAreaName": "鹿児島中央",
+      "pickedSmallAreaCode": "X781",
+      "confidenceScore": 50,
+      "alternatives": [
+        {
+          "smallAreaName": "鹿児島中央",
+          "smallAreaCode": "X781",
+          "score": 50
+        }
+      ]
+    },
+    {
+      "station": "ふ頭",
+      "middleAreaCode": "Y780",
+      "middleAreaName": "鹿児島市　天文館・中央駅・ふ頭",
+      "pickedSmallAreaName": "ふ頭・ベイサイド",
+      "pickedSmallAreaCode": "X783",
+      "confidenceScore": 80,
+      "alternatives": [
+        {
+          "smallAreaName": "ふ頭・ベイサイド",
+          "smallAreaCode": "X783",
+          "score": 80
+        }
+      ]
+    },
+    {
+      "station": "鶴岡",
+      "middleAreaCode": "Y922",
+      "middleAreaName": "酒田・鶴岡",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "酒田",
+          "smallAreaCode": "X398",
+          "expectedCandidates": [
+            "酒田"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "三沢",
+      "middleAreaCode": "Y914",
+      "middleAreaName": "十和田・三沢・おいらせ町",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "十和田市",
+          "smallAreaCode": "X989",
+          "expectedCandidates": [
+            "十和田市",
+            "十和田"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "おいらせ町",
+      "middleAreaCode": "Y914",
+      "middleAreaName": "十和田・三沢・おいらせ町",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "十和田市",
+          "smallAreaCode": "X989",
+          "expectedCandidates": [
+            "十和田市",
+            "十和田"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "札幌近郊",
+      "middleAreaCode": "Y884",
+      "middleAreaName": "小樽・千歳・苫小牧・札幌近郊",
+      "pickedSmallAreaName": "札幌近郊その他",
+      "pickedSmallAreaCode": "X858",
+      "confidenceScore": 80,
+      "alternatives": [
+        {
+          "smallAreaName": "札幌近郊その他",
+          "smallAreaCode": "X858",
+          "score": 80
+        }
+      ]
+    },
+    {
+      "station": "真鶴",
+      "middleAreaCode": "Y854",
+      "middleAreaName": "小田原・箱根・湯河原・真鶴",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "箱根",
+          "smallAreaCode": "X880",
+          "expectedCandidates": [
+            "箱根"
+          ]
+        },
+        {
+          "smallAreaName": "湯河原",
+          "smallAreaCode": "X881",
+          "expectedCandidates": [
+            "湯河原"
+          ]
+        },
+        {
+          "smallAreaName": "小田原",
+          "smallAreaCode": "X882",
+          "expectedCandidates": [
+            "小田原"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "新松戸",
+      "middleAreaCode": "Y690",
+      "middleAreaName": "松戸・新松戸",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "松戸",
+          "smallAreaCode": "X251",
+          "expectedCandidates": [
+            "松戸"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "杉田",
+      "middleAreaCode": "Y138",
+      "middleAreaName": "上大岡・杉田・新杉田・金沢文庫",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "上大岡",
+          "smallAreaCode": "X275",
+          "expectedCandidates": [
+            "上大岡"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "新杉田",
+      "middleAreaCode": "Y138",
+      "middleAreaName": "上大岡・杉田・新杉田・金沢文庫",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "上大岡",
+          "smallAreaCode": "X275",
+          "expectedCandidates": [
+            "上大岡"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "金沢文庫",
+      "middleAreaCode": "Y138",
+      "middleAreaName": "上大岡・杉田・新杉田・金沢文庫",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "上大岡",
+          "smallAreaCode": "X275",
+          "expectedCandidates": [
+            "上大岡"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "佐久",
+      "middleAreaCode": "Y942",
+      "middleAreaName": "上田・佐久",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "上田市",
+          "smallAreaCode": "X787",
+          "expectedCandidates": [
+            "上田市",
+            "上田"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "上本町",
+      "middleAreaCode": "Y326",
+      "middleAreaName": "上本町・鶴橋",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "鶴橋",
+          "smallAreaCode": "X390",
+          "expectedCandidates": [
+            "鶴橋"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "豊岡",
+      "middleAreaCode": "Y872",
+      "middleAreaName": "城崎・豊岡",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "城崎",
+          "smallAreaCode": "X912",
+          "expectedCandidates": [
+            "城崎"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "なんば",
+      "middleAreaCode": "Y315",
+      "middleAreaName": "心斎橋・なんば・南船場・堀江",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "心斎橋駅・東心斎橋",
+          "smallAreaCode": "X350",
+          "expectedCandidates": [
+            "心斎橋駅・東心斎橋",
+            "心斎橋",
+            "東心斎橋"
+          ]
+        },
+        {
+          "smallAreaName": "アメリカ村・西心斎橋",
+          "smallAreaCode": "X360",
+          "expectedCandidates": [
+            "アメリカ村・西心斎橋",
+            "アメリカ村",
+            "西心斎橋"
+          ]
+        },
+        {
+          "smallAreaName": "堀江",
+          "smallAreaCode": "X365",
+          "expectedCandidates": [
+            "堀江"
+          ]
+        },
+        {
+          "smallAreaName": "南船場・新町",
+          "smallAreaCode": "X370",
+          "expectedCandidates": [
+            "南船場・新町",
+            "南船場",
+            "新町"
+          ]
+        },
+        {
+          "smallAreaName": "難波",
+          "smallAreaCode": "X375",
+          "expectedCandidates": [
+            "難波"
+          ]
+        },
+        {
+          "smallAreaName": "道頓堀・宗右衛門町",
+          "smallAreaCode": "X380",
+          "expectedCandidates": [
+            "道頓堀・宗右衛門町",
+            "道頓堀",
+            "宗右衛門町"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "鴨居",
+      "middleAreaCode": "Y085",
+      "middleAreaName": "新横浜・綱島・菊名・鴨居",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "新横浜",
+          "smallAreaCode": "X271",
+          "expectedCandidates": [
+            "新横浜"
+          ]
+        },
+        {
+          "smallAreaName": "大倉山",
+          "smallAreaCode": "X576",
+          "expectedCandidates": [
+            "大倉山"
+          ]
+        },
+        {
+          "smallAreaName": "白楽",
+          "smallAreaCode": "X577",
+          "expectedCandidates": [
+            "白楽"
+          ]
+        },
+        {
+          "smallAreaName": "日吉",
+          "smallAreaCode": "X578",
+          "expectedCandidates": [
+            "日吉"
+          ]
+        },
+        {
+          "smallAreaName": "綱島",
+          "smallAreaCode": "XAI2",
+          "expectedCandidates": [
+            "綱島"
+          ]
+        },
+        {
+          "smallAreaName": "菊名",
+          "smallAreaCode": "XAI3",
+          "expectedCandidates": [
+            "菊名"
+          ]
+        },
+        {
+          "smallAreaName": "妙蓮寺",
+          "smallAreaCode": "XAI4",
+          "expectedCandidates": [
+            "妙蓮寺"
+          ]
+        },
+        {
+          "smallAreaName": "東白楽",
+          "smallAreaCode": "XAI5",
+          "expectedCandidates": [
+            "東白楽"
+          ]
+        },
+        {
+          "smallAreaName": "反町",
+          "smallAreaCode": "XAI6",
+          "expectedCandidates": [
+            "反町"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "諏訪",
+      "middleAreaCode": "Y807",
+      "middleAreaName": "諏訪・茅野",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "茅野",
+          "smallAreaCode": "X063",
+          "expectedCandidates": [
+            "茅野"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "須磨",
+      "middleAreaCode": "Y373",
+      "middleAreaName": "須磨・垂水・西区・兵庫・長田",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "垂水",
+          "smallAreaCode": "X444",
+          "expectedCandidates": [
+            "垂水"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "西区",
+      "middleAreaCode": "Y373",
+      "middleAreaName": "須磨・垂水・西区・兵庫・長田",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "垂水",
+          "smallAreaCode": "X444",
+          "expectedCandidates": [
+            "垂水"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "兵庫",
+      "middleAreaCode": "Y373",
+      "middleAreaName": "須磨・垂水・西区・兵庫・長田",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "垂水",
+          "smallAreaCode": "X444",
+          "expectedCandidates": [
+            "垂水"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "葉山",
+      "middleAreaCode": "Y856",
+      "middleAreaName": "逗子・葉山",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "逗子",
+          "smallAreaCode": "X885",
+          "expectedCandidates": [
+            "逗子"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "宝塚",
+      "middleAreaCode": "Y871",
+      "middleAreaName": "西宮・芦屋・宝塚",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "西宮北口",
+          "smallAreaCode": "X473",
+          "expectedCandidates": [
+            "西宮北口",
+            "西宮"
+          ]
+        },
+        {
+          "smallAreaName": "西宮",
+          "smallAreaCode": "X910",
+          "expectedCandidates": [
+            "西宮"
+          ]
+        },
+        {
+          "smallAreaName": "芦屋",
+          "smallAreaCode": "X911",
+          "expectedCandidates": [
+            "芦屋"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "姪浜",
+      "middleAreaCode": "Y710",
+      "middleAreaName": "西新・姪浜・その他西エリア",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "西新",
+          "smallAreaCode": "X708",
+          "expectedCandidates": [
+            "西新"
+          ]
+        },
+        {
+          "smallAreaName": "福岡市西区",
+          "smallAreaCode": "X776",
+          "expectedCandidates": [
+            "福岡市西区"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "青梅線沿線",
+      "middleAreaCode": "Y089",
+      "middleAreaName": "青梅・昭島・小作・青梅線沿線",
+      "pickedSmallAreaName": "青梅",
+      "pickedSmallAreaCode": "XA98",
+      "confidenceScore": 70,
+      "alternatives": [
+        {
+          "smallAreaName": "青梅",
+          "smallAreaCode": "XA98",
+          "score": 70
+        }
+      ]
+    },
+    {
+      "station": "青葉",
+      "middleAreaCode": "Y555",
+      "middleAreaName": "青葉・宮城野・若林",
+      "pickedSmallAreaName": "青葉区",
+      "pickedSmallAreaCode": "X555",
+      "confidenceScore": 80,
+      "alternatives": [
+        {
+          "smallAreaName": "青葉区",
+          "smallAreaCode": "X555",
+          "score": 80
+        }
+      ]
+    },
+    {
+      "station": "宮城野",
+      "middleAreaCode": "Y555",
+      "middleAreaName": "青葉・宮城野・若林",
+      "pickedSmallAreaName": "宮城野区",
+      "pickedSmallAreaCode": "X556",
+      "confidenceScore": 80,
+      "alternatives": [
+        {
+          "smallAreaName": "宮城野区",
+          "smallAreaCode": "X556",
+          "score": 80
+        }
+      ]
+    },
+    {
+      "station": "葵区",
+      "middleAreaCode": "Y230",
+      "middleAreaName": "静岡駅周辺・葵区・駿河区",
+      "pickedSmallAreaName": "葵区郊外",
+      "pickedSmallAreaCode": "X496",
+      "confidenceScore": 80,
+      "alternatives": [
+        {
+          "smallAreaName": "葵区郊外",
+          "smallAreaCode": "X496",
+          "score": 80
+        }
+      ]
+    },
+    {
+      "station": "駿河区",
+      "middleAreaCode": "Y230",
+      "middleAreaName": "静岡駅周辺・葵区・駿河区",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "静岡駅周辺・駅南",
+          "smallAreaCode": "X495",
+          "expectedCandidates": [
+            "静岡駅周辺・駅南",
+            "静岡",
+            "静岡駅周辺",
+            "駅南"
+          ]
+        },
+        {
+          "smallAreaName": "葵区郊外",
+          "smallAreaCode": "X496",
+          "expectedCandidates": [
+            "葵区郊外"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "沖縄離島",
+      "middleAreaCode": "Y963",
+      "middleAreaName": "石垣島・宮古島・沖縄離島",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "宮古島",
+          "smallAreaCode": "X116",
+          "expectedCandidates": [
+            "宮古島"
+          ]
+        },
+        {
+          "smallAreaName": "石垣島",
+          "smallAreaCode": "X117",
+          "expectedCandidates": [
+            "石垣島"
+          ]
+        },
+        {
+          "smallAreaName": "西表",
+          "smallAreaCode": "X118",
+          "expectedCandidates": [
+            "西表"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "仙北市",
+      "middleAreaCode": "Y918",
+      "middleAreaName": "仙北市・秋田県北部",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "角館",
+          "smallAreaCode": "X392",
+          "expectedCandidates": [
+            "角館"
+          ]
+        },
+        {
+          "smallAreaName": "秋田県北部その他",
+          "smallAreaCode": "X393",
+          "expectedCandidates": [
+            "秋田県北部その他"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "西川口",
+      "middleAreaCode": "Y131",
+      "middleAreaName": "川口・西川口・蕨",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "川口駅",
+          "smallAreaCode": "X262",
+          "expectedCandidates": [
+            "川口"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "蕨",
+      "middleAreaCode": "Y131",
+      "middleAreaName": "川口・西川口・蕨",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "川口駅",
+          "smallAreaCode": "X262",
+          "expectedCandidates": [
+            "川口"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "橋本",
+      "middleAreaCode": "Y142",
+      "middleAreaName": "相模原・橋本・淵野辺",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "相模原",
+          "smallAreaCode": "X215",
+          "expectedCandidates": [
+            "相模原"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "淵野辺",
+      "middleAreaCode": "Y142",
+      "middleAreaName": "相模原・橋本・淵野辺",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "相模原",
+          "smallAreaCode": "X215",
+          "expectedCandidates": [
+            "相模原"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "嬬恋",
+      "middleAreaCode": "Y930",
+      "middleAreaName": "草津・嬬恋",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "草津",
+          "smallAreaCode": "X599",
+          "expectedCandidates": [
+            "草津"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "北見",
+      "middleAreaCode": "Y885",
+      "middleAreaName": "帯広・釧路・北見・河東郡",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "釧路",
+          "smallAreaCode": "X940",
+          "expectedCandidates": [
+            "釧路"
+          ]
+        },
+        {
+          "smallAreaName": "帯広",
+          "smallAreaCode": "X941",
+          "expectedCandidates": [
+            "帯広"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "河東郡",
+      "middleAreaCode": "Y885",
+      "middleAreaName": "帯広・釧路・北見・河東郡",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "釧路",
+          "smallAreaCode": "X940",
+          "expectedCandidates": [
+            "釧路"
+          ]
+        },
+        {
+          "smallAreaName": "帯広",
+          "smallAreaCode": "X941",
+          "expectedCandidates": [
+            "帯広"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "さいたま新都心",
+      "middleAreaCode": "Y130",
+      "middleAreaName": "大宮・さいたま新都心",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "大宮駅",
+          "smallAreaCode": "X260",
+          "expectedCandidates": [
+            "大宮"
+          ]
+        },
+        {
+          "smallAreaName": "さいたま市その他",
+          "smallAreaCode": "X889",
+          "expectedCandidates": [
+            "さいたま市その他"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "東戸塚",
+      "middleAreaCode": "Y144",
+      "middleAreaName": "大船・戸塚・東戸塚・保土ヶ谷",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "戸塚",
+          "smallAreaCode": "X276",
+          "expectedCandidates": [
+            "戸塚"
+          ]
+        },
+        {
+          "smallAreaName": "大船",
+          "smallAreaCode": "X291",
+          "expectedCandidates": [
+            "大船"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "保土ヶ谷",
+      "middleAreaCode": "Y144",
+      "middleAreaName": "大船・戸塚・東戸塚・保土ヶ谷",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "戸塚",
+          "smallAreaCode": "X276",
+          "expectedCandidates": [
+            "戸塚"
+          ]
+        },
+        {
+          "smallAreaName": "大船",
+          "smallAreaCode": "X291",
+          "expectedCandidates": [
+            "大船"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "大名",
+      "middleAreaCode": "Y712",
+      "middleAreaName": "大名・今泉・警固",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "今泉",
+          "smallAreaCode": "X704",
+          "expectedCandidates": [
+            "今泉"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "警固",
+      "middleAreaCode": "Y712",
+      "middleAreaName": "大名・今泉・警固",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "今泉",
+          "smallAreaCode": "X704",
+          "expectedCandidates": [
+            "今泉"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "宇宿",
+      "middleAreaCode": "Y786",
+      "middleAreaName": "谷山・宇宿",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "谷山",
+          "smallAreaCode": "X785",
+          "expectedCandidates": [
+            "谷山"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "中洲川端",
+      "middleAreaCode": "Y705",
+      "middleAreaName": "中洲・中洲川端",
+      "pickedSmallAreaName": "中洲",
+      "pickedSmallAreaCode": "X703",
+      "confidenceScore": 70,
+      "alternatives": [
+        {
+          "smallAreaName": "中洲",
+          "smallAreaCode": "X703",
+          "score": 70
+        }
+      ]
+    },
+    {
+      "station": "長浜市",
+      "middleAreaCode": "Y947",
+      "middleAreaName": "長浜市・彦根市",
+      "pickedSmallAreaName": "長浜",
+      "pickedSmallAreaCode": "X795",
+      "confidenceScore": 70,
+      "alternatives": [
+        {
+          "smallAreaName": "長浜",
+          "smallAreaCode": "X795",
+          "score": 70
+        }
+      ]
+    },
+    {
+      "station": "彦根市",
+      "middleAreaCode": "Y947",
+      "middleAreaName": "長浜市・彦根市",
+      "pickedSmallAreaName": "彦根",
+      "pickedSmallAreaCode": "X796",
+      "confidenceScore": 70,
+      "alternatives": [
+        {
+          "smallAreaName": "彦根",
+          "smallAreaCode": "X796",
+          "score": 70
+        }
+      ]
+    },
+    {
+      "station": "八事",
+      "middleAreaCode": "Y216",
+      "middleAreaName": "鶴舞・八事・御器所",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "鶴舞",
+          "smallAreaCode": "X481",
+          "expectedCandidates": [
+            "鶴舞"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "御器所",
+      "middleAreaCode": "Y216",
+      "middleAreaName": "鶴舞・八事・御器所",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "鶴舞",
+          "smallAreaCode": "X481",
+          "expectedCandidates": [
+            "鶴舞"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "西中洲",
+      "middleAreaCode": "Y706",
+      "middleAreaName": "天神・西中洲・春吉",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "天神",
+          "smallAreaCode": "X702",
+          "expectedCandidates": [
+            "天神"
+          ]
+        },
+        {
+          "smallAreaName": "長浜・港",
+          "smallAreaCode": "X774",
+          "expectedCandidates": [
+            "長浜・港",
+            "長浜",
+            "港"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "春吉",
+      "middleAreaCode": "Y706",
+      "middleAreaName": "天神・西中洲・春吉",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "天神",
+          "smallAreaCode": "X702",
+          "expectedCandidates": [
+            "天神"
+          ]
+        },
+        {
+          "smallAreaName": "長浜・港",
+          "smallAreaCode": "X774",
+          "expectedCandidates": [
+            "長浜・港",
+            "長浜",
+            "港"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "則武",
+      "middleAreaCode": "Y811",
+      "middleAreaName": "島・則武・正木・長良",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "島",
+          "smallAreaCode": "X811",
+          "expectedCandidates": [
+            "島"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "正木",
+      "middleAreaCode": "Y811",
+      "middleAreaName": "島・則武・正木・長良",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "島",
+          "smallAreaCode": "X811",
+          "expectedCandidates": [
+            "島"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "長良",
+      "middleAreaCode": "Y811",
+      "middleAreaName": "島・則武・正木・長良",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "島",
+          "smallAreaCode": "X811",
+          "expectedCandidates": [
+            "島"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "東京",
+      "middleAreaCode": "Y010",
+      "middleAreaName": "東京・大手町・日本橋・人形町",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "丸の内",
+          "smallAreaCode": "X030",
+          "expectedCandidates": [
+            "丸の内"
+          ]
+        },
+        {
+          "smallAreaName": "日本橋",
+          "smallAreaCode": "X035",
+          "expectedCandidates": [
+            "日本橋"
+          ]
+        },
+        {
+          "smallAreaName": "八重洲",
+          "smallAreaCode": "X040",
+          "expectedCandidates": [
+            "八重洲"
+          ]
+        },
+        {
+          "smallAreaName": "大手町",
+          "smallAreaCode": "XA2P",
+          "expectedCandidates": [
+            "大手町"
+          ]
+        },
+        {
+          "smallAreaName": "三越前",
+          "smallAreaCode": "XA2Q",
+          "expectedCandidates": [
+            "三越前"
+          ]
+        },
+        {
+          "smallAreaName": "新日本橋",
+          "smallAreaCode": "XA2R",
+          "expectedCandidates": [
+            "新日本橋"
+          ]
+        },
+        {
+          "smallAreaName": "人形町",
+          "smallAreaCode": "XA2S",
+          "expectedCandidates": [
+            "人形町"
+          ]
+        },
+        {
+          "smallAreaName": "水天宮前",
+          "smallAreaCode": "XA2T",
+          "expectedCandidates": [
+            "水天宮前"
+          ]
+        },
+        {
+          "smallAreaName": "京橋・宝町",
+          "smallAreaCode": "XA2U",
+          "expectedCandidates": [
+            "京橋・宝町",
+            "京橋",
+            "宝町"
+          ]
+        },
+        {
+          "smallAreaName": "八丁堀",
+          "smallAreaCode": "XA2V",
+          "expectedCandidates": [
+            "八丁堀"
+          ]
+        },
+        {
+          "smallAreaName": "茅場町",
+          "smallAreaCode": "XA2W",
+          "expectedCandidates": [
+            "茅場町"
+          ]
+        },
+        {
+          "smallAreaName": "小伝馬町",
+          "smallAreaCode": "XA2X",
+          "expectedCandidates": [
+            "小伝馬町"
+          ]
+        },
+        {
+          "smallAreaName": "馬喰町",
+          "smallAreaCode": "XA2Y",
+          "expectedCandidates": [
+            "馬喰町"
+          ]
+        },
+        {
+          "smallAreaName": "浜町",
+          "smallAreaCode": "XA2Z",
+          "expectedCandidates": [
+            "浜町"
+          ]
+        },
+        {
+          "smallAreaName": "東日本橋",
+          "smallAreaCode": "XA30",
+          "expectedCandidates": [
+            "東日本橋"
+          ]
+        },
+        {
+          "smallAreaName": "馬喰横山",
+          "smallAreaCode": "XA31",
+          "expectedCandidates": [
+            "馬喰横山"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "由布市",
+      "middleAreaCode": "Y751",
+      "middleAreaName": "湯布院・由布市",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "湯布院",
+          "smallAreaCode": "X970",
+          "expectedCandidates": [
+            "湯布院"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "辻堂茅ヶ崎",
+      "middleAreaCode": "Y145",
+      "middleAreaName": "藤沢・辻堂茅ヶ崎・平塚・湘南台",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "藤沢",
+          "smallAreaCode": "X290",
+          "expectedCandidates": [
+            "藤沢"
+          ]
+        },
+        {
+          "smallAreaName": "茅ヶ崎",
+          "smallAreaCode": "X292",
+          "expectedCandidates": [
+            "茅ヶ崎"
+          ]
+        },
+        {
+          "smallAreaName": "湘南台",
+          "smallAreaCode": "X293",
+          "expectedCandidates": [
+            "湘南台"
+          ]
+        },
+        {
+          "smallAreaName": "平塚",
+          "smallAreaCode": "X294",
+          "expectedCandidates": [
+            "平塚"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "徳島市",
+      "middleAreaCode": "Y660",
+      "middleAreaName": "徳島市・徳島市周辺部",
+      "pickedSmallAreaName": "徳島駅",
+      "pickedSmallAreaCode": "X660",
+      "confidenceScore": 70,
+      "alternatives": [
+        {
+          "smallAreaName": "徳島駅",
+          "smallAreaCode": "X660",
+          "score": 70
+        }
+      ]
+    },
+    {
+      "station": "徳島市周辺部",
+      "middleAreaCode": "Y660",
+      "middleAreaName": "徳島市・徳島市周辺部",
+      "pickedSmallAreaName": "徳島駅",
+      "pickedSmallAreaCode": "X660",
+      "confidenceScore": 70,
+      "alternatives": [
+        {
+          "smallAreaName": "徳島駅",
+          "smallAreaCode": "X660",
+          "score": 70
+        }
+      ]
+    },
+    {
+      "station": "塩原",
+      "middleAreaCode": "Y864",
+      "middleAreaName": "那須・塩原",
+      "pickedSmallAreaName": "那須塩原",
+      "pickedSmallAreaCode": "X897",
+      "confidenceScore": 50,
+      "alternatives": [
+        {
+          "smallAreaName": "那須塩原",
+          "smallAreaCode": "X897",
+          "score": 50
+        }
+      ]
+    },
+    {
+      "station": "灘",
+      "middleAreaCode": "Y372",
+      "middleAreaName": "灘・東灘",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "住吉",
+          "smallAreaCode": "X442",
+          "expectedCandidates": [
+            "住吉"
+          ]
+        },
+        {
+          "smallAreaName": "岡本",
+          "smallAreaCode": "X446",
+          "expectedCandidates": [
+            "岡本"
+          ]
+        },
+        {
+          "smallAreaName": "六甲道",
+          "smallAreaCode": "X447",
+          "expectedCandidates": [
+            "六甲道"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "東灘",
+      "middleAreaCode": "Y372",
+      "middleAreaName": "灘・東灘",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "住吉",
+          "smallAreaCode": "X442",
+          "expectedCandidates": [
+            "住吉"
+          ]
+        },
+        {
+          "smallAreaName": "岡本",
+          "smallAreaCode": "X446",
+          "expectedCandidates": [
+            "岡本"
+          ]
+        },
+        {
+          "smallAreaName": "六甲道",
+          "smallAreaCode": "X447",
+          "expectedCandidates": [
+            "六甲道"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "南郷",
+      "middleAreaCode": "Y511",
+      "middleAreaName": "南郷・新札幌　白石・厚別・清田",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "白石",
+          "smallAreaCode": "X504",
+          "expectedCandidates": [
+            "白石"
+          ]
+        },
+        {
+          "smallAreaName": "新札幌",
+          "smallAreaCode": "X508",
+          "expectedCandidates": [
+            "新札幌"
+          ]
+        },
+        {
+          "smallAreaName": "清田区",
+          "smallAreaCode": "X509",
+          "expectedCandidates": [
+            "清田区"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "新札幌白石",
+      "middleAreaCode": "Y511",
+      "middleAreaName": "南郷・新札幌　白石・厚別・清田",
+      "pickedSmallAreaName": "新札幌",
+      "pickedSmallAreaCode": "X508",
+      "confidenceScore": 70,
+      "alternatives": [
+        {
+          "smallAreaName": "新札幌",
+          "smallAreaCode": "X508",
+          "score": 70
+        }
+      ]
+    },
+    {
+      "station": "厚別",
+      "middleAreaCode": "Y511",
+      "middleAreaName": "南郷・新札幌　白石・厚別・清田",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "白石",
+          "smallAreaCode": "X504",
+          "expectedCandidates": [
+            "白石"
+          ]
+        },
+        {
+          "smallAreaName": "新札幌",
+          "smallAreaCode": "X508",
+          "expectedCandidates": [
+            "新札幌"
+          ]
+        },
+        {
+          "smallAreaName": "清田区",
+          "smallAreaCode": "X509",
+          "expectedCandidates": [
+            "清田区"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "清田",
+      "middleAreaCode": "Y511",
+      "middleAreaName": "南郷・新札幌　白石・厚別・清田",
+      "pickedSmallAreaName": "清田区",
+      "pickedSmallAreaCode": "X509",
+      "confidenceScore": 80,
+      "alternatives": [
+        {
+          "smallAreaName": "清田区",
+          "smallAreaCode": "X509",
+          "score": 80
+        }
+      ]
+    },
+    {
+      "station": "南房総",
+      "middleAreaCode": "Y121",
+      "middleAreaName": "南房総・館山",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "館山",
+          "smallAreaCode": "X887",
+          "expectedCandidates": [
+            "館山"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "日光",
+      "middleAreaCode": "Y863",
+      "middleAreaName": "日光・鹿沼",
+      "pickedSmallAreaName": "日光その他",
+      "pickedSmallAreaCode": "X896",
+      "confidenceScore": 80,
+      "alternatives": [
+        {
+          "smallAreaName": "日光その他",
+          "smallAreaCode": "X896",
+          "score": 80
+        }
+      ]
+    },
+    {
+      "station": "鹿沼",
+      "middleAreaCode": "Y863",
+      "middleAreaName": "日光・鹿沼",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "鬼怒川",
+          "smallAreaCode": "X894",
+          "expectedCandidates": [
+            "鬼怒川"
+          ]
+        },
+        {
+          "smallAreaName": "今市",
+          "smallAreaCode": "X895",
+          "expectedCandidates": [
+            "今市",
+            "今"
+          ]
+        },
+        {
+          "smallAreaName": "日光その他",
+          "smallAreaCode": "X896",
+          "expectedCandidates": [
+            "日光その他"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "芥見",
+      "middleAreaCode": "Y814",
+      "middleAreaName": "日野・芥見・各務原",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "各務原",
+          "smallAreaCode": "X814",
+          "expectedCandidates": [
+            "各務原"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "ひたちなか",
+      "middleAreaCode": "Y926",
+      "middleAreaName": "日立・ひたちなか",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "日立市",
+          "smallAreaCode": "X589",
+          "expectedCandidates": [
+            "日立市",
+            "日立"
+          ]
+        },
+        {
+          "smallAreaName": "那珂湊",
+          "smallAreaCode": "X590",
+          "expectedCandidates": [
+            "那珂湊"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "南柏",
+      "middleAreaCode": "Y125",
+      "middleAreaName": "柏・南柏・我孫子",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "柏",
+          "smallAreaCode": "X250",
+          "expectedCandidates": [
+            "柏"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "我孫子",
+      "middleAreaCode": "Y125",
+      "middleAreaName": "柏・南柏・我孫子",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "柏",
+          "smallAreaCode": "X250",
+          "expectedCandidates": [
+            "柏"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "舞浜",
+      "middleAreaCode": "Y126",
+      "middleAreaName": "舞浜・浦安・行徳・妙典",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "浦安",
+          "smallAreaCode": "X244",
+          "expectedCandidates": [
+            "浦安"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "行徳",
+      "middleAreaCode": "Y126",
+      "middleAreaName": "舞浜・浦安・行徳・妙典",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "浦安",
+          "smallAreaCode": "X244",
+          "expectedCandidates": [
+            "浦安"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "妙典",
+      "middleAreaCode": "Y126",
+      "middleAreaName": "舞浜・浦安・行徳・妙典",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "浦安",
+          "smallAreaCode": "X244",
+          "expectedCandidates": [
+            "浦安"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "伏見桃山",
+      "middleAreaCode": "Y437",
+      "middleAreaName": "伏見桃山・伏見区・京都市郊外",
+      "pickedSmallAreaName": "伏見",
+      "pickedSmallAreaCode": "X436",
+      "confidenceScore": 70,
+      "alternatives": [
+        {
+          "smallAreaName": "伏見",
+          "smallAreaCode": "X436",
+          "score": 70
+        }
+      ]
+    },
+    {
+      "station": "伏見区",
+      "middleAreaCode": "Y437",
+      "middleAreaName": "伏見桃山・伏見区・京都市郊外",
+      "pickedSmallAreaName": "伏見",
+      "pickedSmallAreaCode": "X436",
+      "confidenceScore": 70,
+      "alternatives": [
+        {
+          "smallAreaName": "伏見",
+          "smallAreaCode": "X436",
+          "score": 70
+        }
+      ]
+    },
+    {
+      "station": "京都市郊外",
+      "middleAreaCode": "Y437",
+      "middleAreaName": "伏見桃山・伏見区・京都市郊外",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "伏見",
+          "smallAreaCode": "X436",
+          "expectedCandidates": [
+            "伏見"
+          ]
+        },
+        {
+          "smallAreaName": "宇治",
+          "smallAreaCode": "X871",
+          "expectedCandidates": [
+            "宇治"
+          ]
+        },
+        {
+          "smallAreaName": "長岡京",
+          "smallAreaCode": "X872",
+          "expectedCandidates": [
+            "長岡京"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "野田",
+      "middleAreaCode": "Y301",
+      "middleAreaName": "福島・野田",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "福島・新福島",
+          "smallAreaCode": "X325",
+          "expectedCandidates": [
+            "福島・新福島",
+            "福島",
+            "新福島"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "澄川（豊平区",
+      "middleAreaCode": "Y513",
+      "middleAreaName": "平岸・澄川（豊平区・南区）",
+      "pickedSmallAreaName": "澄川",
+      "pickedSmallAreaCode": "X512",
+      "confidenceScore": 70,
+      "alternatives": [
+        {
+          "smallAreaName": "澄川",
+          "smallAreaCode": "X512",
+          "score": 70
+        }
+      ]
+    },
+    {
+      "station": "南区）",
+      "middleAreaCode": "Y513",
+      "middleAreaName": "平岸・澄川（豊平区・南区）",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "平岸",
+          "smallAreaCode": "X506",
+          "expectedCandidates": [
+            "平岸"
+          ]
+        },
+        {
+          "smallAreaName": "澄川",
+          "smallAreaCode": "X512",
+          "expectedCandidates": [
+            "澄川"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "北方",
+      "middleAreaCode": "Y813",
+      "middleAreaName": "穂積・北方・大垣",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "穂積",
+          "smallAreaCode": "X813",
+          "expectedCandidates": [
+            "穂積"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "大垣",
+      "middleAreaCode": "Y813",
+      "middleAreaName": "穂積・北方・大垣",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "穂積",
+          "smallAreaCode": "X813",
+          "expectedCandidates": [
+            "穂積"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "北九州（小倉",
+      "middleAreaCode": "Y730",
+      "middleAreaName": "北九州（小倉・門司）",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "小倉・平和通駅・魚町銀天街",
+          "smallAreaCode": "X730",
+          "expectedCandidates": [
+            "小倉・平和通駅・魚町銀天街",
+            "小倉",
+            "平和通",
+            "魚町銀天街"
+          ]
+        },
+        {
+          "smallAreaName": "小倉南区",
+          "smallAreaCode": "X732",
+          "expectedCandidates": [
+            "小倉南区"
+          ]
+        },
+        {
+          "smallAreaName": "門司港",
+          "smallAreaCode": "X734",
+          "expectedCandidates": [
+            "門司港"
+          ]
+        },
+        {
+          "smallAreaName": "西小倉・リバーウォーク",
+          "smallAreaCode": "X735",
+          "expectedCandidates": [
+            "西小倉・リバーウォーク",
+            "西小倉",
+            "リバーウォーク"
+          ]
+        },
+        {
+          "smallAreaName": "旦過周辺",
+          "smallAreaCode": "X736",
+          "expectedCandidates": [
+            "旦過周辺"
+          ]
+        },
+        {
+          "smallAreaName": "チャチャタウン・砂津",
+          "smallAreaCode": "X737",
+          "expectedCandidates": [
+            "チャチャタウン・砂津",
+            "チャチャタウン",
+            "砂津"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "門司）",
+      "middleAreaCode": "Y730",
+      "middleAreaName": "北九州（小倉・門司）",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "小倉・平和通駅・魚町銀天街",
+          "smallAreaCode": "X730",
+          "expectedCandidates": [
+            "小倉・平和通駅・魚町銀天街",
+            "小倉",
+            "平和通",
+            "魚町銀天街"
+          ]
+        },
+        {
+          "smallAreaName": "小倉南区",
+          "smallAreaCode": "X732",
+          "expectedCandidates": [
+            "小倉南区"
+          ]
+        },
+        {
+          "smallAreaName": "門司港",
+          "smallAreaCode": "X734",
+          "expectedCandidates": [
+            "門司港"
+          ]
+        },
+        {
+          "smallAreaName": "西小倉・リバーウォーク",
+          "smallAreaCode": "X735",
+          "expectedCandidates": [
+            "西小倉・リバーウォーク",
+            "西小倉",
+            "リバーウォーク"
+          ]
+        },
+        {
+          "smallAreaName": "旦過周辺",
+          "smallAreaCode": "X736",
+          "expectedCandidates": [
+            "旦過周辺"
+          ]
+        },
+        {
+          "smallAreaName": "チャチャタウン・砂津",
+          "smallAreaCode": "X737",
+          "expectedCandidates": [
+            "チャチャタウン・砂津",
+            "チャチャタウン",
+            "砂津"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "北九州（八幡",
+      "middleAreaCode": "Y731",
+      "middleAreaName": "北九州（八幡・黒崎・折尾）",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "黒崎",
+          "smallAreaCode": "X731",
+          "expectedCandidates": [
+            "黒崎"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "折尾）",
+      "middleAreaCode": "Y731",
+      "middleAreaName": "北九州（八幡・黒崎・折尾）",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "黒崎",
+          "smallAreaCode": "X731",
+          "expectedCandidates": [
+            "黒崎"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "上京区",
+      "middleAreaCode": "Y431",
+      "middleAreaName": "北区・上京区",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "北山",
+          "smallAreaCode": "X433",
+          "expectedCandidates": [
+            "北山"
+          ]
+        },
+        {
+          "smallAreaName": "北野天満宮",
+          "smallAreaCode": "X860",
+          "expectedCandidates": [
+            "北野天満宮"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "有馬温泉",
+      "middleAreaCode": "Y873",
+      "middleAreaName": "北区・有馬温泉・三田",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "北区",
+          "smallAreaCode": "X443",
+          "expectedCandidates": [
+            "北区"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "葛飾",
+      "middleAreaCode": "Y016",
+      "middleAreaName": "北千住・日暮里・葛飾・荒川",
+      "pickedSmallAreaName": "葛飾区その他",
+      "pickedSmallAreaCode": "X186",
+      "confidenceScore": 80,
+      "alternatives": [
+        {
+          "smallAreaName": "葛飾区その他",
+          "smallAreaCode": "X186",
+          "score": 80
+        }
+      ]
+    },
+    {
+      "station": "荒川",
+      "middleAreaCode": "Y016",
+      "middleAreaName": "北千住・日暮里・葛飾・荒川",
+      "pickedSmallAreaName": "荒川区その他",
+      "pickedSmallAreaCode": "XA4Q",
+      "confidenceScore": 80,
+      "alternatives": [
+        {
+          "smallAreaName": "荒川区その他",
+          "smallAreaCode": "XA4Q",
+          "score": 80
+        }
+      ]
+    },
+    {
+      "station": "本山",
+      "middleAreaCode": "Y222",
+      "middleAreaName": "本山・覚王山・藤が丘",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "藤が丘(名古屋)",
+          "smallAreaCode": "X451",
+          "expectedCandidates": [
+            "藤が丘(名古屋)"
+          ]
+        },
+        {
+          "smallAreaName": "名東区",
+          "smallAreaCode": "X492",
+          "expectedCandidates": [
+            "名東区"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "覚王山",
+      "middleAreaCode": "Y222",
+      "middleAreaName": "本山・覚王山・藤が丘",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "藤が丘(名古屋)",
+          "smallAreaCode": "X451",
+          "expectedCandidates": [
+            "藤が丘(名古屋)"
+          ]
+        },
+        {
+          "smallAreaName": "名東区",
+          "smallAreaCode": "X492",
+          "expectedCandidates": [
+            "名東区"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "藤が丘",
+      "middleAreaCode": "Y222",
+      "middleAreaName": "本山・覚王山・藤が丘",
+      "pickedSmallAreaName": "藤が丘(名古屋)",
+      "pickedSmallAreaCode": "X451",
+      "confidenceScore": 80,
+      "alternatives": [
+        {
+          "smallAreaName": "藤が丘(名古屋)",
+          "smallAreaCode": "X451",
+          "score": 80
+        }
+      ]
+    },
+    {
+      "station": "麻生",
+      "middleAreaCode": "Y510",
+      "middleAreaName": "麻生・北24条（北区・東区）",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "札幌市東区",
+          "smallAreaCode": "X503",
+          "expectedCandidates": [
+            "札幌市東区"
+          ]
+        },
+        {
+          "smallAreaName": "北24条",
+          "smallAreaCode": "X507",
+          "expectedCandidates": [
+            "北24条"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "北24条（北区",
+      "middleAreaCode": "Y510",
+      "middleAreaName": "麻生・北24条（北区・東区）",
+      "pickedSmallAreaName": "北24条",
+      "pickedSmallAreaCode": "X507",
+      "confidenceScore": 70,
+      "alternatives": [
+        {
+          "smallAreaName": "北24条",
+          "smallAreaCode": "X507",
+          "score": 70
+        }
+      ]
+    },
+    {
+      "station": "東区）",
+      "middleAreaCode": "Y510",
+      "middleAreaName": "麻生・北24条（北区・東区）",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "札幌市東区",
+          "smallAreaCode": "X503",
+          "expectedCandidates": [
+            "札幌市東区"
+          ]
+        },
+        {
+          "smallAreaName": "北24条",
+          "smallAreaCode": "X507",
+          "expectedCandidates": [
+            "北24条"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "恩納村",
+      "middleAreaCode": "Y964",
+      "middleAreaName": "名護・恩納村・本部町",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "名護",
+          "smallAreaCode": "X119",
+          "expectedCandidates": [
+            "名護"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "本部町",
+      "middleAreaCode": "Y964",
+      "middleAreaName": "名護・恩納村・本部町",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "名護",
+          "smallAreaCode": "X119",
+          "expectedCandidates": [
+            "名護"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "北浜",
+      "middleAreaCode": "Y305",
+      "middleAreaName": "淀屋橋・本町・北浜・天満橋",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "淀屋橋",
+          "smallAreaCode": "X335",
+          "expectedCandidates": [
+            "淀屋橋"
+          ]
+        },
+        {
+          "smallAreaName": "本町",
+          "smallAreaCode": "X340",
+          "expectedCandidates": [
+            "本町"
+          ]
+        }
+      ]
+    },
+    {
+      "station": "天満橋",
+      "middleAreaCode": "Y305",
+      "middleAreaName": "淀屋橋・本町・北浜・天満橋",
+      "reason": "no_confident_match",
+      "smallAreas": [
+        {
+          "smallAreaName": "淀屋橋",
+          "smallAreaCode": "X335",
+          "expectedCandidates": [
+            "淀屋橋"
+          ]
+        },
+        {
+          "smallAreaName": "本町",
+          "smallAreaCode": "X340",
+          "expectedCandidates": [
+            "本町"
+          ]
+        }
+      ]
+    }
+  ]
+}

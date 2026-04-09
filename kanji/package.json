@@ -7,6 +7,9 @@
     "build": "next build",
     "start": "next start",
     "generate:stations": "node scripts/generate-station-defs.mjs",
+    "build:station-candidates": "node scripts/build-station-candidates.mjs",
+    "find:station-gaps": "node scripts/find-station-gaps.mjs",
+    "build:manual-hp-area-draft": "node scripts/build-manual-hp-area-draft.mjs",
     "lint": "eslint"
     
   },
