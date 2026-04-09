@@ -1479,43 +1479,53 @@ return (
             ① ホーム
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'home' && (
-          <div className="space-y-5">
-
+          <motion.div
+            className="space-y-5"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
             {/* 進行中の会 — リスト or 空状態 */}
             <section>
               <SectionLabel>進行中の会</SectionLabel>
               {savedEvents.length > 0 ? (
-                <div className="mt-2.5 space-y-2">
-                  {savedEvents.map(ev => (
-                    <button
-                      type="button"
-                      key={ev.id}
-                      onClick={() => openSavedEvent(ev.id, ev.name, ev.eventType)}
-                      className="flex w-full items-center justify-between rounded-2xl bg-white px-5 py-4 text-left shadow-sm ring-1 ring-stone-100 transition hover:shadow-md active:scale-[0.99]"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-base font-black tracking-tight text-stone-900">{ev.name}</p>
-                        <p className="mt-0.5 text-xs text-stone-400">{ev.eventType}</p>
-                      </div>
-                      <div className="ml-3 flex shrink-0 items-center gap-2">
-                        {(() => {
-                          const s = ev.status ?? 'date_pending'
-                          const cfg =
-                            s === 'store_confirmed'
-                              ? { label: 'お店決定済み', cls: 'bg-emerald-50 text-emerald-600 ring-emerald-200' }
-                              : s === 'store_pending'
-                              ? { label: 'お店未確定', cls: 'bg-sky-50 text-sky-600 ring-sky-200' }
-                              : { label: '日程未確定', cls: 'bg-amber-50 text-amber-600 ring-amber-200' }
-                          return (
-                            <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${cfg.cls}`}>
-                              {cfg.label}
-                            </span>
-                          )
-                        })()}
-                        <span className="text-xs font-bold text-stone-400">開く →</span>
-                      </div>
-                    </button>
-                  ))}
+                <div className="mt-2.5 space-y-2.5">
+                  {savedEvents.map((ev, idx) => {
+                    // ステータス設定（アイコン付き）
+                    const s = ev.status ?? 'date_pending'
+                    const statusCfg =
+                      s === 'store_confirmed'
+                        ? { label: 'お店決定済み', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200', Icon: CheckCircle2 }
+                        : s === 'store_pending'
+                        ? { label: 'お店未確定', cls: 'bg-sky-50 text-sky-700 ring-sky-200', Icon: Sparkles }
+                        : { label: '回答収集中', cls: 'bg-amber-50 text-amber-700 ring-amber-200', Icon: Clock }
+                    const { Icon: StatusIcon } = statusCfg
+                    return (
+                      <motion.button
+                        type="button"
+                        key={ev.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.22, delay: idx * 0.06, ease: 'easeOut' }}
+                        whileTap={{ scale: 0.985 }}
+                        onClick={() => openSavedEvent(ev.id, ev.name, ev.eventType)}
+                        className="group flex w-full items-center justify-between rounded-2xl bg-white px-5 py-4 text-left shadow-sm ring-1 ring-stone-100 transition-shadow hover:shadow-md"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-base font-black tracking-tight text-stone-900">{ev.name}</p>
+                          <p className="mt-0.5 text-xs text-stone-400">{ev.eventType}</p>
+                        </div>
+                        <div className="ml-3 flex shrink-0 items-center gap-2">
+                          {/* ステータスバッジ（アイコン付き） */}
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${statusCfg.cls}`}>
+                            <StatusIcon size={10} strokeWidth={2.5} />
+                            {statusCfg.label}
+                          </span>
+                          <ArrowRight size={14} className="text-stone-300 transition-transform group-hover:translate-x-0.5" />
+                        </div>
+                      </motion.button>
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="mt-2.5 rounded-3xl bg-white px-6 py-10 text-center shadow-sm ring-1 ring-stone-100">
@@ -1527,7 +1537,7 @@ return (
               )}
             </section>
 
-          </div>
+          </motion.div>
         )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2406,14 +2416,24 @@ return (
   <div className="space-y-5">
     {/* 「候補を入れ替える」再取得中も同じローディングUIを使う */}
     {isLoadingStores && <StoreLoadingOverlay />}
-    <div className="px-1">
+
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, ease: 'easeOut' }}
+      className="px-1"
+    >
       <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 9</p>
       <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">お店を選ぶ</h2>
-    </div>
+    </motion.div>
 
     {storePool.length === 0 ? (
       /* ── 空状態 ─────────────────────────────────────────────── */
-      <div className="rounded-2xl bg-stone-50 px-6 py-10 text-center ring-1 ring-stone-100">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="rounded-2xl bg-stone-50 px-6 py-10 text-center ring-1 ring-stone-100"
+      >
         <p className="text-sm font-bold text-stone-700">条件に合う候補が見つかりませんでした</p>
         <p className="mt-2 text-sm leading-6 text-stone-400">
           {storeFetchError || '価格帯やジャンル条件を変えてお試しください。'}
@@ -2421,7 +2441,7 @@ return (
         <div className="mt-5">
           <GhostBtn onClick={() => setStep('organizerConditions')}>条件を調整する</GhostBtn>
         </div>
-      </div>
+      </motion.div>
     ) : (
       /* ── 候補あり ────────────────────────────────────────────── */
       <>
@@ -2430,124 +2450,210 @@ return (
             {storeFetchError}
           </div>
         )}
-        {storeSelectNotes.map((note, i) => (
-          <div key={i} className="rounded-xl bg-stone-50 px-4 py-3 text-xs text-stone-500 ring-1 ring-stone-100">
-            {note}
-          </div>
-        ))}
 
-        {/* 条件チップ */}
+        {/* 条件チップ — stagger で表示 */}
         {organizerConditions.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 px-0.5">
+          <motion.div
+            className="flex flex-wrap gap-1.5 px-0.5"
+            initial="hidden"
+            animate="visible"
+            variants={{ visible: { transition: { staggerChildren: 0.05 } } }}
+          >
             {organizerConditions.map(c => (
-              <span key={c} className="rounded-full bg-stone-100 px-3 py-1 text-xs font-bold text-stone-600">
+              <motion.span
+                key={c}
+                variants={{ hidden: { opacity: 0, scale: 0.88 }, visible: { opacity: 1, scale: 1 } }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="inline-flex items-center rounded-full bg-stone-800 px-3 py-1 text-[11px] font-bold text-white/80"
+              >
                 {c}
-              </span>
+              </motion.span>
             ))}
-          </div>
+          </motion.div>
         )}
 
-        {/* Best候補 — 決定用ヒーロー */}
-        {primaryStore && (
-          <div className="overflow-hidden rounded-2xl bg-stone-900">
-            {primaryStore.image && (
-              <div className="h-48 overflow-hidden sm:h-56">
-                <img src={primaryStore.image} alt={primaryStore.name}
-                  className="h-full w-full object-cover object-center opacity-80" />
-              </div>
-            )}
-            <div className="px-5 pt-5 pb-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/35">Best Choice</p>
-              <h3 className="mt-1.5 text-xl font-black tracking-tight text-white leading-snug">
-                {primaryStore.name}
-              </h3>
-              {primaryStore.access && (
-                <p className="mt-1 text-xs text-white/40">{primaryStore.access}</p>
+        {/* Best候補 — selectedStoreId が変わると AnimatePresence で自然に入れ替わる */}
+        <AnimatePresence mode="wait">
+          {primaryStore && (
+            <motion.div
+              key={primaryStore.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+              className="overflow-hidden rounded-3xl bg-stone-900 shadow-lg shadow-stone-900/20"
+            >
+              {/* 画像エリア */}
+              {primaryStore.image && (
+                <div className="relative h-52 overflow-hidden sm:h-60">
+                  <img
+                    src={primaryStore.image}
+                    alt={primaryStore.name}
+                    className="h-full w-full object-cover object-center"
+                    style={{ filter: 'brightness(0.55)' }}
+                  />
+                  {/* グラデーションオーバーレイ */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-stone-900/80 via-stone-900/10 to-transparent" />
+                  {/* Best Choice バッジ（画像上） */}
+                  <div className="absolute left-4 top-4">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white backdrop-blur-sm ring-1 ring-white/20">
+                      <Sparkles size={9} strokeWidth={2.5} />
+                      Best Choice
+                    </span>
+                  </div>
+                  {/* Google評価（画像右下） */}
+                  {primaryStore.googleRating && (
+                    <div className="absolute bottom-3 right-4 flex items-center gap-1 rounded-full bg-black/40 px-2.5 py-1 backdrop-blur-sm">
+                      <Star size={10} className="fill-amber-400 text-amber-400" />
+                      <span className="text-[11px] font-bold text-white">
+                        {primaryStore.googleRating.toFixed(1)}
+                        {primaryStore.googleRatingCount
+                          ? <span className="ml-0.5 font-normal text-white/60">（{primaryStore.googleRatingCount.toLocaleString()}件）</span>
+                          : null}
+                      </span>
+                    </div>
+                  )}
+                </div>
               )}
-            </div>
 
-            <div className="px-5 pb-5">
-              <p className="text-sm leading-6 text-white/65">
-                {primaryStore.reason || storeReason}
-              </p>
-              {primaryStore.googleRating && (
-                <p className="mt-3 text-[11px] text-white/30">
-                  Google ★ {primaryStore.googleRating.toFixed(1)}
-                  {primaryStore.googleRatingCount ? `（${primaryStore.googleRatingCount.toLocaleString()}件）` : ''}
-                </p>
-              )}
-            </div>
+              {/* テキスト + 情報 */}
+              <div className="px-5 pt-5 pb-4">
+                {/* 画像がないときだけ Best Choice バッジを表示 */}
+                {!primaryStore.image && (
+                  <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/60 ring-1 ring-white/10">
+                    <Sparkles size={9} strokeWidth={2.5} />
+                    Best Choice
+                  </span>
+                )}
+                <h3 className="text-xl font-black tracking-tight text-white leading-snug">
+                  {primaryStore.name}
+                </h3>
 
-            {primaryStore.link && (
-              <div className="px-5 pb-5">
-                <a
-                  href={primaryStore.link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-3.5 text-sm font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
-                >
-                  ホットペッパーで予約を確認する
-                </a>
+                {/* アクセス + エリア情報 */}
+                {primaryStore.access && (
+                  <div className="mt-2 flex items-start gap-1.5">
+                    <Train size={11} className="mt-0.5 shrink-0 text-white/35" />
+                    <p className="text-xs leading-5 text-white/45">{primaryStore.access}</p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        )}
 
-        {/* 2位以下 — 軽量比較カード */}
+              {/* 理由文 */}
+              <div className="px-5 pb-4">
+                <p className="text-sm leading-6 text-white/65">{primaryStore.reason || storeReason}</p>
+              </div>
+
+              {/* タグチップ */}
+              {primaryStore.tags && primaryStore.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 px-5 pb-4">
+                  {primaryStore.tags.slice(0, 4).map(tag => tag ? (
+                    <span key={tag} className="rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-white/55">
+                      {tag}
+                    </span>
+                  ) : null)}
+                </div>
+              )}
+
+              {/* 予約リンク */}
+              {primaryStore.link && (
+                <div className="px-5 pb-5">
+                  <a
+                    href={primaryStore.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3.5 text-sm font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
+                  >
+                    <ExternalLink size={14} strokeWidth={2.5} />
+                    ホットペッパーで予約を確認する
+                  </a>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 2位以下 — 選択可能カード（stagger表示） */}
         {secondaryStores.length > 0 && (
           <div className="space-y-2">
             <p className="px-0.5 text-[10px] font-black tracking-[0.15em] text-stone-400 uppercase">他の候補</p>
-            {secondaryStores.map((store: StoreCandidate) => (
-              /* タップでこの店を選択（selectedStoreId を更新 → primaryStore が入れ替わる） */
-              <button
-                type="button"
-                key={store.id}
-                onClick={() => setSelectedStoreId(store.id)}
-                className="flex w-full items-center gap-3 rounded-xl bg-white px-4 py-3.5 text-left ring-1 ring-stone-100 transition hover:shadow-sm hover:ring-stone-200 active:scale-[0.99]"
-              >
-                {store.image && (
-                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg">
-                    <img src={store.image} alt={store.name} className="h-full w-full object-cover" />
+            <motion.div
+              className="space-y-2"
+              initial="hidden"
+              animate="visible"
+              variants={{ visible: { transition: { staggerChildren: 0.07, delayChildren: 0.1 } } }}
+            >
+              {secondaryStores.map((store: StoreCandidate) => (
+                /* タップでこの店を選択 → selectedStoreId 更新で primaryStore が入れ替わる */
+                <motion.button
+                  type="button"
+                  key={store.id}
+                  variants={{ hidden: { opacity: 0, x: -6 }, visible: { opacity: 1, x: 0 } }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  whileTap={{ scale: 0.985 }}
+                  onClick={() => setSelectedStoreId(store.id)}
+                  className="group flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3.5 text-left shadow-sm ring-1 ring-stone-100 transition-shadow hover:shadow-md hover:ring-stone-200"
+                >
+                  {/* サムネイル or アイコン */}
+                  {store.image ? (
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl">
+                      <img src={store.image} alt={store.name} className="h-full w-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-stone-100">
+                      <UtensilsCrossed size={18} className="text-stone-400" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-stone-900 leading-snug">{store.name}</p>
+                    {store.access && (
+                      <p className="mt-0.5 flex items-center gap-1 text-[11px] text-stone-400">
+                        <Train size={9} className="shrink-0" />
+                        <span className="line-clamp-1">{store.access}</span>
+                      </p>
+                    )}
+                    {store.reason && !store.access && (
+                      <p className="mt-0.5 text-xs text-stone-400 line-clamp-1">{store.reason}</p>
+                    )}
                   </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-stone-900 leading-snug">{store.name}</p>
-                  {store.reason && (
-                    <p className="mt-0.5 text-xs text-stone-400 line-clamp-1">{store.reason}</p>
+                  {/* 詳細リンク */}
+                  {store.link && (
+                    <a
+                      href={store.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="shrink-0 rounded-xl bg-stone-50 px-3 py-1.5 text-xs font-bold text-stone-500 ring-1 ring-stone-200 transition hover:bg-stone-100 active:scale-95"
+                    >
+                      詳細
+                    </a>
                   )}
-                  {store.tags?.[1] && (
-                    <p className="mt-0.5 text-[11px] text-stone-400">{store.tags[1]}</p>
-                  )}
-                </div>
-                {store.link && (
-                  <a
-                    href={store.link}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="shrink-0 rounded-lg bg-stone-50 px-3 py-1.5 text-xs font-bold text-stone-600 ring-1 ring-stone-200 transition hover:bg-stone-100 active:scale-95"
-                  >
-                    詳細
-                  </a>
-                )}
-              </button>
-            ))}
+                </motion.button>
+              ))}
+            </motion.div>
           </div>
         )}
 
-        <div className="space-y-2 pt-1">
+        {/* CTA エリア */}
+        <motion.div
+          className="space-y-2 pt-1"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.25, duration: 0.3 }}
+        >
           <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
             この候補で進む
           </PrimaryBtn>
-          {/* 候補入れ替え：現在の5件を除外して別候補セットを新規取得 */}
-          <GhostBtn onClick={isLoadingStores ? undefined : refreshStores}>
-            候補を入れ替える
-          </GhostBtn>
-          {/* 条件変更：organizerConditions に戻る */}
-          <GhostBtn onClick={() => setStep('organizerConditions')}>
-            条件を変える
-          </GhostBtn>
-        </div>
+          <div className="grid grid-cols-2 gap-2">
+            {/* 候補入れ替え：現在の5件を除外して別候補セットを新規取得 */}
+            <GhostBtn onClick={isLoadingStores ? undefined : refreshStores}>
+              候補を入れ替える
+            </GhostBtn>
+            {/* 条件変更：organizerConditions に戻る */}
+            <GhostBtn onClick={() => setStep('organizerConditions')}>
+              条件を変える
+            </GhostBtn>
+          </div>
+        </motion.div>
       </>
     )}
   </div>
@@ -3013,23 +3119,82 @@ function ButtonRow({ children }: { children: React.ReactNode }) {
 
 // ─── 共通ローディングオーバーレイ ────────────────────────────────────────────
 // 初回検索・候補入れ替えのどちらでも同じUIを使う
+// skeleton カード + pulsing アイコンで「探している感」を演出
 function StoreLoadingOverlay() {
+  const steps = ['エリアで候補を絞っています', 'ジャンルと価格帯を確認中', 'ベスト候補を選んでいます']
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-stone-50/90 backdrop-blur-sm">
-      <div className="mx-4 w-full max-w-xs rounded-3xl bg-white px-8 py-10 text-center shadow-xl ring-1 ring-stone-100">
-        <div className="mb-4 flex justify-center">
-          <RefreshCw size={26} className="animate-spin text-stone-500" />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+        className="mx-4 w-full max-w-sm"
+      >
+        {/* メインカード */}
+        <div className="rounded-3xl bg-white px-6 py-7 shadow-xl ring-1 ring-stone-100">
+          {/* アイコン列 */}
+          <div className="mb-5 flex items-center justify-center gap-3">
+            {[MapPin, UtensilsCrossed, Sparkles].map((Icon, i) => (
+              <motion.div
+                key={i}
+                animate={{ opacity: [0.35, 1, 0.35] }}
+                transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.3, ease: 'easeInOut' }}
+                className="flex h-9 w-9 items-center justify-center rounded-2xl bg-stone-100"
+              >
+                <Icon size={16} className="text-stone-500" />
+              </motion.div>
+            ))}
+          </div>
+
+          <p className="text-center text-[15px] font-black text-stone-900">候補を探しています</p>
+
+          {/* ステップ文言 — 順番にフェード */}
+          <div className="mt-2 h-5 overflow-hidden text-center">
+            {steps.map((s, i) => (
+              <motion.p
+                key={s}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: [0, 1, 1, 0], y: [6, 0, 0, -6] }}
+                transition={{
+                  duration: 1.8,
+                  repeat: Infinity,
+                  repeatDelay: steps.length * 1.8 - 1.8,
+                  delay: i * 1.8,
+                  times: [0, 0.15, 0.8, 1],
+                }}
+                className="text-xs text-stone-400"
+              >
+                {s}
+              </motion.p>
+            ))}
+          </div>
+
+          {/* Skeleton カード群 */}
+          <div className="mt-5 space-y-2.5">
+            {[1, 2, 3].map((_, i) => (
+              <motion.div
+                key={i}
+                animate={{ opacity: [0.4, 0.8, 0.4] }}
+                transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.2, ease: 'easeInOut' }}
+                className="flex items-center gap-3 rounded-2xl bg-stone-50 px-3 py-3"
+              >
+                <div className={`h-10 shrink-0 rounded-xl bg-stone-200 ${i === 0 ? 'w-16' : 'w-10'}`} />
+                <div className="flex-1 space-y-1.5">
+                  <div className={`h-2.5 rounded-full bg-stone-200 ${i === 0 ? 'w-2/3' : 'w-1/2'}`} />
+                  <div className="h-2 w-1/3 rounded-full bg-stone-100" />
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
-        <p className="text-base font-black text-stone-900">候補を探しています</p>
-        <p className="mt-2 text-sm leading-5 text-stone-400">
-          条件に合うお店を整理しています
-        </p>
-        <p className="mt-1 text-xs text-stone-300">少し時間がかかることがあります</p>
-      </div>
+        <p className="mt-3 text-center text-[11px] text-stone-400">少し時間がかかることがあります</p>
+      </motion.div>
     </div>
   )
 }
 
+// ─── ボタンコンポーネント ─────────────────────────────────────────────────────
+// Framer Motion の whileTap で押し込み感を統一
 function PrimaryBtn({
   children,
   onClick,
@@ -3042,30 +3207,36 @@ function PrimaryBtn({
   disabled?: boolean
 }) {
   return (
-    <button
+    <motion.button
+      type="button"
       onClick={disabled ? undefined : onClick}
       disabled={disabled}
+      whileTap={disabled ? {} : { scale: 0.975 }}
+      transition={{ duration: 0.12 }}
       className={cx(
-        'w-full rounded-2xl font-bold tracking-wide transition duration-150 active:scale-[0.98]',
+        'w-full rounded-2xl font-bold tracking-wide transition-colors duration-150',
         size === 'large' ? 'py-4 text-[15px]' : 'py-3 text-sm',
         disabled
-          ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
-          : 'bg-stone-900 text-white shadow-md shadow-stone-900/15 hover:bg-stone-800'
+          ? 'cursor-not-allowed bg-stone-200 text-stone-400'
+          : 'bg-stone-900 text-white shadow-md shadow-stone-900/20 hover:bg-stone-800'
       )}
     >
       {children}
-    </button>
+    </motion.button>
   )
 }
 
 function GhostBtn({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
   return (
-    <button type="button"
+    <motion.button
+      type="button"
       onClick={onClick}
-      className="inline-flex w-full items-center justify-center gap-1.5 rounded-2xl px-4 py-3 text-sm font-medium text-stone-400 transition duration-150 hover:text-stone-600 active:scale-[0.98]"
+      whileTap={{ scale: 0.975 }}
+      transition={{ duration: 0.12 }}
+      className="inline-flex w-full items-center justify-center gap-1.5 rounded-2xl px-4 py-3 text-sm font-medium text-stone-400 transition-colors duration-150 hover:bg-stone-100 hover:text-stone-600"
     >
       {children}
-    </button>
+    </motion.button>
   )
 }
 
