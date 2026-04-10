@@ -2325,7 +2325,7 @@ return (
             )}
 
             {/* 条件リスト */}
-            <div className="divide-y divide-stone-100 rounded-2xl bg-white ring-1 ring-stone-200/80 shadow-sm overflow-hidden">
+            <div className="divide-y divide-stone-100 rounded-2xl bg-white ring-1 ring-stone-200/80 shadow-sm">
 
               {/* 駅 */}
               <div className="px-4 py-4">
@@ -2335,6 +2335,7 @@ return (
                 </div>
                 <StationInput
                   single
+                  placeholder="駅名を入力（ひらがなでもOK）"
                   value={orgPrefs.areas}
                   onChange={(stations) => {
                     setOrgPrefs((p) => ({ ...p, areas: stations }))

@@ -65,7 +65,7 @@ export function StationInput({
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
-    if (query.length < 2) {
+    if (query.length < 1) {
       setSuggestions([])
       setOpen(false)
       return
@@ -163,7 +163,7 @@ export function StationInput({
           className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-300 focus:bg-white"
         />
         {single && !committed && query.length > 0 && (
-          <p className="mt-1.5 text-xs text-stone-400">候補から選んでください（Enterで先頭候補を確定）</p>
+          <p className="mt-1.5 text-xs text-stone-400">一覧から選んでください（Enterで先頭を確定）</p>
         )}
         {loading && (
           <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
