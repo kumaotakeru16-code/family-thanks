@@ -1,0 +1,203 @@
+// app/lib/settlement.ts
+// 清算機能のすべての型と計算ロジックを集約する
+
+export type ParticipantRole = '主賓' | '上長' | '先輩' | '通常'
+
+export const ROLES: readonly ParticipantRole[] = ['主賓', '上長', '先輩', '通常']
+
+export type GradientConfig = {
+  主賓: number
+  上長: number
+  先輩: number
+  通常: number
+}
+
+export const DEFAULT_GRADIENT: GradientConfig = {
+  主賓: 0,
+  上長: 1.5,
+  先輩: 1.3,
+  通常: 1.0,
+}
+
+export type PartyConfig = {
+  id: string          // '1次会' | '2次会'
+  participantIds: string[]
+  totalAmount: number // 合計会計（円）
+  useGradient: boolean
+}
+
+export type SettlementConfig = {
+  parties: PartyConfig[]
+  roles: Record<string, ParticipantRole> // participantId → role
+  gradient: GradientConfig
+}
+
+// ── 計算結果の型 ────────────────────────────────────────────────────────────
+
+export type PersonPartyAmount = {
+  participantId: string
+  roundedAmount: number // 100円切り上げ後
+}
+
+export type PartyResult = {
+  id: string
+  totalAmount: number
+  useGradient: boolean
+  perPerson: PersonPartyAmount[]
+  roundedTotal: number // 丸め後の合計
+  remainder: number   // roundedTotal - totalAmount（差額）
+}
+
+export type PersonResult = {
+  participantId: string
+  name: string
+  role: ParticipantRole
+  partyAmounts: number[] // 各会ごとの支払額（その会に不参加なら 0）
+  total: number           // 合計支払額
+}
+
+export type SettlementResult = {
+  partyResults: PartyResult[]
+  personResults: PersonResult[]
+}
+
+// ── ユーティリティ関数 ───────────────────────────────────────────────────────
+
+/** 100円単位で切り上げ */
+export function roundUp100(n: number): number {
+  if (n <= 0) return 0
+  return Math.ceil(n / 100) * 100
+}
+
+/** 金額を日本語フォーマット（コンマ区切り） */
+export function formatYen(n: number): string {
+  return n.toLocaleString('ja-JP')
+}
+
+// ── メイン計算関数 ───────────────────────────────────────────────────────────
+
+export function calcSettlement(
+  config: SettlementConfig,
+  participants: { id: string; name: string }[]
+): SettlementResult {
+  const { parties, roles, gradient } = config
+  const byId = new Map(participants.map((p) => [p.id, p]))
+
+  const partyResults: PartyResult[] = parties.map((party) => {
+    const members = party.participantIds
+      .map((id) => byId.get(id))
+      .filter((p): p is { id: string; name: string } => !!p)
+
+    if (members.length === 0 || party.totalAmount <= 0) {
+      return {
+        id: party.id,
+        totalAmount: party.totalAmount,
+        useGradient: party.useGradient,
+        perPerson: members.map((m) => ({ participantId: m.id, roundedAmount: 0 })),
+        roundedTotal: 0,
+        remainder: 0,
+      }
+    }
+
+    const perPerson: PersonPartyAmount[] = []
+
+    if (!party.useGradient) {
+      // 均等割り
+      const each = party.totalAmount / members.length
+      for (const m of members) {
+        perPerson.push({ participantId: m.id, roundedAmount: roundUp100(each) })
+      }
+    } else {
+      // 傾斜配分
+      const weights = members.map((m) => gradient[roles[m.id] ?? '通常'] ?? 1.0)
+      const totalWeight = weights.reduce((a, b) => a + b, 0)
+
+      for (let i = 0; i < members.length; i++) {
+        const w = weights[i]
+        if (w === 0) {
+          perPerson.push({ participantId: members[i].id, roundedAmount: 0 })
+        } else {
+          const raw = totalWeight > 0 ? (party.totalAmount * w) / totalWeight : 0
+          perPerson.push({ participantId: members[i].id, roundedAmount: roundUp100(raw) })
+        }
+      }
+    }
+
+    const roundedTotal = perPerson.reduce((s, p) => s + p.roundedAmount, 0)
+    return {
+      id: party.id,
+      totalAmount: party.totalAmount,
+      useGradient: party.useGradient,
+      perPerson,
+      roundedTotal,
+      remainder: roundedTotal - party.totalAmount,
+    }
+  })
+
+  // ── 人物ごとの集計 ────────────────────────────────────────────────────────
+  const allIds = new Set<string>()
+  parties.forEach((p) => p.participantIds.forEach((id) => allIds.add(id)))
+
+  const roleOrder: Record<ParticipantRole, number> = { 主賓: 0, 上長: 1, 先輩: 2, 通常: 3 }
+
+  const personResults: PersonResult[] = [...allIds]
+    .map((id) => {
+      const p = byId.get(id)
+      if (!p) return null
+      const partyAmounts = partyResults.map((pr) => {
+        const entry = pr.perPerson.find((e) => e.participantId === id)
+        return entry?.roundedAmount ?? 0
+      })
+      return {
+        participantId: id,
+        name: p.name,
+        role: roles[id] ?? '通常',
+        partyAmounts,
+        total: partyAmounts.reduce((a, b) => a + b, 0),
+      } satisfies PersonResult
+    })
+    .filter((p): p is PersonResult => p !== null)
+    .sort((a, b) => roleOrder[a.role] - roleOrder[b.role] || a.name.localeCompare(b.name, 'ja'))
+
+  return { partyResults, personResults }
+}
+
+// ── 共有メッセージ生成 ────────────────────────────────────────────────────────
+
+export function generateSettlementMessage(
+  result: SettlementResult,
+  partyIds: string[],
+  storeName?: string
+): string {
+  const lines: string[] = ['会計まとめです。ご確認ください。']
+  if (storeName) lines.push(`【${storeName}】`)
+  lines.push('')
+
+  const activeParties = result.partyResults.filter((pr) => pr.totalAmount > 0)
+
+  for (let i = 0; i < result.partyResults.length; i++) {
+    const pr = result.partyResults[i]
+    if (pr.totalAmount <= 0) continue
+    lines.push(`【${partyIds[i] ?? pr.id}】`)
+    for (const pp of pr.perPerson) {
+      const person = result.personResults.find((p) => p.participantId === pp.participantId)
+      if (!person) continue
+      lines.push(`${person.name}　${formatYen(pp.roundedAmount)}円`)
+    }
+    lines.push('')
+  }
+
+  // 複数次会がある場合のみ合計欄を出す
+  if (activeParties.length > 1) {
+    lines.push('【合計】')
+    for (const person of result.personResults) {
+      if (person.total > 0) {
+        lines.push(`${person.name}　${formatYen(person.total)}円`)
+      }
+    }
+    lines.push('')
+  }
+
+  lines.push('よろしくお願いします🙏')
+  return lines.join('\n')
+}
