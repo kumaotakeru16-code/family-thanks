@@ -135,14 +135,14 @@ function PartySection({
           <button
             type="button"
             onClick={() => onGradientToggle(!useGradient)}
-            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+            className={`relative h-6 w-11 shrink-0 overflow-hidden rounded-full transition-colors ${
               useGradient ? 'bg-stone-900' : 'bg-stone-200'
             }`}
             aria-pressed={useGradient}
           >
             <span
-              className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                useGradient ? 'translate-x-[20px]' : 'translate-x-0.5'
+              className={`absolute left-0 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                useGradient ? 'translate-x-[22px]' : 'translate-x-0.5'
               }`}
             />
           </button>

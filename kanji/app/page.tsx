@@ -599,6 +599,13 @@ export default function Page() {
   const [organizerSettings, setOrganizerSettings] = useState<OrganizerSettings>(() => loadOrganizerSettings())
   const [userSettings, setUserSettings] = useState<UserSettings>(() => loadUserSettings())
 
+  // ── スプラッシュ ─────────────────────────────────────────────────────────────
+  const [showSplash, setShowSplash] = useState(true)
+  useEffect(() => {
+    const t = setTimeout(() => setShowSplash(false), 1800)
+    return () => clearTimeout(t)
+  }, [])
+
   // ── 手動店舗 state ───────────────────────────────────────────────────────────
   const [isManualStore, setIsManualStore] = useState(false)
   const [manualStoreName, setManualStoreName] = useState('')
@@ -1587,6 +1594,42 @@ const backStep: Step | null = (() => {
 
 
 return (
+  <>
+  <AnimatePresence>
+    {showSplash && (
+      <motion.div
+        key="splash"
+        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
+        style={{ background: '#1C1917' }}
+        initial={{ opacity: 1 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.5, ease: 'easeInOut' }}
+      >
+        {/* アイコン */}
+        <motion.div
+          initial={{ scale: 0.82, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
+          className="mb-6 flex h-24 w-24 items-center justify-center rounded-[28px] bg-stone-800 ring-1 ring-white/10"
+        >
+          <div className="flex flex-col items-center gap-0.5">
+            <CalendarDays size={28} className="text-white/80" strokeWidth={1.8} />
+            <span className="text-[17px] font-black tracking-tight text-white">幹事</span>
+          </div>
+        </motion.div>
+        {/* アプリ名 */}
+        <motion.p
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.35 }}
+          className="text-[13px] font-bold tracking-[0.18em] text-white/40 uppercase"
+        >
+          KANJI
+        </motion.p>
+      </motion.div>
+    )}
+  </AnimatePresence>
   <main className="min-h-screen" style={{ background: '#F5F3EF' }}>
     <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 pb-20 pt-6 sm:px-5">
       {/* ── グローバルナビ — ホーム以外で表示 ─────────────────────────────────── */}
@@ -3272,17 +3315,8 @@ ${finalStore?.link ?? ''}`
 
           {/* 共有文 + CTA */}
           <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3">
               <p className="text-sm font-bold text-stone-900">共有文</p>
-              <label className="flex cursor-pointer items-center gap-1.5">
-                <input
-                  type="checkbox"
-                  checked={urlOnly}
-                  onChange={e => setUrlOnly(e.target.checked)}
-                  className="h-3.5 w-3.5 accent-stone-900"
-                />
-                <span className="text-[11px] font-bold text-stone-500">URLのみ</span>
-              </label>
             </div>
             <div className="rounded-2xl bg-stone-50 p-4">
               <p className="whitespace-pre-line text-sm leading-6 text-stone-700">
@@ -3612,6 +3646,7 @@ ${finalStore?.link ?? ''}`
         )}
       </AnimatePresence>
     </main>
+  </>
   )
 }
 
