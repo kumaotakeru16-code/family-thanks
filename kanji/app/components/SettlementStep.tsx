@@ -563,6 +563,44 @@ export function SettlementStep({
         )}
       </div>
 
+      {/* 役割設定（傾斜配分モードのみ表示） */}
+      {mode === 'gradient' && <div className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-stone-100">
+        <div className="mb-3 flex items-center gap-1.5">
+          <Users size={12} className="text-stone-400" strokeWidth={2.5} />
+          <p className="text-[10px] font-black uppercase tracking-wider text-stone-500">役割設定</p>
+        </div>
+        {participants.length === 0 ? (
+          <p className="text-xs text-stone-400">参加者がいません</p>
+        ) : (
+          <div className="space-y-3">
+            {participants.map((p) => (
+              <div key={p.id} className="flex items-center gap-2">
+                <span className="w-16 shrink-0 truncate text-sm font-bold text-stone-800">
+                  {p.name}
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {ROLES.map((role) => {
+                    const active = roles[p.id] === role
+                    return (
+                      <button
+                        key={role}
+                        type="button"
+                        onClick={() => setRoles((r) => ({ ...r, [p.id]: role }))}
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
+                          active ? ROLE_COLORS[role] : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+                        }`}
+                      >
+                        {role}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>}
+
       {/* 1次会 */}
       <PartySection
         label="1次会"
@@ -633,44 +671,6 @@ export function SettlementStep({
           </button>
         </div>
       )}
-
-      {/* 役割設定（傾斜配分モードのみ表示） */}
-      {mode === 'gradient' && <div className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-stone-100">
-        <div className="mb-3 flex items-center gap-1.5">
-          <Users size={12} className="text-stone-400" strokeWidth={2.5} />
-          <p className="text-[10px] font-black uppercase tracking-wider text-stone-500">役割設定</p>
-        </div>
-        {participants.length === 0 ? (
-          <p className="text-xs text-stone-400">参加者がいません</p>
-        ) : (
-          <div className="space-y-3">
-            {participants.map((p) => (
-              <div key={p.id} className="flex items-center gap-2">
-                <span className="w-16 shrink-0 truncate text-sm font-bold text-stone-800">
-                  {p.name}
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {ROLES.map((role) => {
-                    const active = roles[p.id] === role
-                    return (
-                      <button
-                        key={role}
-                        type="button"
-                        onClick={() => setRoles((r) => ({ ...r, [p.id]: role }))}
-                        className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition active:scale-95 ${
-                          active ? ROLE_COLORS[role] : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
-                        }`}
-                      >
-                        {role}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>}
 
       {/* 傾斜設定（gradient モードのみ） */}
       {mode === 'gradient' && (
