@@ -20,12 +20,26 @@ import {
 
 type Person = { id: string; name: string }
 
+export type SettlementDraft = {
+  party1Ids: string[]
+  party1Amount: string
+  party1Gradient: boolean
+  showParty2: boolean
+  party2Ids: string[]
+  party2Amount: string
+  party2Gradient: boolean
+  roles: Record<string, ParticipantRole>
+  gradient: GradientConfig
+}
+
 type Props = {
   participants: Person[]
   organizerSettings: OrganizerSettings
   onSaveSettings: (s: OrganizerSettings) => void
   onSubmit: (config: SettlementConfig) => void
   onBack: () => void
+  initialDraft?: SettlementDraft | null
+  onSaveDraft?: (draft: SettlementDraft) => void
 }
 
 // ── 内部コンポーネント: 会設定セクション ─────────────────────────────────────
@@ -126,7 +140,7 @@ function PartySection({
         >
           <span
             className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-              useGradient ? 'translate-x-[22px]' : 'translate-x-0.5'
+              useGradient ? 'translate-x-[20px]' : 'translate-x-0.5'
             }`}
           />
         </button>
@@ -299,20 +313,21 @@ const ROLE_COLORS: Record<ParticipantRole, string> = {
 
 // ── メインコンポーネント ───────────────────────────────────────────────────────
 
-export function SettlementStep({ participants, organizerSettings, onSaveSettings, onSubmit, onBack }: Props) {
+export function SettlementStep({ participants, organizerSettings, onSaveSettings, onSubmit, onBack, initialDraft, onSaveDraft }: Props) {
   // ── 1次会 ──
-  const [party1Ids, setParty1Ids] = useState<string[]>(participants.map((p) => p.id))
-  const [party1Amount, setParty1Amount] = useState('')
-  const [party1Gradient, setParty1Gradient] = useState(true)
+  const [party1Ids, setParty1Ids] = useState<string[]>(initialDraft?.party1Ids ?? participants.map((p) => p.id))
+  const [party1Amount, setParty1Amount] = useState(initialDraft?.party1Amount ?? '')
+  const [party1Gradient, setParty1Gradient] = useState(initialDraft?.party1Gradient ?? true)
 
   // ── 2次会 ──
-  const [showParty2, setShowParty2] = useState(false)
-  const [party2Ids, setParty2Ids] = useState<string[]>([])
-  const [party2Amount, setParty2Amount] = useState('')
-  const [party2Gradient, setParty2Gradient] = useState(false)
+  const [showParty2, setShowParty2] = useState(initialDraft?.showParty2 ?? false)
+  const [party2Ids, setParty2Ids] = useState<string[]>(initialDraft?.party2Ids ?? [])
+  const [party2Amount, setParty2Amount] = useState(initialDraft?.party2Amount ?? '')
+  const [party2Gradient, setParty2Gradient] = useState(initialDraft?.party2Gradient ?? false)
 
   // ── 役割（初期値は通常） ──
   const [roles, setRoles] = useState<Record<string, ParticipantRole>>(() => {
+    if (initialDraft?.roles) return initialDraft.roles
     const r: Record<string, ParticipantRole> = {}
     participants.forEach((p) => { r[p.id] = '通常' })
     return r
@@ -320,7 +335,7 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
 
   // ── 傾斜設定（保存済み defaultGradient を反映） ──
   const [gradient, setGradient] = useState<GradientConfig>(() =>
-    toGradientConfig(organizerSettings.defaultGradient)
+    initialDraft?.gradient ?? toGradientConfig(organizerSettings.defaultGradient)
   )
   const [showGradient, setShowGradient] = useState(false)
 
@@ -350,6 +365,7 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
         useGradient: party2Gradient,
       })
     }
+    onSaveDraft?.({ party1Ids, party1Amount, party1Gradient, showParty2, party2Ids, party2Amount, party2Gradient, roles, gradient })
     onSubmit({ parties, roles, gradient })
   }
 
@@ -505,31 +521,40 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
                 const baseRounded = roundUp100(base)
                 const previewEnabled = party1Gradient && totalAmt > 0
 
+                // 1次会参加者に存在する役割のみアクティブ
+                const activeRoles = new Set(party1Ids.map((id) => roles[id] ?? '通常'))
+
                 const previewAmount = (coeff: number) =>
                   coeff === 0 ? 0 : roundUp100(base * coeff)
 
                 return (
                   <div className="space-y-4 border-t border-stone-100 px-4 pb-4 pt-3">
                     {/* 主賓（固定0） */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-stone-700">主賓</span>
-                      <span className="text-sm text-stone-400">
-                        0.0
-                        {previewEnabled && (
-                          <span className="ml-2 font-medium text-stone-500">¥0</span>
-                        )}
-                      </span>
-                    </div>
+                    {(() => {
+                      const isPresent = activeRoles.has('主賓')
+                      return (
+                        <div className={`flex items-center justify-between ${!isPresent ? 'opacity-30' : ''}`}>
+                          <span className="text-sm font-bold text-stone-700">主賓</span>
+                          <span className="text-sm text-stone-400">
+                            {isPresent ? '0.0' : '—'}
+                            {previewEnabled && isPresent && (
+                              <span className="ml-2 font-medium text-stone-500">¥0</span>
+                            )}
+                          </span>
+                        </div>
+                      )
+                    })()}
 
                     {(['上長', '先輩', '通常'] as const).map((role) => {
+                      const isPresent = activeRoles.has(role)
                       const amt = previewAmount(gradient[role])
                       const diff = amt - baseRounded
                       return (
-                        <div key={role}>
+                        <div key={role} className={!isPresent ? 'opacity-30 pointer-events-none' : ''}>
                           <div className="mb-1 flex items-center justify-between">
                             <span className="text-sm font-bold text-stone-700">{role}</span>
                             <div className="flex items-baseline gap-2">
-                              {previewEnabled && (
+                              {previewEnabled && isPresent && (
                                 <span className="text-right">
                                   <span className="text-sm font-medium text-stone-800">
                                     ¥{formatYen(amt)}
@@ -541,9 +566,13 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
                                   )}
                                 </span>
                               )}
-                              <span className="w-8 text-right text-sm font-black text-stone-900">
-                                {gradient[role].toFixed(1)}
-                              </span>
+                              {!isPresent ? (
+                                <span className="w-8 text-right text-sm font-black text-stone-400">—</span>
+                              ) : (
+                                <span className="w-8 text-right text-sm font-black text-stone-900">
+                                  {gradient[role].toFixed(1)}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <input

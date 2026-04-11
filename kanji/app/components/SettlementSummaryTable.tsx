@@ -195,13 +195,6 @@ export function SettlementSummaryTable({ result, config, message, organizerSetti
         </button>
         <button
           type="button"
-          onClick={onDone}
-          className="w-full text-center text-sm text-stone-400 underline"
-        >
-          ホームに戻る
-        </button>
-        <button
-          type="button"
           onClick={onBack}
           className="w-full text-center text-sm text-stone-400 underline"
         >

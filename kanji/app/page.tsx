@@ -30,7 +30,7 @@ import { createEvent, loadEventData } from '@/lib/kanji-db'
 import { saveDecision } from '@/lib/kanji-db'
 import { loadDecision } from '@/lib/kanji-db'
 import { StationInput } from '@/app/components/StationInput'
-import { SettlementStep } from '@/app/components/SettlementStep'
+import { SettlementStep, type SettlementDraft } from '@/app/components/SettlementStep'
 import { SettlementSummaryTable } from '@/app/components/SettlementSummaryTable'
 import {
   type SettlementConfig,
@@ -578,6 +578,7 @@ export default function Page() {
   const [copied, setCopied] = useState(false)
 
   // ── 清算 state ──────────────────────────────────────────────────────────────
+  const [settlementDraft, setSettlementDraft] = useState<SettlementDraft | null>(null)
   const [settlementConfig, setSettlementConfig] = useState<SettlementConfig | null>(null)
   const [settlementResult, setSettlementResult] = useState<SettlementResult | null>(null)
   const [settlementMessage, setSettlementMessage] = useState('')
@@ -3164,6 +3165,8 @@ ${finalStore?.link ?? ''}`
                 saveOrganizerSettings(s)
                 setOrganizerSettings(s)
               }}
+              initialDraft={settlementDraft}
+              onSaveDraft={setSettlementDraft}
               onSubmit={(config) => {
                 const result = calcSettlement(
                   config,
