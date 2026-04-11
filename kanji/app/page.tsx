@@ -17,6 +17,12 @@ import {
   CheckCircle2,
   Clock,
   ArrowRight,
+  CalendarDays,
+  Users,
+  Receipt,
+  CalendarPlus,
+  ChevronRight,
+  CircleDashed,
 } from 'lucide-react'
 
 import { createEvent, loadEventData } from '@/lib/kanji-db'
@@ -1492,23 +1498,29 @@ useEffect(() => { setEditableMaybeConfirmText(maybeConfirmText) }, [maybeConfirm
 
 return (
   <main className="min-h-screen" style={{ background: '#F5F3EF' }}>
-    <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-14 pt-7 sm:px-6 lg:px-8">
-      {/* App header */}
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <p className="text-[10px] font-black tracking-[0.3em] text-stone-400 uppercase">Kanji</p>
-          <p className="mt-0.5 text-sm font-semibold text-stone-500">幹事の決定を助けるアプリ</p>
-        </div>
-        {step !== 'home' && !showProgress && (
+    <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 pb-20 pt-6 sm:px-5">
+      {/* App header — step以外では非表示 */}
+      {step !== 'home' && (
+        <header className="mb-5 flex items-center justify-between">
           <button
             type="button"
             onClick={() => setStep('home')}
-            className="text-xs font-semibold text-stone-400 hover:text-stone-600"
+            className="flex items-center gap-1.5 text-[11px] font-bold text-stone-400 transition hover:text-stone-700"
           >
-            ホーム
+            <CalendarDays size={12} strokeWidth={2.5} />
+            <span className="tracking-[0.18em] uppercase">Kanji</span>
           </button>
-        )}
-      </header>
+          {step !== 'home' && !showProgress && (
+            <button
+              type="button"
+              onClick={() => setStep('home')}
+              className="text-xs font-semibold text-stone-400 hover:text-stone-600"
+            >
+              ホーム
+            </button>
+          )}
+        </header>
+      )}
 
       {showProgress && <FlowProgress step={step} />}
 
@@ -1519,18 +1531,69 @@ return (
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'home' && (
           <motion.div
-            className="space-y-5"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="space-y-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
           >
-            {/* 進行中の会 — リスト or 空状態 */}
+            {/* ── Hero ───────────────────────────────────────────── */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: 'easeOut' }}
+              className="pt-2"
+            >
+              {/* ロゴ */}
+              <div className="mb-5 flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900">
+                  <CalendarDays size={17} className="text-white" strokeWidth={2.5} />
+                </div>
+                <span className="text-[13px] font-black tracking-[0.25em] text-stone-900 uppercase">Kanji</span>
+              </div>
+
+              {/* キャッチコピー */}
+              <h1 className="text-[28px] font-black leading-[1.2] tracking-tight text-stone-900">
+                幹事の仕事を<br />最初から最後まで。
+              </h1>
+              <p className="mt-2.5 text-sm leading-6 text-stone-500">
+                日程調整・お店決め・会計共有まで、<br className="sm:hidden" />
+                ひとつのアプリで完結します。
+              </p>
+
+              {/* 3機能チップ */}
+              <motion.div
+                className="mt-5 flex gap-2.5"
+                initial="hidden"
+                animate="visible"
+                variants={{ visible: { transition: { staggerChildren: 0.07, delayChildren: 0.15 } } }}
+              >
+                {[
+                  { icon: CalendarDays, label: '日程調整', color: 'bg-sky-50 text-sky-700 ring-sky-200/60' },
+                  { icon: UtensilsCrossed, label: 'お店決め', color: 'bg-amber-50 text-amber-700 ring-amber-200/60' },
+                  { icon: Receipt, label: '清算共有', color: 'bg-emerald-50 text-emerald-700 ring-emerald-200/60' },
+                ].map(({ icon: Icon, label, color }) => (
+                  <motion.span
+                    key={label}
+                    variants={{ hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0 } }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold ring-1 ${color}`}
+                  >
+                    <Icon size={11} strokeWidth={2.5} />
+                    {label}
+                  </motion.span>
+                ))}
+              </motion.div>
+            </motion.div>
+
+            {/* ── 進行中の会 ─────────────────────────────────────── */}
             <section>
-              <SectionLabel>進行中の会</SectionLabel>
+              <div className="mb-3 flex items-center gap-2">
+                <CircleDashed size={12} className="text-stone-400" strokeWidth={2.5} />
+                <p className="text-[11px] font-black tracking-[0.2em] text-stone-400 uppercase">進行中の会</p>
+              </div>
               {savedEvents.length > 0 ? (
-                <div className="mt-2.5 space-y-2.5">
+                <div className="space-y-2.5">
                   {savedEvents.map((ev, idx) => {
-                    // ステータス設定（アイコン付き）
                     const s = ev.status ?? 'date_pending'
                     const statusCfg =
                       s === 'store_confirmed'
@@ -1543,39 +1606,50 @@ return (
                       <motion.button
                         type="button"
                         key={ev.id}
-                        initial={{ opacity: 0, y: 8 }}
+                        initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.22, delay: idx * 0.06, ease: 'easeOut' }}
-                        whileTap={{ scale: 0.985 }}
+                        transition={{ duration: 0.2, delay: idx * 0.05, ease: 'easeOut' }}
+                        whileTap={{ scale: 0.982 }}
                         onClick={() => openSavedEvent(ev.id, ev.name, ev.eventType)}
-                        className="group flex w-full items-center justify-between rounded-2xl bg-white px-5 py-4 text-left shadow-sm ring-1 ring-stone-100 transition-shadow hover:shadow-md"
+                        className="group flex w-full items-center justify-between rounded-2xl bg-white px-4 py-4 text-left shadow-sm ring-1 ring-stone-100/80 transition-shadow hover:shadow-md"
                       >
-                        <div className="min-w-0">
-                          <p className="truncate text-base font-black tracking-tight text-stone-900">{ev.name}</p>
-                          <p className="mt-0.5 text-xs text-stone-400">{ev.eventType}</p>
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-stone-50 ring-1 ring-stone-100">
+                            <CalendarDays size={15} className="text-stone-500" strokeWidth={2} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-[15px] font-black tracking-tight text-stone-900">{ev.name}</p>
+                            <p className="mt-0.5 text-[11px] text-stone-400">{ev.eventType}</p>
+                          </div>
                         </div>
                         <div className="ml-3 flex shrink-0 items-center gap-2">
-                          {/* ステータスバッジ（アイコン付き） */}
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${statusCfg.cls}`}>
-                            <StatusIcon size={10} strokeWidth={2.5} />
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ring-1 ${statusCfg.cls}`}>
+                            <StatusIcon size={9} strokeWidth={2.5} />
                             {statusCfg.label}
                           </span>
-                          <ArrowRight size={14} className="text-stone-300 transition-transform group-hover:translate-x-0.5" />
+                          <ChevronRight size={14} className="text-stone-300 transition-transform group-hover:translate-x-0.5" />
                         </div>
                       </motion.button>
                     )
                   })}
                 </div>
               ) : (
-                <div className="mt-2.5 rounded-3xl bg-white px-6 py-10 text-center shadow-sm ring-1 ring-stone-100">
-                  <p className="text-sm font-bold text-stone-400">進行中の会がまだありません</p>
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, delay: 0.2, ease: 'easeOut' }}
+                  className="rounded-2xl border-2 border-dashed border-stone-200 px-6 py-10 text-center"
+                >
+                  <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-stone-100">
+                    <CalendarPlus size={20} className="text-stone-400" strokeWidth={1.8} />
+                  </div>
+                  <p className="text-sm font-bold text-stone-500">まだ進行中の会はありません</p>
                   <p className="mt-1.5 text-xs leading-5 text-stone-400">
-                    右下の ＋ ボタンから、新しい会を作れます
+                    右下のボタンから、新しい会を作れます
                   </p>
-                </div>
+                </motion.div>
               )}
             </section>
-
           </motion.div>
         )}
 
@@ -1583,11 +1657,25 @@ return (
             ② 会を作る（会の基本情報 + 候補日選択 を1画面に統合）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {(step === 'create' || step === 'dates') && (
+          <motion.div
+            className="space-y-5"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+          <div className="px-0.5">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
+                <CalendarPlus size={13} className="text-white" strokeWidth={2.5} />
+              </div>
+              <p className="text-[10px] font-black tracking-[0.22em] text-stone-400 uppercase">Step 1 / 10</p>
+            </div>
+            <h2 className="text-[22px] font-black tracking-tight text-stone-900">会を作る</h2>
+            <p className="mt-1 text-[13px] leading-relaxed text-stone-400">イベント名と候補日を設定してください。</p>
+          </div>
           <Card>
-            <StepLabel n={1} />
-            <CardTitle>会を作る</CardTitle>
 
-            <div className="mt-2">
+            <div>
               <FieldLabel>イベント名</FieldLabel>
               <input
                 value={eventName}
@@ -1704,6 +1792,7 @@ return (
               <GhostBtn onClick={() => setStep('home')}>← 戻る</GhostBtn>
             </div>
           </Card>
+          </motion.div>
         )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -3120,19 +3209,24 @@ ${finalStore?.link ?? ''}`
       </div>
 
       {/* FAB — 新規作成ボタン（ホームのみ表示） */}
-      {step === 'home' && (
-        <button
-          type="button"
-          onClick={() => setStep('create')}
-          aria-label="新しい会を作る"
-          className="fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-stone-900 text-white shadow-xl transition hover:bg-stone-800 active:scale-95"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        </button>
-      )}
+      <AnimatePresence>
+        {step === 'home' && (
+          <motion.button
+            type="button"
+            onClick={() => setStep('create')}
+            aria-label="新しい会を作る"
+            initial={{ opacity: 0, scale: 0.7, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.7, y: 20 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+            whileHover={{ scale: 1.07 }}
+            whileTap={{ scale: 0.93 }}
+            className="fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-stone-900 text-white shadow-xl"
+          >
+            <CalendarPlus size={22} strokeWidth={2.2} />
+          </motion.button>
+        )}
+      </AnimatePresence>
     </main>
   )
 }
