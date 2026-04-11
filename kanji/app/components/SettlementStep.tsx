@@ -1,13 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, User, CreditCard, Receipt, Users, SlidersHorizontal } from 'lucide-react'
+import { ChevronDown, ChevronUp, User, CreditCard, Receipt, Users, SlidersHorizontal, Info } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   type SettlementConfig,
   type GradientConfig,
   type ParticipantRole,
   ROLES,
+  roundUp100,
+  formatYen,
 } from '@/app/lib/settlement'
 import {
   type OrganizerSettings,
@@ -30,6 +32,7 @@ type Props = {
 
 function PartySection({
   label,
+  isSecond,
   participants,
   selectedIds,
   onToggle,
@@ -39,6 +42,7 @@ function PartySection({
   onGradientToggle,
 }: {
   label: string
+  isSecond?: boolean
   participants: Person[]
   selectedIds: string[]
   onToggle: (id: string) => void
@@ -57,7 +61,7 @@ function PartySection({
       </div>
 
       {/* 参加者チェック */}
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-2 flex flex-wrap gap-2">
         {participants.map((p) => {
           const active = selectedIds.includes(p.id)
           return (
@@ -76,6 +80,16 @@ function PartySection({
           )
         })}
       </div>
+
+      {/* 2次会 外し忘れ防止ヒント */}
+      {isSecond && (
+        <div className="mb-3 flex items-start gap-1.5">
+          <Info size={11} className="mt-0.5 shrink-0 text-stone-300" strokeWidth={2} />
+          <p className="text-[11px] leading-5 text-stone-400">
+            2次会は参加しない人も多いので、必要に応じて外してください。
+          </p>
+        </div>
+      )}
 
       {/* 合計会計 */}
       <div className="mb-3">
@@ -389,6 +403,7 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
         <div>
           <PartySection
             label="2次会"
+            isSecond
             participants={participants}
             selectedIds={party2Ids}
             onToggle={(id) => toggle(id, party2Ids, setParty2Ids)}
@@ -480,34 +495,84 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
               transition={{ duration: 0.18 }}
               className="overflow-hidden"
             >
-              <div className="space-y-4 border-t border-stone-100 px-4 pb-4 pt-3">
-                <p className="text-[10px] text-stone-400">主賓は常に 0（無料）です。</p>
-                {(['上長', '先輩', '通常'] as const).map((role) => (
-                  <div key={role}>
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className="text-sm font-bold text-stone-700">{role}</span>
-                      <span className="text-sm font-black text-stone-900">
-                        {gradient[role].toFixed(1)}
+              {(() => {
+                // 代表金額プレビュー計算
+                // 前提: 全員 通常 と仮定したときの1人あたり基準額 (base)
+                // 各役割の金額 = base * coeff（近似プレビュー）
+                const totalAmt = parseInt(party1Amount, 10) || 0
+                const count = party1Ids.length || 1
+                const base = totalAmt > 0 ? totalAmt / count : 0
+                const baseRounded = roundUp100(base)
+                const previewEnabled = party1Gradient && totalAmt > 0
+
+                const previewAmount = (coeff: number) =>
+                  coeff === 0 ? 0 : roundUp100(base * coeff)
+
+                return (
+                  <div className="space-y-4 border-t border-stone-100 px-4 pb-4 pt-3">
+                    {/* 主賓（固定0） */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-stone-700">主賓</span>
+                      <span className="text-sm text-stone-400">
+                        0.0
+                        {previewEnabled && (
+                          <span className="ml-2 font-medium text-stone-500">¥0</span>
+                        )}
                       </span>
                     </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={2.0}
-                      step={0.1}
-                      value={gradient[role]}
-                      onChange={(e) =>
-                        setGradient((g) => ({ ...g, [role]: parseFloat(e.target.value) }))
-                      }
-                      className="w-full accent-stone-900"
-                    />
-                    <div className="flex justify-between text-[10px] text-stone-300">
-                      <span>0</span>
-                      <span>2.0</span>
-                    </div>
+
+                    {(['上長', '先輩', '通常'] as const).map((role) => {
+                      const amt = previewAmount(gradient[role])
+                      const diff = amt - baseRounded
+                      return (
+                        <div key={role}>
+                          <div className="mb-1 flex items-center justify-between">
+                            <span className="text-sm font-bold text-stone-700">{role}</span>
+                            <div className="flex items-baseline gap-2">
+                              {previewEnabled && (
+                                <span className="text-right">
+                                  <span className="text-sm font-medium text-stone-800">
+                                    ¥{formatYen(amt)}
+                                  </span>
+                                  {role !== '通常' && diff > 0 && (
+                                    <span className="ml-1.5 text-[11px] text-stone-400">
+                                      +¥{formatYen(diff)}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                              <span className="w-8 text-right text-sm font-black text-stone-900">
+                                {gradient[role].toFixed(1)}
+                              </span>
+                            </div>
+                          </div>
+                          <input
+                            type="range"
+                            min={0}
+                            max={2.0}
+                            step={0.1}
+                            value={gradient[role]}
+                            onChange={(e) =>
+                              setGradient((g) => ({ ...g, [role]: parseFloat(e.target.value) }))
+                            }
+                            className="w-full accent-stone-900"
+                          />
+                          <div className="flex justify-between text-[10px] text-stone-300">
+                            <span>0</span>
+                            <span>2.0</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {!previewEnabled && (
+                      <p className="text-[10px] text-stone-300">
+                        1次会の金額を入力すると、係数ごとの目安額が表示されます。
+                      </p>
+                    )}
                   </div>
-                ))}
-              </div>
+                )
+              })()}
             </motion.div>
           )}
         </AnimatePresence>
