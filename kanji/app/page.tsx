@@ -1802,9 +1802,23 @@ return (
         
         
 {step === 'shareLink' && (
+  <motion.div
+    className="space-y-5"
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.25, ease: 'easeOut' }}
+  >
+  <div className="px-0.5">
+    <div className="mb-2 flex items-center gap-2">
+      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
+        <Users size={13} className="text-white" strokeWidth={2.5} />
+      </div>
+      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 3 / 10</p>
+    </div>
+    <h2 className="text-[22px] font-black tracking-tight text-stone-900">参加者に送る</h2>
+    <p className="mt-1 text-[13px] leading-relaxed text-stone-400">リンクを送って回答を集めましょう。</p>
+  </div>
   <Card>
-    <StepLabel n={3} />
-    <CardTitle>参加者に送る</CardTitle>
 
     <div className="space-y-4">
       <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
@@ -1883,6 +1897,7 @@ return (
       <GhostBtn onClick={() => setStep('dates')}>← 戻る</GhostBtn>
     </div>
   </Card>
+  </motion.div>
 )}
 
 
@@ -1891,10 +1906,21 @@ return (
             ⑤ ダッシュボード
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
 {step === 'dashboard' && (
-  <div className="space-y-4">
-    <div className="px-1">
-      <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 6</p>
-      <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">日程を決める</h2>
+  <motion.div
+    className="space-y-4"
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.25, ease: 'easeOut' }}
+  >
+    <div className="px-0.5">
+      <div className="mb-2 flex items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
+          <CalendarDays size={13} className="text-white" strokeWidth={2.5} />
+        </div>
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 6 / 10</p>
+      </div>
+      <h2 className="text-[22px] font-black tracking-tight text-stone-900">日程を決める</h2>
+      <p className="mt-1 text-[13px] leading-relaxed text-stone-400">回答状況を確認して、最適な日程を決めましょう。</p>
     </div>
 
     {totalCount === 0 || !heroDate ? (
@@ -1913,9 +1939,10 @@ return (
       <>
         {/* 優先したい人 — ヒーロー表示より先に選ぶ */}
         <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
-            優先したい人（任意）
-          </p>
+          <div className="flex items-center gap-1.5">
+            <Users size={11} className="text-stone-400" strokeWidth={2.5} />
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">優先したい人（任意）</p>
+          </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {activeParticipants.map((participant) => {
               const selected = mainGuestIds.includes(participant.id)
@@ -2075,9 +2102,10 @@ return (
 
         {/* 回答テーブル */}
         <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
-            回答テーブル
-          </p>
+          <div className="flex items-center gap-1.5">
+            <Users size={11} className="text-stone-400" strokeWidth={2.5} />
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">回答テーブル</p>
+          </div>
           <div className="mt-4 overflow-x-auto">
             <div className="min-w-[760px]">
               <div
@@ -2126,7 +2154,10 @@ return (
 
         {/* 未回答者へのリマインド */}
         <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">未回答者へのリマインド</p>
+          <div className="flex items-center gap-1.5">
+            <MessageSquareQuote size={11} className="text-stone-400" strokeWidth={2.5} />
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">未回答者へのリマインド</p>
+          </div>
           <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-3">
             {urlOnlyReminder ? (
               <p className="text-sm text-stone-700">{shareUrl}</p>
@@ -2177,7 +2208,7 @@ return (
         <GhostBtn onClick={() => setStep('shareLink')}>← 戻る</GhostBtn>
 </>
 )}
-</div>
+  </motion.div>
 )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2191,10 +2222,21 @@ return (
             ⑦ 日程確定
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
 {step === 'dateConfirmed' && heroDate && (
-  <div className="space-y-4">
-    <div className="px-1">
-      <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 6</p>
-      <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">日程確定</h2>
+  <motion.div
+    className="space-y-4"
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.25, ease: 'easeOut' }}
+  >
+    <div className="px-0.5">
+      <div className="mb-2 flex items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
+          <CalendarDays size={13} className="text-white" strokeWidth={2.5} />
+        </div>
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 7 / 10</p>
+      </div>
+      <h2 className="text-[22px] font-black tracking-tight text-stone-900">日程確定</h2>
+      <p className="mt-1 text-[13px] leading-relaxed text-stone-400">参加者に日程を知らせましょう。</p>
     </div>
 
     {/* 確定日程 ヒーロー */}
@@ -2369,7 +2411,7 @@ return (
       お店を決める
     </PrimaryBtn>
     <GhostBtn onClick={() => setStep('dashboard')}>← 戻る</GhostBtn>
-  </div>
+  </motion.div>
 )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2767,11 +2809,22 @@ return (
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
 {/* 確定日程 ヒーロー */}
 {step === 'finalConfirm' && (
-  <div className="space-y-4">
-   <div className="px-1">
-  <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 10</p>
-  <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">確定情報の共有</h2>
-</div>
+  <motion.div
+    className="space-y-4"
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.25, ease: 'easeOut' }}
+  >
+    <div className="px-0.5">
+      <div className="mb-2 flex items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
+          <CheckCircle2 size={13} className="text-white" strokeWidth={2.5} />
+        </div>
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 10 / 10</p>
+      </div>
+      <h2 className="text-[22px] font-black tracking-tight text-stone-900">確定情報の共有</h2>
+      <p className="mt-1 text-[13px] leading-relaxed text-stone-400">決まった内容をみんなに伝えましょう。</p>
+    </div>
 
     {(() => {
       const finalSelectedDate =
@@ -2887,14 +2940,6 @@ ${finalStore?.link ?? ''}`
             </div>
           </div>
 
-          {/* 理由 */}
-          {(storeReason || finalStore?.reason) && (
-            <div className="rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-100">
-              <p className="text-sm font-bold text-amber-900">この会に合う理由</p>
-              <p className="mt-1 text-sm leading-6 text-amber-800">{storeReason || finalStore?.reason}</p>
-            </div>
-          )}
-
           {/* 共有文 + CTA */}
           <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
             <div className="mb-3 flex items-center justify-between">
@@ -2960,7 +3005,7 @@ ${finalStore?.link ?? ''}`
         </div>
       )
     })()}
-  </div>
+  </motion.div>
 )}
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             清算 ① settlement（入力）

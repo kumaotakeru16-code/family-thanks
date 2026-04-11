@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp, User, CreditCard } from 'lucide-react'
+import { ChevronDown, ChevronUp, User, CreditCard, Receipt, Users, SlidersHorizontal } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   type SettlementConfig,
@@ -49,7 +49,12 @@ function PartySection({
 }) {
   return (
     <div className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-stone-100">
-      <p className="mb-3 text-[10px] font-black uppercase tracking-wider text-stone-500">{label}</p>
+      <div className="mb-3 flex items-center gap-1.5">
+        <div className="flex h-5 w-5 items-center justify-center rounded-md bg-stone-900">
+          <span className="text-[9px] font-black text-white">{label[0]}</span>
+        </div>
+        <p className="text-[11px] font-black uppercase tracking-wider text-stone-700">{label}</p>
+      </div>
 
       {/* 参加者チェック */}
       <div className="mb-4 flex flex-wrap gap-2">
@@ -74,17 +79,18 @@ function PartySection({
 
       {/* 合計会計 */}
       <div className="mb-3">
-        <label className="mb-1 block text-[11px] font-bold text-stone-500">合計会計</label>
-        <div className="flex items-center gap-2">
+        <label className="mb-1.5 block text-[11px] font-bold text-stone-500">合計会計</label>
+        <div className="relative">
           <input
-            type="number"
+            type="text"
             inputMode="numeric"
+            pattern="[0-9]*"
             value={amount}
-            onChange={(e) => onAmountChange(e.target.value)}
-            placeholder="50000"
-            className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm font-bold text-stone-900 outline-none focus:border-stone-400 focus:bg-white"
+            onChange={(e) => onAmountChange(e.target.value.replace(/[^0-9]/g, ''))}
+            placeholder="例: 10000"
+            className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 pr-9 text-right text-sm font-bold text-stone-900 outline-none transition focus:border-stone-400 focus:bg-white"
           />
-          <span className="shrink-0 text-sm text-stone-500">円</span>
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold text-stone-400">円</span>
         </div>
       </div>
 
@@ -334,16 +340,22 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
   }
 
   return (
-    <div className="space-y-4">
+    <motion.div
+      className="space-y-4"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+    >
       {/* ヘッダー */}
-      <div className="px-1">
-        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
-          Settlement
-        </p>
-        <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">
-          清算をまとめる
-        </h2>
-        <p className="mt-1 text-sm text-stone-400">会計を入れて、幹事の仕事を終わらせましょう。</p>
+      <div className="px-0.5">
+        <div className="mb-2 flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
+            <Receipt size={13} className="text-white" strokeWidth={2.5} />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Settlement</p>
+        </div>
+        <h2 className="text-[22px] font-black tracking-tight text-stone-900">清算をまとめる</h2>
+        <p className="mt-1 text-[13px] leading-relaxed text-stone-400">会計を入れて、幹事の仕事を終わらせましょう。</p>
       </div>
 
       {/* 幹事設定カード */}
@@ -397,9 +409,10 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
 
       {/* 役割設定 */}
       <div className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-stone-100">
-        <p className="mb-3 text-[10px] font-black uppercase tracking-wider text-stone-500">
-          役割設定
-        </p>
+        <div className="mb-3 flex items-center gap-1.5">
+          <Users size={12} className="text-stone-400" strokeWidth={2.5} />
+          <p className="text-[10px] font-black uppercase tracking-wider text-stone-500">役割設定</p>
+        </div>
         {participants.length === 0 ? (
           <p className="text-xs text-stone-400">参加者がいません</p>
         ) : (
@@ -439,7 +452,9 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
           onClick={() => setShowGradient((v) => !v)}
           className="flex w-full items-center justify-between px-4 py-3.5"
         >
-          <div>
+          <div className="flex items-start gap-2">
+            <SlidersHorizontal size={13} className="mt-0.5 shrink-0 text-stone-400" strokeWidth={2} />
+            <div>
             <p className="text-[10px] font-black uppercase tracking-wider text-stone-500">
               傾斜配分の係数
             </p>
@@ -447,6 +462,7 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
               主賓 0 ／ 上長 {gradient.上長.toFixed(1)} ／ 先輩 {gradient.先輩.toFixed(1)} ／ 通常{' '}
               {gradient.通常.toFixed(1)}
             </p>
+            </div>
           </div>
           {showGradient ? (
             <ChevronUp size={16} className="shrink-0 text-stone-400" />
@@ -513,6 +529,6 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
       >
         ← 戻る
       </button>
-    </div>
+    </motion.div>
   )
 }
