@@ -1518,7 +1518,7 @@ return (
             <CalendarDays size={12} strokeWidth={2.5} />
             <span className="tracking-[0.18em] uppercase">Kanji</span>
           </button>
-          {step !== 'home' && !showProgress && (
+          {!showProgress && (
             <button
               type="button"
               onClick={() => setStep('home')}
