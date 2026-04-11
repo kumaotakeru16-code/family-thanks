@@ -563,12 +563,10 @@ function compactShop(shop: ScoredShop) {
     url: shop.urls?.pc ?? '',
     tags: [
       shop.genre?.name ?? '',
-      shop.catch ?? '',
-      shop.open ?? '',
       shop.budget?.average ?? '',
       shop.private_room ? `個室:${shop.private_room}` : '',
-      shop.free_drink ? `飲み放題:${shop.free_drink}` : '',
-      shop.non_smoking ? `禁煙:${shop.non_smoking}` : '',
+      shop.free_drink ? '飲み放題あり' : '',
+      shop.non_smoking === '全席禁煙' ? '全席禁煙' : '',
     ].filter(Boolean),
     _debug: shop._debug,
   }

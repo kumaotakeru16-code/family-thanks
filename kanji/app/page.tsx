@@ -27,6 +27,7 @@ import {
   XCircle,
   Share2,
   House,
+  Settings,
 } from 'lucide-react'
 
 import { createEvent, loadEventData } from '@/lib/kanji-db'
@@ -35,6 +36,7 @@ import { loadDecision } from '@/lib/kanji-db'
 import { StationInput } from '@/app/components/StationInput'
 import { SettlementStep, type SettlementDraft } from '@/app/components/SettlementStep'
 import { SettlementSummaryTable } from '@/app/components/SettlementSummaryTable'
+import { SettingsScreen } from '@/app/components/SettingsScreen'
 import {
   type SettlementConfig,
   type SettlementResult,
@@ -46,10 +48,16 @@ import {
   loadOrganizerSettings,
   saveOrganizerSettings,
 } from '@/app/lib/organizer-settings'
+import {
+  type UserSettings,
+  loadUserSettings,
+  saveUserSettings,
+} from '@/app/lib/user-settings'
 
 // --- Types ---
 type Step =
   | 'home'
+  | 'settings'
   | 'create'
   | 'dates'
   | 'shareLink'
@@ -571,6 +579,8 @@ export default function Page() {
   const [finalEvent, setFinalEvent] = useState<any | null>(null)
   const [finalDates, setFinalDates] = useState<any[]>([])
   const [recommendedStores, setRecommendedStores] = useState<StoreCandidate[]>([])
+  const [previousStores, setPreviousStores] = useState<StoreCandidate[]>([])
+  const [previousSelectedStoreId, setPreviousSelectedStoreId] = useState<string>('')
   const [isLoadingStores, setIsLoadingStores] = useState(false)
   const [storeFetchError, setStoreFetchError] = useState('')
   /** Condition-relaxation notes from Gemini (e.g. walk expanded, price widened) */
@@ -587,12 +597,20 @@ export default function Page() {
   const [settlementMessage, setSettlementMessage] = useState('')
   const [settlementCopied, setSettlementCopied] = useState(false)
   const [organizerSettings, setOrganizerSettings] = useState<OrganizerSettings>(() => loadOrganizerSettings())
+  const [userSettings, setUserSettings] = useState<UserSettings>(() => loadUserSettings())
 
   // ── 手動店舗 state ───────────────────────────────────────────────────────────
   const [isManualStore, setIsManualStore] = useState(false)
   const [manualStoreName, setManualStoreName] = useState('')
   const [manualStoreUrl, setManualStoreUrl] = useState('')
   const [manualStoreMemo, setManualStoreMemo] = useState('')
+  // 手動検索
+  const [manualSearchQuery, setManualSearchQuery] = useState('')
+  const [manualSearchStation, setManualSearchStation] = useState('')
+  const [manualSearchResults, setManualSearchResults] = useState<{ id: string; name: string; area: string; access: string; genre: string; link: string; image: string }[]>([])
+  const [manualSearchLoading, setManualSearchLoading] = useState(false)
+  const [manualSearchError, setManualSearchError] = useState('')
+  const [manualSearchSelectedId, setManualSearchSelectedId] = useState('')
 
   const stepHistoryRef = useRef<Step[]>(['home'])
   const isHandlingBackRef = useRef(false)
@@ -1186,8 +1204,57 @@ const data = await saveDecision({
 
 // 「候補を入れ替える」：現在表示中の候補IDを除外して同条件で再取得
 async function refreshStores() {
+  // 直前候補を保存してから更新
+  setPreviousStores(recommendedStores)
+  setPreviousSelectedStoreId(selectedStoreId)
   const currentIds = recommendedStores.map((s) => s.id)
   await fetchRecommendedStores(currentIds)
+}
+
+// 手動店名検索（Hot Pepper）
+async function runManualSearch() {
+  const query = manualSearchQuery.trim()
+  if (!query) return
+  setManualSearchLoading(true)
+  setManualSearchError('')
+  setManualSearchResults([])
+  setManualSearchSelectedId('')
+  try {
+    const res = await fetch('/api/hotpepper/manual-search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, station: manualSearchStation.trim() }),
+    })
+    const data = await res.json()
+    if (data.error) {
+      setManualSearchError(data.error)
+    } else {
+      setManualSearchResults(data.results ?? [])
+      if ((data.results ?? []).length === 0) {
+        setManualSearchError('一致する候補が見つかりませんでした。店名をそのまま入力して進めることもできます。')
+      }
+    }
+  } catch {
+    setManualSearchError('検索に失敗しました。')
+  } finally {
+    setManualSearchLoading(false)
+  }
+}
+
+// 手動検索候補を選択
+function selectManualSearchResult(item: { id: string; name: string; link: string }) {
+  setManualStoreName(item.name)
+  setManualStoreUrl(item.link)
+  setManualSearchSelectedId(item.id)
+}
+
+// 1つ前の候補に戻る
+function restorePreviousStores() {
+  if (previousStores.length === 0) return
+  setRecommendedStores(previousStores)
+  setSelectedStoreId(previousSelectedStoreId || previousStores[0]?.id || '')
+  setPreviousStores([])
+  setPreviousSelectedStoreId('')
 }
 
 // excludeIds: 再取得時に除外したい店のID一覧（「候補を入れ替える」用）
@@ -1511,6 +1578,7 @@ useEffect(() => { setEditableMaybeConfirmText(maybeConfirmText) }, [maybeConfirm
 // FLOW_STEPSの順番と異なる特殊ケースのみ上書き
 const backStep: Step | null = (() => {
   if (step === 'shared') return null
+  if (step === 'settings') return 'home'
   if (step === 'manualStore') return 'organizerConditions'
   if (step === 'finalConfirm') return isManualStore ? 'manualStore' : 'storeSuggestion'
   return getPreviousStep(step)
@@ -1582,11 +1650,21 @@ return (
               className="pt-2"
             >
               {/* ロゴ */}
-              <div className="mb-5 flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900">
-                  <CalendarDays size={17} className="text-white" strokeWidth={2.5} />
+              <div className="mb-5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900">
+                    <CalendarDays size={17} className="text-white" strokeWidth={2.5} />
+                  </div>
+                  <span className="text-[13px] font-black tracking-[0.25em] text-stone-900 uppercase">Kanji</span>
                 </div>
-                <span className="text-[13px] font-black tracking-[0.25em] text-stone-900 uppercase">Kanji</span>
+                <button
+                  type="button"
+                  onClick={() => setStep('settings')}
+                  className="-mr-1 flex h-9 w-9 items-center justify-center rounded-xl text-stone-400 transition hover:text-stone-700 active:scale-95"
+                  aria-label="設定"
+                >
+                  <Settings size={17} strokeWidth={2} />
+                </button>
               </div>
 
               {/* キャッチコピー */}
@@ -1657,7 +1735,6 @@ return (
                           </div>
                           <div className="min-w-0">
                             <p className="truncate text-[15px] font-black tracking-tight text-stone-900">{ev.name}</p>
-                            <p className="mt-0.5 text-[11px] text-stone-400">{ev.eventType}</p>
                           </div>
                         </div>
                         <div className="ml-3 flex shrink-0 items-center gap-2">
@@ -1692,6 +1769,25 @@ return (
         )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            設定
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        {step === 'settings' && (
+          <SettingsScreen
+            settings={userSettings}
+            onSettingsChange={(s) => {
+              saveUserSettings(s)
+              setUserSettings(s)
+            }}
+            organizerName={organizerSettings.organizerName}
+            onOrganizerNameChange={(name) => {
+              const next = { ...organizerSettings, organizerName: name }
+              saveOrganizerSettings(next)
+              setOrganizerSettings(next)
+            }}
+          />
+        )}
+
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ② 会を作る（会の基本情報 + 候補日選択 を1画面に統合）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {(step === 'create' || step === 'dates') && (
@@ -1719,7 +1815,7 @@ return (
                 value={eventName}
                 onChange={e => setEventName(e.target.value)}
                 placeholder="例：歓迎会 / ごはん会"
-                className="mt-2 w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-300 focus:bg-white"
+                className="mt-2 w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 text-base text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-300 focus:bg-white"
               />
             </div>
 
@@ -1735,7 +1831,7 @@ return (
                     <select
                       value={selectedHour}
                       onChange={(e) => setSelectedHour(e.target.value)}
-                      className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none transition focus:border-stone-400"
+                      className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-base font-bold text-stone-700 outline-none transition focus:border-stone-400"
                     >
                       {['17', '18', '19', '20', '21', '22', '23'].map((hour) => (
                         <option key={hour} value={hour}>{hour}時</option>
@@ -1747,7 +1843,7 @@ return (
                     <select
                       value={selectedMinute}
                       onChange={(e) => setSelectedMinute(e.target.value)}
-                      className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-sm font-bold text-stone-700 outline-none transition focus:border-stone-400"
+                      className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-base font-bold text-stone-700 outline-none transition focus:border-stone-400"
                     >
                       {['00', '15', '30', '45'].map((minute) => (
                         <option key={minute} value={minute}>{minute}分</option>
@@ -1884,7 +1980,7 @@ return (
               value={editableShareMessage}
               onChange={(e) => setEditableShareMessage(e.target.value)}
               rows={5}
-              className="w-full resize-none text-sm leading-6 text-stone-700 outline-none"
+              className="w-full resize-none text-base leading-6 text-stone-700 outline-none"
             />
           )}
         </div>
@@ -2047,10 +2143,11 @@ return (
         </div>
 
         {/* 優先したい人 — ヒーロー直下の軽量フィルター */}
-        <div className="flex items-center gap-3 px-1">
-          <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">
-            優先
-          </span>
+        <div className="space-y-1.5 px-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">優先したい人</span>
+            <span className="text-[10px] text-stone-300">この人が参加できる日を優先します</span>
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {activeParticipants.map((participant) => {
               const selected = mainGuestIds.includes(participant.id)
@@ -2195,7 +2292,7 @@ return (
                 value={editableReminderText}
                 onChange={(e) => setEditableReminderText(e.target.value)}
                 rows={4}
-                className="w-full resize-none bg-transparent text-sm leading-6 text-stone-700 outline-none"
+                className="w-full resize-none bg-transparent text-base leading-6 text-stone-700 outline-none"
               />
             )}
           </div>
@@ -2364,7 +2461,7 @@ return (
               value={editableDateConfirmedText}
               onChange={(e) => setEditableDateConfirmedText(e.target.value)}
               rows={4}
-              className="w-full resize-none bg-transparent text-sm leading-6 text-stone-700 outline-none"
+              className="w-full resize-none bg-transparent text-base leading-6 text-stone-700 outline-none"
             />
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -2406,7 +2503,7 @@ return (
                   value={editableMaybeConfirmText}
                   onChange={(e) => setEditableMaybeConfirmText(e.target.value)}
                   rows={4}
-                  className="w-full resize-none bg-transparent text-sm leading-6 text-stone-700 outline-none"
+                  className="w-full resize-none bg-transparent text-base leading-6 text-stone-700 outline-none"
                 />
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
@@ -2468,7 +2565,7 @@ return (
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setIsManualStore(true); setStep('manualStore') }}
+                  onClick={() => { setIsManualStore(true); setManualSearchStation(orgPrefs.areas[0] ?? ''); setStep('manualStore') }}
                   className="rounded-full border border-stone-200 bg-white px-3.5 py-1 text-[11px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-95"
                 >
                   お店を自分で決める
@@ -2617,7 +2714,7 @@ return (
         </div>
         <button
           type="button"
-          onClick={() => { setIsManualStore(true); setStep('manualStore') }}
+          onClick={() => { setIsManualStore(true); setManualSearchStation(orgPrefs.areas[0] ?? ''); setStep('manualStore') }}
           className="rounded-full border border-stone-200 bg-white px-3.5 py-1 text-[11px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-95"
         >
           お店を自分で決める
@@ -2648,7 +2745,7 @@ return (
           </div>
         )}
 
-        {/* 条件チップ + 候補入れ替えボタン */}
+        {/* 条件チップ + 候補入れ替え / 戻るボタン */}
         <div className="flex items-center justify-between gap-2 px-0.5">
           <motion.div
             className="flex flex-wrap items-center gap-1.5"
@@ -2667,14 +2764,25 @@ return (
               </motion.span>
             ))}
           </motion.div>
-          <button
-            type="button"
-            onClick={isLoadingStores ? undefined : refreshStores}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-95"
-            aria-label="候補を入れ替える"
-          >
-            <RefreshCw size={14} className="text-stone-500" strokeWidth={2} />
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {previousStores.length > 0 && (
+              <button
+                type="button"
+                onClick={restorePreviousStores}
+                className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-stone-500 shadow-sm ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-95"
+              >
+                1つ前に戻る
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={isLoadingStores ? undefined : refreshStores}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-95"
+              aria-label="候補を入れ替える"
+            >
+              <RefreshCw size={14} className="text-stone-500" strokeWidth={2} />
+            </button>
+          </div>
         </div>
 
         {/* Best候補 — selectedStoreId が変わると AnimatePresence で自然に入れ替わる */}
@@ -2858,7 +2966,7 @@ return (
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'manualStore' && (
           <motion.div
-            className="space-y-5"
+            className="space-y-5 pb-28"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
@@ -2873,13 +2981,88 @@ return (
               </div>
               <h2 className="text-[22px] font-black tracking-tight text-stone-900">お店を登録する</h2>
               <p className="mt-1 text-[13px] leading-relaxed text-stone-400">
-                決まっているお店の情報を入れてください。すべて任意です。
+                店名で候補を検索して選ぶか、直接入力して進めることもできます。
               </p>
             </div>
 
-            {/* 入力フォーム */}
+            {/* 候補検索 */}
+            <div className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-stone-100">
+              <p className="mb-2.5 text-[10px] font-black uppercase tracking-wider text-stone-500">候補を検索</p>
+              <div className="space-y-2.5">
+                <input
+                  type="text"
+                  value={manualSearchQuery}
+                  onChange={(e) => setManualSearchQuery(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') runManualSearch() }}
+                  placeholder="店名（例：鳥一、イタリアン）"
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-base text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-400 focus:bg-white"
+                />
+                <input
+                  type="text"
+                  value={manualSearchStation}
+                  onChange={(e) => setManualSearchStation(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') runManualSearch() }}
+                  placeholder="駅名（任意）"
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-base text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-400 focus:bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={runManualSearch}
+                  disabled={manualSearchLoading || !manualSearchQuery.trim()}
+                  className="w-full rounded-xl bg-stone-800 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98] disabled:opacity-30"
+                >
+                  {manualSearchLoading ? '検索中…' : '候補を検索'}
+                </button>
+              </div>
+
+              {/* 検索結果 */}
+              {manualSearchError && (
+                <p className="mt-3 text-xs leading-5 text-stone-400">{manualSearchError}</p>
+              )}
+              {manualSearchResults.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {manualSearchResults.map((item) => {
+                    const isSelected = manualSearchSelectedId === item.id
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => selectManualSearchResult(item)}
+                        className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left ring-1 transition active:scale-[0.98] ${
+                          isSelected
+                            ? 'bg-stone-900 ring-stone-900'
+                            : 'bg-stone-50 ring-stone-100 hover:ring-stone-300'
+                        }`}
+                      >
+                        {item.image ? (
+                          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg">
+                            <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                          </div>
+                        ) : (
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-stone-200">
+                            <UtensilsCrossed size={16} className={isSelected ? 'text-white/50' : 'text-stone-400'} />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className={`truncate text-sm font-bold ${isSelected ? 'text-white' : 'text-stone-900'}`}>
+                            {item.name}
+                          </p>
+                          <p className={`mt-0.5 truncate text-[11px] ${isSelected ? 'text-white/60' : 'text-stone-400'}`}>
+                            {item.area}{item.genre ? ` · ${item.genre}` : ''}
+                          </p>
+                        </div>
+                        {isSelected && (
+                          <span className="shrink-0 text-[10px] font-black text-white/70">選択中</span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* 直接入力フォーム */}
             <div className="divide-y divide-stone-100 rounded-2xl bg-white shadow-sm ring-1 ring-stone-100">
-              {/* 店名 */}
               <div className="px-4 py-4">
                 <label className="mb-1.5 block text-[11px] font-bold text-stone-500">店名</label>
                 <input
@@ -2887,11 +3070,9 @@ return (
                   value={manualStoreName}
                   onChange={(e) => setManualStoreName(e.target.value)}
                   placeholder="例：炭火焼鳥 鳥一"
-                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm font-bold text-stone-900 outline-none transition placeholder:font-normal placeholder:text-stone-400 focus:border-stone-400 focus:bg-white"
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-base font-bold text-stone-900 outline-none transition placeholder:font-normal placeholder:text-stone-400 focus:border-stone-400 focus:bg-white"
                 />
               </div>
-
-              {/* URL */}
               <div className="px-4 py-4">
                 <label className="mb-1.5 block text-[11px] font-bold text-stone-500">URL</label>
                 <input
@@ -2900,11 +3081,9 @@ return (
                   value={manualStoreUrl}
                   onChange={(e) => setManualStoreUrl(e.target.value)}
                   placeholder="https://..."
-                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-400 focus:bg-white"
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-base text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-400 focus:bg-white"
                 />
               </div>
-
-              {/* メモ */}
               <div className="px-4 py-4">
                 <label className="mb-1.5 block text-[11px] font-bold text-stone-500">メモ</label>
                 <textarea
@@ -2912,15 +3091,34 @@ return (
                   onChange={(e) => setManualStoreMemo(e.target.value)}
                   placeholder="個室あり、渋谷3分など"
                   rows={3}
-                  className="w-full resize-none rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-400 focus:bg-white"
+                  className="w-full resize-none rounded-xl border border-stone-200 bg-stone-50 px-3 py-3 text-base text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-400 focus:bg-white"
                 />
               </div>
             </div>
 
-            {/* CTA */}
-            <PrimaryBtn size="large" onClick={() => setStep('finalConfirm')}>
-              この内容で進む
-            </PrimaryBtn>
+            {/* CTA — sticky bottom */}
+            <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4">
+              <div className="mx-auto max-w-xl space-y-2">
+                {manualStoreUrl && /hotpepper\.jp/i.test(manualStoreUrl) && (
+                  <a
+                    href={manualStoreUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
+                  >
+                    <ExternalLink size={13} strokeWidth={2.5} />
+                    ホットペッパーで予約を確認する
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setStep('finalConfirm')}
+                  className="w-full rounded-2xl bg-stone-900 px-4 py-4 text-sm font-black text-white shadow-md transition hover:opacity-90 active:scale-[0.98]"
+                >
+                  この内容で進む →
+                </button>
+              </div>
+            </div>
           </motion.div>
         )}
 

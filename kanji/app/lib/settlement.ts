@@ -12,6 +12,8 @@ export type GradientConfig = {
   通常: number
 }
 
+export type SettlementMode = 'gradient' | 'fixed_amount'
+
 export const DEFAULT_GRADIENT: GradientConfig = {
   主賓: 0,
   上長: 1.5,
@@ -30,6 +32,8 @@ export type SettlementConfig = {
   parties: PartyConfig[]
   roles: Record<string, ParticipantRole> // participantId → role
   gradient: GradientConfig
+  mode?: SettlementMode                          // default: 'gradient'
+  fixedAmounts?: Record<string, number | null>   // participantId → 固定金額（null = 自動割り）
 }
 
 // ── 計算結果の型 ────────────────────────────────────────────────────────────
@@ -81,6 +85,8 @@ export function calcSettlement(
   participants: { id: string; name: string }[]
 ): SettlementResult {
   const { parties, roles, gradient } = config
+  const mode = config.mode ?? 'gradient'
+  const fixedAmounts = config.fixedAmounts ?? {}
   const byId = new Map(participants.map((p) => [p.id, p]))
 
   const partyResults: PartyResult[] = parties.map((party) => {
@@ -101,14 +107,37 @@ export function calcSettlement(
 
     const perPerson: PersonPartyAmount[] = []
 
-    if (!party.useGradient) {
-      // 均等割り
+    if (mode === 'fixed_amount') {
+      // ── 金額指定モード ────────────────────────────────────────────────
+      // 固定金額の合計を求め、残額を未指定者で均等割り（100円切り上げ）
+      let fixedSum = 0
+      let freeCount = 0
+      for (const m of members) {
+        const fixed = fixedAmounts[m.id]
+        if (fixed !== null && fixed !== undefined) {
+          fixedSum += fixed
+        } else {
+          freeCount++
+        }
+      }
+      const remaining = Math.max(0, party.totalAmount - fixedSum)
+      const perFree = freeCount > 0 ? roundUp100(remaining / freeCount) : 0
+      for (const m of members) {
+        const fixed = fixedAmounts[m.id]
+        if (fixed !== null && fixed !== undefined) {
+          perPerson.push({ participantId: m.id, roundedAmount: fixed })
+        } else {
+          perPerson.push({ participantId: m.id, roundedAmount: perFree })
+        }
+      }
+    } else if (!party.useGradient) {
+      // ── 均等割り ─────────────────────────────────────────────────────
       const each = party.totalAmount / members.length
       for (const m of members) {
         perPerson.push({ participantId: m.id, roundedAmount: roundUp100(each) })
       }
     } else {
-      // 傾斜配分
+      // ── 傾斜配分 ─────────────────────────────────────────────────────
       const weights = members.map((m) => gradient[roles[m.id] ?? '通常'] ?? 1.0)
       const totalWeight = weights.reduce((a, b) => a + b, 0)
 

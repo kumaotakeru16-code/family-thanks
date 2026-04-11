@@ -203,7 +203,7 @@ export default function EventParticipantPage() {
             value={participantName}
             onChange={(e) => setParticipantName(e.target.value)}
             placeholder="例：田中"
-            className="mt-3 w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm text-stone-900 outline-none placeholder:text-stone-400"
+            className="mt-3 w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-base text-stone-900 outline-none placeholder:text-stone-400"
           />
         </div>
 
