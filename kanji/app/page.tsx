@@ -130,6 +130,13 @@ type SavedEvent = {
   status?: 'date_pending' | 'store_pending' | 'store_confirmed'
   /** Date ID confirmed by the organizer (set when status becomes store_pending) */
   confirmedDateId?: string
+  /** Store info — saved when status becomes store_confirmed */
+  isManualStore?: boolean
+  storeName?: string
+  storeUrl?: string
+  storeMemo?: string
+  storeId?: string
+  storeArea?: string
 }
 
 // --- Constants ---
@@ -1101,12 +1108,13 @@ function persistEvent(id: string, name: string, type: string) {
 function updateEventStatus(
   id: string,
   status: NonNullable<SavedEvent['status']>,
-  confirmedDateId?: string
+  confirmedDateId?: string,
+  storeInfo?: Pick<SavedEvent, 'isManualStore' | 'storeName' | 'storeUrl' | 'storeMemo' | 'storeId' | 'storeArea'>
 ) {
   setSavedEvents(prev => {
     const updated = prev.map(e =>
       e.id === id
-        ? { ...e, status, ...(confirmedDateId ? { confirmedDateId } : {}) }
+        ? { ...e, status, ...(confirmedDateId ? { confirmedDateId } : {}), ...(storeInfo ?? {}) }
         : e
     )
     try { localStorage.setItem('kanji_events', JSON.stringify(updated)) } catch {}
@@ -1145,7 +1153,7 @@ async function openSavedEvent(id: string, name: string, type: string) {
 
     } else if (status === 'store_confirmed') {
       // Store was already selected in a previous session
-      // → resume at finalConfirm with full decision state restored
+      // → resume at finalConfirm with full decision + store state restored
       try {
         const dr = await loadDecision(id)
         const decision = dr?.decision ?? null
@@ -1153,6 +1161,29 @@ async function openSavedEvent(id: string, name: string, type: string) {
         setFinalDates(dr?.dates ?? result.dates ?? [])
         setFinalEvent(dr?.event ?? null)
         if (decision?.selected_date_id) setHeroBestDateId(decision.selected_date_id)
+
+        // Restore store state from localStorage
+        if (savedEv?.isManualStore) {
+          setIsManualStore(true)
+          setManualStoreName(savedEv.storeName ?? '')
+          setManualStoreUrl(savedEv.storeUrl ?? '')
+          setManualStoreMemo(savedEv.storeMemo ?? '')
+        } else if (savedEv?.storeName) {
+          setIsManualStore(false)
+          // Reconstruct a minimal StoreCandidate so selectedStore resolves
+          const restored: StoreCandidate = {
+            id: savedEv.storeId ?? 'restored',
+            name: savedEv.storeName,
+            link: savedEv.storeUrl ?? '',
+            area: savedEv.storeArea ?? '',
+            tags: [],
+            access: '',
+            image: '',
+          }
+          setRecommendedStores([restored])
+          setSelectedStoreId(restored.id)
+        }
+
         setStep('finalConfirm')
       } catch {
         // loadDecision failed → fall back to dateConfirmed
@@ -1530,8 +1561,11 @@ async function loadFinalDecisionView() {
     setFinalDecision(decisionResult?.decision ?? decisionResult ?? null)
 
     setStep('finalConfirm')
-    // Persist status so openSavedEvent can resume at finalConfirm next time
-    updateEventStatus(currentEventId, 'store_confirmed')
+    // Persist status + store info so openSavedEvent can resume at finalConfirm next time
+    const storeInfo: Pick<SavedEvent, 'isManualStore' | 'storeName' | 'storeUrl' | 'storeMemo' | 'storeId' | 'storeArea'> = isManualStore
+      ? { isManualStore: true, storeName: manualStoreName, storeUrl: manualStoreUrl, storeMemo: manualStoreMemo }
+      : { isManualStore: false, storeId: selectedStoreId, storeName: selectedStore?.name ?? '', storeUrl: selectedStore?.link ?? '', storeArea: selectedStore?.area ?? '' }
+    updateEventStatus(currentEventId, 'store_confirmed', undefined, storeInfo)
   } catch (e: any) {
     alert(`最終確認データの取得に失敗しました: ${e?.message ?? 'unknown error'}`)
   }

@@ -152,6 +152,76 @@ function PartySection({
   )
 }
 
+// ── 傾斜配分プレビューカード ──────────────────────────────────────────────────
+
+function GradientPreviewCard({
+  label,
+  participantIds,
+  roles,
+  gradient,
+  totalAmount,
+}: {
+  label: string
+  participantIds: string[]
+  roles: Record<string, ParticipantRole>
+  gradient: GradientConfig
+  totalAmount: number
+}) {
+  const enabled = totalAmount > 0
+  const totalWeight = participantIds.reduce((sum, id) => {
+    const role = roles[id] ?? '通常'
+    return sum + (gradient[role] ?? 1.0)
+  }, 0)
+  const activeRoles = new Set(participantIds.map((id) => roles[id] ?? '通常'))
+  const previewAmount = (coeff: number): number => {
+    if (!enabled || totalWeight <= 0) return 0
+    return coeff === 0 ? 0 : roundUp100((totalAmount * coeff) / totalWeight)
+  }
+  const normalAmt = previewAmount(gradient['通常'])
+
+  return (
+    <div className="rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
+      <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-stone-400">
+        {label} 役割別目安
+      </p>
+      {!enabled && (
+        <p className="text-[11px] text-stone-300">金額を入力すると目安額が表示されます</p>
+      )}
+      {enabled && (
+        <div className="space-y-1">
+          {(['主賓', '上長', '先輩', '通常'] as const).map((role) => {
+            const isPresent = activeRoles.has(role)
+            const amt = previewAmount(gradient[role])
+            const diff = amt - normalAmt
+            return (
+              <div
+                key={role}
+                className={`flex items-center justify-between ${!isPresent ? 'opacity-25' : ''}`}
+              >
+                <span className="text-[11px] font-bold text-stone-600">{role}</span>
+                <span className="text-[11px] text-stone-700">
+                  {isPresent ? (
+                    role === '主賓' ? (
+                      <span className="font-medium">¥0</span>
+                    ) : (
+                      <>
+                        <span className="font-medium">¥{formatYen(amt)}</span>
+                        {role !== '通常' && diff > 0 && (
+                          <span className="ml-1.5 text-stone-400">+¥{formatYen(diff)}</span>
+                        )}
+                      </>
+                    )
+                  ) : '—'}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── 金額指定セクション ────────────────────────────────────────────────────────
 
 function FixedAmountSection({
@@ -626,6 +696,17 @@ export function SettlementStep({
         />
       )}
 
+      {/* 傾斜プレビュー（1次会）*/}
+      {mode === 'gradient' && party1Gradient && party1Ids.length > 0 && (
+        <GradientPreviewCard
+          label="1次会"
+          participantIds={party1Ids}
+          roles={roles}
+          gradient={gradient}
+          totalAmount={parseInt(party1Amount, 10) || 0}
+        />
+      )}
+
       {/* 2次会 */}
       {!showParty2 ? (
         <button
@@ -660,6 +741,16 @@ export function SettlementStep({
               totalAmount={parseInt(party2Amount, 10) || 0}
               fixedAmounts={fixedAmounts}
               onFixedAmountChange={setFixedAmount}
+            />
+          )}
+          {/* 傾斜プレビュー（2次会：ONのときのみ） */}
+          {mode === 'gradient' && party2Gradient && party2Ids.length > 0 && (
+            <GradientPreviewCard
+              label="2次会"
+              participantIds={party2Ids}
+              roles={roles}
+              gradient={gradient}
+              totalAmount={parseInt(party2Amount, 10) || 0}
             />
           )}
           <button
@@ -708,98 +799,38 @@ export function SettlementStep({
                 transition={{ duration: 0.18 }}
                 className="overflow-hidden"
               >
-                {(() => {
-                  const totalAmt = parseInt(party1Amount, 10) || 0
-                  const previewEnabled = party1Gradient && totalAmt > 0
-
-                  const totalWeight = party1Ids.reduce((sum, id) => {
-                    const role = roles[id] ?? '通常'
-                    return sum + (gradient[role] ?? 1.0)
-                  }, 0)
-
-                  const activeRoles = new Set(party1Ids.map((id) => roles[id] ?? '通常'))
-
-                  const previewAmount = (coeff: number): number => {
-                    if (!previewEnabled || totalWeight <= 0) return 0
-                    return coeff === 0 ? 0 : roundUp100((totalAmt * coeff) / totalWeight)
-                  }
-
-                  const normalAmt = previewAmount(gradient['通常'])
-
-                  return (
-                    <div className="space-y-4 border-t border-stone-100 px-4 pb-4 pt-3">
-                      {(() => {
-                        const isPresent = activeRoles.has('主賓')
-                        return (
-                          <div className={`flex items-center justify-between ${!isPresent ? 'opacity-30' : ''}`}>
-                            <span className="text-sm font-bold text-stone-700">主賓</span>
-                            <span className="text-sm text-stone-400">
-                              {isPresent ? '0.0' : '—'}
-                              {previewEnabled && isPresent && (
-                                <span className="ml-2 font-medium text-stone-500">¥0</span>
-                              )}
-                            </span>
-                          </div>
-                        )
-                      })()}
-
-                      {(['上長', '先輩', '通常'] as const).map((role) => {
-                        const isPresent = activeRoles.has(role)
-                        const amt = previewAmount(gradient[role])
-                        const diff = amt - normalAmt
-                        return (
-                          <div key={role} className={!isPresent ? 'opacity-30 pointer-events-none' : ''}>
-                            <div className="mb-1 flex items-center justify-between">
-                              <span className="text-sm font-bold text-stone-700">{role}</span>
-                              <div className="flex items-baseline gap-2">
-                                {previewEnabled && isPresent && (
-                                  <span className="text-right">
-                                    <span className="text-sm font-medium text-stone-800">
-                                      ¥{formatYen(amt)}
-                                    </span>
-                                    {role !== '通常' && diff > 0 && (
-                                      <span className="ml-1.5 text-[11px] text-stone-400">
-                                        +¥{formatYen(diff)}
-                                      </span>
-                                    )}
-                                  </span>
-                                )}
-                                {!isPresent ? (
-                                  <span className="w-8 text-right text-sm font-black text-stone-400">—</span>
-                                ) : (
-                                  <span className="w-8 text-right text-sm font-black text-stone-900">
-                                    {gradient[role].toFixed(1)}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <input
-                              type="range"
-                              min={0}
-                              max={2.0}
-                              step={0.1}
-                              value={gradient[role]}
-                              onChange={(e) =>
-                                setGradient((g) => ({ ...g, [role]: parseFloat(e.target.value) }))
-                              }
-                              className="w-full accent-stone-900"
-                            />
-                            <div className="flex justify-between text-[10px] text-stone-300">
-                              <span>0</span>
-                              <span>2.0</span>
-                            </div>
-                          </div>
-                        )
-                      })}
-
-                      {!previewEnabled && (
-                        <p className="text-[10px] text-stone-300">
-                          1次会の金額を入力すると、係数ごとの目安額が表示されます。
-                        </p>
-                      )}
+                <div className="space-y-4 border-t border-stone-100 px-4 pb-4 pt-3">
+                  {/* 主賓は係数固定（0）なのでスライダーなし */}
+                  <div className="flex items-center justify-between opacity-40">
+                    <span className="text-sm font-bold text-stone-700">主賓</span>
+                    <span className="text-sm font-black text-stone-900">0.0</span>
+                  </div>
+                  {(['上長', '先輩', '通常'] as const).map((role) => (
+                    <div key={role}>
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="text-sm font-bold text-stone-700">{role}</span>
+                        <span className="w-8 text-right text-sm font-black text-stone-900">
+                          {gradient[role].toFixed(1)}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={2.0}
+                        step={0.1}
+                        value={gradient[role]}
+                        onChange={(e) =>
+                          setGradient((g) => ({ ...g, [role]: parseFloat(e.target.value) }))
+                        }
+                        className="w-full accent-stone-900"
+                      />
+                      <div className="flex justify-between text-[10px] text-stone-300">
+                        <span>0</span>
+                        <span>2.0</span>
+                      </div>
                     </div>
-                  )
-                })()}
+                  ))}
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
