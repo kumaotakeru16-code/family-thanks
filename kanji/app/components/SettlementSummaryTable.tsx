@@ -1,13 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, Smartphone, Landmark } from 'lucide-react'
 import { type SettlementResult, type SettlementConfig, formatYen } from '@/app/lib/settlement'
+import { type OrganizerSettings, hasPaymentInfo, hasBankInfo } from '@/app/lib/organizer-settings'
 
 type Props = {
   result: SettlementResult
   config: SettlementConfig
   message: string
+  organizerSettings?: OrganizerSettings
   onBack: () => void
   onShare: () => void
 }
@@ -19,7 +21,7 @@ const ROLE_BADGE: Record<string, string> = {
   通常: '',
 }
 
-export function SettlementSummaryTable({ result, config, message, onBack, onShare }: Props) {
+export function SettlementSummaryTable({ result, config, message, organizerSettings, onBack, onShare }: Props) {
   const [copied, setCopied] = useState(false)
 
   const hasMultiParty =
@@ -129,6 +131,40 @@ export function SettlementSummaryTable({ result, config, message, onBack, onShar
           )
         })}
       </div>
+
+      {/* 送金先カード */}
+      {organizerSettings && hasPaymentInfo(organizerSettings) && (
+        <div className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-stone-100">
+          <p className="mb-2 text-xs font-black uppercase tracking-wider text-stone-500">送金先</p>
+          <div className="space-y-2">
+            {organizerSettings.paypayId && (
+              <div className="flex items-center gap-2">
+                <Smartphone size={13} className="shrink-0 text-stone-400" />
+                <span className="text-sm text-stone-700">
+                  <span className="font-bold">PayPay</span>　{organizerSettings.paypayId}
+                </span>
+              </div>
+            )}
+            {hasBankInfo(organizerSettings) && (
+              <div className="flex items-start gap-2">
+                <Landmark size={13} className="mt-0.5 shrink-0 text-stone-400" />
+                <span className="text-sm text-stone-700">
+                  <span className="font-bold">銀行</span>
+                  {[
+                    organizerSettings.bankName,
+                    organizerSettings.branchName,
+                    organizerSettings.accountType,
+                    organizerSettings.accountNumber,
+                    organizerSettings.accountName,
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 共有文プレビュー */}
       <div className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-stone-100">

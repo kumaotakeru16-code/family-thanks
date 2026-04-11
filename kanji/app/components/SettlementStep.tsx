@@ -1,20 +1,27 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, User, CreditCard } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   type SettlementConfig,
   type GradientConfig,
   type ParticipantRole,
-  DEFAULT_GRADIENT,
   ROLES,
 } from '@/app/lib/settlement'
+import {
+  type OrganizerSettings,
+  saveOrganizerSettings,
+  hasPaymentInfo,
+  toGradientConfig,
+} from '@/app/lib/organizer-settings'
 
 type Person = { id: string; name: string }
 
 type Props = {
   participants: Person[]
+  organizerSettings: OrganizerSettings
+  onSaveSettings: (s: OrganizerSettings) => void
   onSubmit: (config: SettlementConfig) => void
   onBack: () => void
 }
@@ -108,7 +115,160 @@ function PartySection({
   )
 }
 
-// ── メインコンポーネント ───────────────────────────────────────────────────────
+// ── 幹事設定カード（インライン折りたたみ） ────────────────────────────────────
+
+function OrganizerSettingsCard({
+  settings,
+  onSave,
+}: {
+  settings: OrganizerSettings
+  onSave: (s: OrganizerSettings) => void
+}) {
+  const [open, setOpen] = useState(!settings.organizerName)
+  const [form, setForm] = useState(settings)
+  const [showBank, setShowBank] = useState(false)
+
+  const isPaid = hasPaymentInfo(settings)
+
+  const handleSave = () => {
+    saveOrganizerSettings(form)
+    onSave(form)
+    setOpen(false)
+  }
+
+  return (
+    <div className="rounded-2xl bg-white shadow-sm ring-1 ring-stone-100">
+      {/* ヘッダー行 */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-4 py-3.5"
+      >
+        <div className="flex items-center gap-2">
+          <User size={13} className="text-stone-400" />
+          <div className="text-left">
+            <p className="text-[10px] font-black uppercase tracking-wider text-stone-500">幹事設定</p>
+            <p className="mt-0.5 text-[11px] text-stone-400">
+              {settings.organizerName
+                ? `${settings.organizerName}${isPaid ? '　送金先 ✓' : '　送金先未設定'}`
+                : '名前と送金先を設定しておくと便利です'}
+            </p>
+          </div>
+        </div>
+        {open ? (
+          <ChevronUp size={15} className="shrink-0 text-stone-400" />
+        ) : (
+          <ChevronDown size={15} className="shrink-0 text-stone-400" />
+        )}
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-3 border-t border-stone-100 px-4 pb-4 pt-3">
+              {/* 幹事名 */}
+              <div>
+                <label className="mb-1 block text-[11px] font-bold text-stone-500">幹事名</label>
+                <input
+                  type="text"
+                  value={form.organizerName}
+                  onChange={(e) => setForm((f) => ({ ...f, organizerName: e.target.value }))}
+                  placeholder="山田太郎"
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-900 outline-none focus:border-stone-400 focus:bg-white"
+                />
+              </div>
+
+              {/* PayPay ID */}
+              <div>
+                <label className="mb-1 block text-[11px] font-bold text-stone-500">
+                  PayPay ID（任意）
+                </label>
+                <input
+                  type="text"
+                  value={form.paypayId}
+                  onChange={(e) => setForm((f) => ({ ...f, paypayId: e.target.value }))}
+                  placeholder="yamada_taro"
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-900 outline-none focus:border-stone-400 focus:bg-white"
+                />
+              </div>
+
+              {/* 銀行口座（折りたたみ） */}
+              <button
+                type="button"
+                onClick={() => setShowBank((v) => !v)}
+                className="flex items-center gap-1 text-[11px] font-bold text-stone-400 underline"
+              >
+                <CreditCard size={11} />
+                {showBank ? '銀行口座を閉じる' : '銀行口座を入力する（任意）'}
+              </button>
+
+              {showBank && (
+                <div className="space-y-2.5 rounded-xl bg-stone-50 p-3">
+                  {[
+                    { key: 'bankName', label: '銀行名', placeholder: 'みずほ銀行' },
+                    { key: 'branchName', label: '支店名', placeholder: '渋谷支店' },
+                    { key: 'accountNumber', label: '口座番号', placeholder: '1234567' },
+                    { key: 'accountName', label: '口座名義（カナ）', placeholder: 'ヤマダタロウ' },
+                  ].map(({ key, label, placeholder }) => (
+                    <div key={key}>
+                      <label className="mb-1 block text-[10px] font-bold text-stone-500">
+                        {label}
+                      </label>
+                      <input
+                        type="text"
+                        value={(form as any)[key]}
+                        onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                        placeholder={placeholder}
+                        className="w-full rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900 outline-none focus:border-stone-400"
+                      />
+                    </div>
+                  ))}
+                  <div>
+                    <label className="mb-1 block text-[10px] font-bold text-stone-500">
+                      口座種別
+                    </label>
+                    <div className="flex gap-2">
+                      {['普通', '当座'].map((t) => (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={() => setForm((f) => ({ ...f, accountType: t }))}
+                          className={`rounded-full px-3 py-1 text-xs font-bold transition ${
+                            form.accountType === t
+                              ? 'bg-stone-900 text-white'
+                              : 'bg-stone-100 text-stone-500'
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleSave}
+                className="w-full rounded-xl bg-stone-900 py-2.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+              >
+                保存する
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+// ── ロールバッジ色 ─────────────────────────────────────────────────────────────
 
 const ROLE_COLORS: Record<ParticipantRole, string> = {
   主賓: 'bg-amber-500 text-white',
@@ -117,7 +277,9 @@ const ROLE_COLORS: Record<ParticipantRole, string> = {
   通常: 'bg-stone-900 text-white',
 }
 
-export function SettlementStep({ participants, onSubmit, onBack }: Props) {
+// ── メインコンポーネント ───────────────────────────────────────────────────────
+
+export function SettlementStep({ participants, organizerSettings, onSaveSettings, onSubmit, onBack }: Props) {
   // ── 1次会 ──
   const [party1Ids, setParty1Ids] = useState<string[]>(participants.map((p) => p.id))
   const [party1Amount, setParty1Amount] = useState('')
@@ -129,15 +291,17 @@ export function SettlementStep({ participants, onSubmit, onBack }: Props) {
   const [party2Amount, setParty2Amount] = useState('')
   const [party2Gradient, setParty2Gradient] = useState(false)
 
-  // ── 役割 ──
+  // ── 役割（初期値は通常） ──
   const [roles, setRoles] = useState<Record<string, ParticipantRole>>(() => {
     const r: Record<string, ParticipantRole> = {}
     participants.forEach((p) => { r[p.id] = '通常' })
     return r
   })
 
-  // ── 傾斜設定 ──
-  const [gradient, setGradient] = useState<GradientConfig>(DEFAULT_GRADIENT)
+  // ── 傾斜設定（保存済み defaultGradient を反映） ──
+  const [gradient, setGradient] = useState<GradientConfig>(() =>
+    toGradientConfig(organizerSettings.defaultGradient)
+  )
   const [showGradient, setShowGradient] = useState(false)
 
   const toggle = (id: string, ids: string[], setIds: (v: string[]) => void) => {
@@ -181,6 +345,9 @@ export function SettlementStep({ participants, onSubmit, onBack }: Props) {
         </h2>
         <p className="mt-1 text-sm text-stone-400">会計を入れて、幹事の仕事を終わらせましょう。</p>
       </div>
+
+      {/* 幹事設定カード */}
+      <OrganizerSettingsCard settings={organizerSettings} onSave={onSaveSettings} />
 
       {/* 1次会 */}
       <PartySection

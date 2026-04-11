@@ -162,12 +162,24 @@ export function calcSettlement(
   return { partyResults, personResults }
 }
 
+// ── 送金先情報の型（organizer-settings から渡す） ────────────────────────────
+
+export type PaymentInfo = {
+  paypayId?: string
+  bankName?: string
+  branchName?: string
+  accountType?: string
+  accountNumber?: string
+  accountName?: string
+}
+
 // ── 共有メッセージ生成 ────────────────────────────────────────────────────────
 
 export function generateSettlementMessage(
   result: SettlementResult,
   partyIds: string[],
-  storeName?: string
+  storeName?: string,
+  payment?: PaymentInfo
 ): string {
   const lines: string[] = ['会計まとめです。ご確認ください。']
   if (storeName) lines.push(`【${storeName}】`)
@@ -199,5 +211,28 @@ export function generateSettlementMessage(
   }
 
   lines.push('よろしくお願いします🙏')
+
+  // ── 送金先ブロック ────────────────────────────────────────────────────────
+  const hasPaypay = !!(payment?.paypayId)
+  const hasBank = !!(payment?.bankName && payment?.accountNumber)
+
+  if (hasPaypay || hasBank) {
+    lines.push('')
+    lines.push('【送金先】')
+    if (hasPaypay) {
+      lines.push(`PayPay: ${payment!.paypayId}`)
+    }
+    if (hasBank) {
+      const parts = [
+        payment!.bankName,
+        payment!.branchName,
+        payment!.accountType,
+        payment!.accountNumber,
+        payment!.accountName,
+      ].filter(Boolean)
+      lines.push(`銀行: ${parts.join(' ')}`)
+    }
+  }
+
   return lines.join('\n')
 }

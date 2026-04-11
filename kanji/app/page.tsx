@@ -31,6 +31,11 @@ import {
   calcSettlement,
   generateSettlementMessage,
 } from '@/app/lib/settlement'
+import {
+  type OrganizerSettings,
+  loadOrganizerSettings,
+  saveOrganizerSettings,
+} from '@/app/lib/organizer-settings'
 
 // --- Types ---
 type Step =
@@ -114,7 +119,7 @@ const EVENT_TYPES: EventType[] = ['歓迎会', '送別会', '普通の飲み会'
 const AREA_OPTIONS = ['渋谷', '新宿', '池袋', '東京', '品川', '横浜']
 
 // Hot Pepper ジャンル準拠のラベル（UI表示用）
-const HP_GENRE_OPTIONS = ['和風・居酒屋', '洋食', '中華'] as const
+const HP_GENRE_OPTIONS = ['和食', '洋食', '中華'] as const
 
 // UIラベル → Hot Pepper 予算コードの変換マップ（Gemini 選定ルールに渡すため）
 const BUDGET_CODE_MAP: Record<string, string> = {
@@ -135,23 +140,23 @@ const PLACES_ENRICH_LIMIT = 5
 // 参加者が選んだ旧ジャンル（任意入力含む）を新3択に正規化する
 const PARTICIPANT_GENRE_NORMALIZE: Record<string, string> = {
   // 和風・居酒屋 寄り
-  '居酒屋': '和風・居酒屋',
-  '和食': '和風・居酒屋',
-  '焼き鳥': '和風・居酒屋',
-  'やきとり': '和風・居酒屋',
-  '焼肉・ホルモン': '和風・居酒屋', // MVP では和風扱い
-  '韓国料理': '和風・居酒屋',       // MVP では和風扱い
-  '海鮮': '和風・居酒屋',
-  '魚': '和風・居酒屋',
-  '寿司': '和風・居酒屋',
-  '刺身': '和風・居酒屋',
-  '炉端': '和風・居酒屋',
-  'おでん': '和風・居酒屋',
-  '鍋': '和風・居酒屋',
-  '鶏料理': '和風・居酒屋',
-  '串焼き': '和風・居酒屋',
-  '串焼': '和風・居酒屋',
-  '和風・居酒屋': '和風・居酒屋',
+  '居酒屋': '和食',
+  '和食': '和食',
+  '焼き鳥': '和食',
+  'やきとり': '和食',
+  '焼肉・ホルモン': '和食',
+  '韓国料理': '和食',
+  '海鮮': '和食',
+  '魚': '和食',
+  '寿司': '和食',
+  '刺身': '和食',
+  '炉端': '和食',
+  'おでん': '和食',
+  '鍋': '和食',
+  '鶏料理': '和食',
+  '串焼き': '和食',
+  '串焼': '和食',
+  '和風・居酒屋': '和食',
   // 洋食 寄り
   '洋食': '洋食',
   'イタリアン': '洋食',
@@ -570,6 +575,7 @@ export default function Page() {
   const [settlementResult, setSettlementResult] = useState<SettlementResult | null>(null)
   const [settlementMessage, setSettlementMessage] = useState('')
   const [settlementCopied, setSettlementCopied] = useState(false)
+  const [organizerSettings, setOrganizerSettings] = useState<OrganizerSettings>(() => loadOrganizerSettings())
 
   const stepHistoryRef = useRef<Step[]>(['home'])
   const isHandlingBackRef = useRef(false)
@@ -590,6 +596,12 @@ export default function Page() {
   const [dateCopied, setDateCopied] = useState(false)
   const [maybeCopied, setMaybeCopied] = useState(false)
   const [heroBestDateId, setHeroBestDateId] = useState<string | null>(null)
+
+  // ── 編集可能メッセージ state ────────────────────────────────────────────────
+  const [editableShareMessage, setEditableShareMessage] = useState('')
+  const [editableReminderText, setEditableReminderText] = useState('')
+  const [editableDateConfirmedText, setEditableDateConfirmedText] = useState('')
+  const [editableMaybeConfirmText, setEditableMaybeConfirmText] = useState('')
 
   const selectedTime = `${selectedHour}:${selectedMinute}`
 
@@ -679,7 +691,7 @@ useEffect(() => {
       return key >= dateKey(cutoff)
     })
     setGeneratedDates(weekdays)
-    setSelectedDateIds(weekdays.map(d => d.id))
+    setSelectedDateIds([])
   }
 }, [step, generatedDates.length])
 
@@ -917,6 +929,7 @@ useEffect(() => {
   if (pool.length > 0) setSelectedStoreId(pool[0].id)
 // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [recommendedStores])
+
 
 const storePool = recommendedStores
 
@@ -1450,24 +1463,32 @@ const shareUrl =
 const shareMessage = `${eventName || '会'}の日程調整をお願いします！
 以下のリンクから回答してください🙏
 
-
-
 ${shareUrl}`
 
-const reminderText = `まだの方だけ、回答お願いします🙏
+const reminderText = `${eventName ? eventName + 'の' : ''}日程調整、まだの方だけ回答お願いします🙏
 1分くらいで終わります！
 
 ${shareUrl}`
 
 const dateConfirmedShareText =
   heroDate
-    ? `日程はこちらで決まりました！\n詳細はまた連絡します🙏\n\n日程：${heroDate.label}`
+    ? `${eventName ? eventName + 'の' : ''}日程はこちらで決まりました！\n詳細はまた連絡します🙏\n\n日程：${heroDate.label}`
     : ''
 
 const maybeConfirmText =
   heroDate && maybeNames.length > 0
-    ? `この日で進めようと思っています！\n問題なさそうなら、この日程で確定したいです🙏\n\n日程：${heroDate.label}`
+    ? `${eventName ? eventName + 'の' : ''}日程ですが、この日で進めようと思っています！\n問題なさそうなら確定したいです🙏\n\n日程：${heroDate.label}`
     : ''
+
+// 編集可能メッセージの同期（ベーステキストが変わったらリセット）
+// eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => { setEditableShareMessage(shareMessage) }, [shareMessage])
+// eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => { setEditableReminderText(reminderText) }, [reminderText])
+// eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => { setEditableDateConfirmedText(dateConfirmedShareText) }, [dateConfirmedShareText])
+// eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => { setEditableMaybeConfirmText(maybeConfirmText) }, [maybeConfirmText])
 
 
 
@@ -1568,18 +1589,8 @@ return (
             <StepLabel n={1} />
             <CardTitle>会を作る</CardTitle>
 
-            {/* 会の基本情報 */}
-            <FieldLabel>会の種類</FieldLabel>
-            <div className="mt-2.5 flex flex-wrap gap-2">
-              {EVENT_TYPES.map(t => (
-                <Chip key={t} active={eventType === t} onClick={() => { setEventType(t); setEventName(t) }}>
-                  {t}
-                </Chip>
-              ))}
-            </div>
-
-            <div className="mt-5">
-              <FieldLabel>イベント名（任意）</FieldLabel>
+            <div className="mt-2">
+              <FieldLabel>イベント名</FieldLabel>
               <input
                 value={eventName}
                 onChange={e => setEventName(e.target.value)}
@@ -1660,22 +1671,6 @@ return (
                 />
               </div>
 
-              <div className="mt-4 rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
-                <p className="text-xs font-bold text-stone-500">選択中 {selectedDateIds.length}件</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {generatedDates
-                    .filter((d) => selectedDateIds.includes(d.id))
-                    .sort((a, b) => (a.id < b.id ? -1 : 1))
-                    .map((d) => (
-                      <span key={d.id} className="rounded-full bg-stone-900 px-3 py-1.5 text-xs font-bold text-white">
-                        {d.label}
-                      </span>
-                    ))}
-                  {selectedDateIds.length === 0 && (
-                    <span className="text-sm text-stone-400">候補日がまだ選ばれていません</span>
-                  )}
-                </div>
-              </div>
             </div>
 
             <div className="mt-6 space-y-3">
@@ -1740,10 +1735,17 @@ return (
             <span className="text-[11px] font-bold text-stone-500">URLのみ</span>
           </label>
         </div>
-        <div className="rounded-2xl bg-white px-4 py-4 ring-1 ring-stone-100">
-          <p className="whitespace-pre-wrap text-sm leading-6 text-stone-700">
-            {urlOnlyInvite ? shareUrl : shareMessage}
-          </p>
+        <div className="rounded-2xl bg-white px-4 py-3 ring-1 ring-stone-100">
+          {urlOnlyInvite ? (
+            <p className="text-sm text-stone-700">{shareUrl}</p>
+          ) : (
+            <textarea
+              value={editableShareMessage}
+              onChange={(e) => setEditableShareMessage(e.target.value)}
+              rows={5}
+              className="w-full resize-none text-sm leading-6 text-stone-700 outline-none"
+            />
+          )}
         </div>
       </div>
 
@@ -1751,7 +1753,7 @@ return (
         <button
           type="button"
           onClick={async () => {
-            await navigator.clipboard.writeText(urlOnlyInvite ? shareUrl : shareMessage)
+            await navigator.clipboard.writeText(urlOnlyInvite ? shareUrl : editableShareMessage)
             setCopied(true)
             setTimeout(() => setCopied(false), 1600)
           }}
@@ -1762,18 +1764,13 @@ return (
 
         <button
           type="button"
-          onClick={() => openLineShare(urlOnlyInvite ? shareUrl : shareMessage)}
+          onClick={() => openLineShare(urlOnlyInvite ? shareUrl : editableShareMessage)}
           className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-[0.98]"
         >
           LINEで送る
         </button>
       </div>
 
-      <div className="rounded-2xl bg-amber-50 px-4 py-3 ring-1 ring-amber-100">
-        <p className="text-sm leading-6 text-amber-800">
-          回答が集まったら、おすすめ日程からすぐ決められます。
-        </p>
-      </div>
 <PrimaryBtn
   size="large"
   onClick={async () => {
@@ -1868,101 +1865,83 @@ return (
               </span>
             </p>
           )}
+          <p className="mt-3 text-[11px] leading-5 text-stone-400">
+            参加者の回答と優先設定をもとにおすすめ日程を算出しています。主賓がいる場合は上で設定してください。
+          </p>
         </div>
 
+        {/* おすすめ日程ヒーロー */}
         <div className="overflow-hidden rounded-3xl bg-stone-900">
           <div className="px-6 py-5">
- <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">
-  おすすめ日程
-</p>
-<p className="mt-1 text-3xl font-black text-white">
-  {heroDate?.label}
-</p>
-
-<p className="mt-2 text-sm font-bold text-white/70">
-  最大参加人数 {yesCount + maybeCount}人
-</p>
-
-<div className="mt-3 flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
-  <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
-    参加予定 {yesCount}人
-  </span>
-
-  <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
-    調整中 {maybeCount}人
-  </span>
-
-  {eventType && (
-    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
-      {eventType}
-    </span>
-  )}
-</div>
-
-<button
-  type="button"
-  onClick={() => setShowHeroParticipants((v) => !v)}
-  className="mt-3 text-xs font-bold text-white/70 underline"
->
-  {showHeroParticipants ? '参加者を閉じる' : '参加者を見る'}
-</button>
-
-{showHeroParticipants && (
-  <div className="mt-4 space-y-3">
-    <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/80">
-        参加予定
-      </p>
-      <div className="mt-2 flex flex-wrap gap-2">
-{finalYesParticipants.length > 0 ? (
-  finalYesParticipants.map((p) => (
-            <span
-              key={p.id}
-              className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20"
-            >
-              {p.name}
-            </span>
-          ))
-        ) : (
-          <span className="text-xs text-white/40">まだいません</span>
-        )}
-      </div>
-    </div>
-
-    <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300/80">
-        調整中
-      </p>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {heroMaybeParticipants.length > 0 ? (
-          heroMaybeParticipants.map((p) => (
-            <span
-              key={p.id}
-              className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20"
-            >
-              {p.name}
-            </span>
-          ))
-        ) : (
-          <span className="text-xs text-white/40">まだいません</span>
-        )}
-      </div>
-    </div>
-  </div>
-)}
-          </div>
-
-          <div className="px-6 pb-5">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">
+              おすすめ日程
+            </p>
+            <p className="mt-1 text-3xl font-black text-white">
+              {heroDate?.label}
+            </p>
+            <p className="mt-2 text-sm font-bold text-white/70">
+              最大参加人数 {yesCount + maybeCount}人
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
+              <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+                参加予定 {yesCount}人
+              </span>
+              <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
+                調整中 {maybeCount}人
+              </span>
+              {eventType && (
+                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
+                  {eventType}
+                </span>
+              )}
+            </div>
             <button
               type="button"
-              onClick={decideRecommendedDate}
-              className="w-full rounded-2xl bg-white px-4 py-3.5 text-base font-black text-stone-900 transition hover:bg-stone-100 active:scale-[0.98]"
+              onClick={() => setShowHeroParticipants((v) => !v)}
+              className="mt-3 text-xs font-bold text-white/70 underline"
             >
-              この日で決定
+              {showHeroParticipants ? '参加者を閉じる' : '参加者を見る'}
             </button>
+            {showHeroParticipants && (
+              <div className="mt-4 space-y-3">
+                <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/80">
+                    参加予定
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {heroYesParticipants.length > 0 ? (
+                      heroYesParticipants.map((p) => (
+                        <span key={p.id} className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+                          {p.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-white/40">まだいません</span>
+                    )}
+                  </div>
+                </div>
+                <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300/80">
+                    調整中
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {heroMaybeParticipants.length > 0 ? (
+                      heroMaybeParticipants.map((p) => (
+                        <span key={p.id} className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
+                          {p.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-white/40">まだいません</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
+        {/* ほかの日程 */}
         {altDates.length > 0 && (
           <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
             <button
@@ -1972,13 +1951,11 @@ return (
             >
               {showAltDates ? 'ほかの日程を閉じる' : `ほかの日程を見る（${Math.min(altDates.length, 3)}件）`}
             </button>
-
             {showAltDates && (
               <div className="mt-4 space-y-2">
                 {altDates.slice(0, 3).map((d) => {
                   const dYes = activeParticipants.filter((p) => p.availability?.[d.id] === 'yes').length
                   const dMaybe = activeParticipants.filter((p) => p.availability?.[d.id] === 'maybe').length
-
                   return (
                     <button
                       type="button"
@@ -1993,7 +1970,6 @@ return (
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-stone-900">{d.label}</p>
                       </div>
-
                       <div className="ml-3 flex shrink-0 items-center gap-2">
                         <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-600 ring-1 ring-emerald-100">
                           {dYes}人
@@ -2010,14 +1986,71 @@ return (
           </div>
         )}
 
+        {/* 回答テーブル */}
+        <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
+            回答テーブル
+          </p>
+          <div className="mt-4 overflow-x-auto">
+            <div className="min-w-[760px]">
+              <div
+                className="grid items-center gap-2 text-xs font-bold text-stone-500"
+                style={{ gridTemplateColumns: `92px repeat(${activeDates.length}, minmax(72px, 1fr))` }}
+              >
+                <div>参加者</div>
+                {activeDates.map((date) => (
+                  <div key={date.id} className={date.id === heroDate.id ? 'text-stone-900' : ''}>
+                    {date.label}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 space-y-2">
+                {activeParticipants.map((participant) => (
+                  <div
+                    key={participant.id}
+                    className="grid items-center gap-2"
+                    style={{ gridTemplateColumns: `92px repeat(${activeDates.length}, minmax(72px, 1fr))` }}
+                  >
+                    <div className="truncate text-sm font-bold text-stone-900">
+                      {participant.name}
+                    </div>
+                    {activeDates.map((date) => {
+                      const value = participant.availability?.[date.id]
+                      const isHero = date.id === heroDate.id
+                      return (
+                        <div
+                          key={date.id}
+                          className={`flex h-9 items-center justify-center rounded-xl text-sm font-bold ring-1 ${
+                            isHero ? 'bg-stone-50 ring-stone-200' : 'bg-white ring-stone-100'
+                          } ${
+                            value === 'yes' ? 'text-emerald-600' : value === 'maybe' ? 'text-amber-500' : 'text-stone-300'
+                          }`}
+                        >
+                          {value === 'yes' ? '○' : value === 'maybe' ? '△' : value === 'no' ? '×' : '—'}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* 未回答者へのリマインド */}
         <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">未回答者へのリマインド</p>
-          <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-4">
-            <p className="whitespace-pre-line text-sm leading-6 text-stone-700">
-              {urlOnlyReminder ? shareUrl : reminderText}
-            </p>
+          <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-3">
+            {urlOnlyReminder ? (
+              <p className="text-sm text-stone-700">{shareUrl}</p>
+            ) : (
+              <textarea
+                value={editableReminderText}
+                onChange={(e) => setEditableReminderText(e.target.value)}
+                rows={4}
+                className="w-full resize-none bg-transparent text-sm leading-6 text-stone-700 outline-none"
+              />
+            )}
           </div>
           <label className="mt-3 flex cursor-pointer items-center gap-2 self-start">
             <input
@@ -2032,7 +2065,7 @@ return (
             <button
               type="button"
               onClick={async () => {
-                await navigator.clipboard.writeText(urlOnlyReminder ? shareUrl : reminderText)
+                await navigator.clipboard.writeText(urlOnlyReminder ? shareUrl : editableReminderText)
                 setReminderCopied(true)
                 setTimeout(() => setReminderCopied(false), 1600)
               }}
@@ -2042,7 +2075,7 @@ return (
             </button>
             <button
               type="button"
-              onClick={() => openLineShare(urlOnlyReminder ? shareUrl : reminderText)}
+              onClick={() => openLineShare(urlOnlyReminder ? shareUrl : editableReminderText)}
               className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
             >
               LINEで送る
@@ -2050,66 +2083,11 @@ return (
           </div>
         </div>
 
-        <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
-            回答テーブル
-          </p>
-
-          <div className="mt-4 overflow-x-auto">
-            <div className="min-w-[760px]">
-              <div
-                className="grid items-center gap-2 text-xs font-bold text-stone-500"
-                style={{ gridTemplateColumns: `92px repeat(${activeDates.length}, minmax(72px, 1fr))` }}
-              >
-                <div>参加者</div>
-                {activeDates.map((date) => (
-                  <div
-                    key={date.id}
-                    className={date.id === heroDate.id ? 'text-stone-900' : ''}
-                  >
-                    {date.label}
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-3 space-y-2">
-                {activeParticipants.map((participant) => (
-                  <div
-                    key={participant.id}
-                    className="grid items-center gap-2"
-                    style={{ gridTemplateColumns: `92px repeat(${activeDates.length}, minmax(72px, 1fr))` }}
-                  >
-                    <div className="truncate text-sm font-bold text-stone-900">
-                      {participant.name}
-                    </div>
-
-                    {activeDates.map((date) => {
-                      const value = participant.availability?.[date.id]
-                      const isHero = date.id === heroDate.id
-
-                      return (
-                        <div
-                          key={date.id}
-                          className={`flex h-9 items-center justify-center rounded-xl text-sm font-bold ring-1 ${
-                            isHero ? 'bg-stone-50 ring-stone-200' : 'bg-white ring-stone-100'
-                          } ${
-                            value === 'yes'
-                              ? 'text-emerald-600'
-                              : value === 'maybe'
-                              ? 'text-amber-500'
-                              : 'text-stone-300'
-                          }`}
-                        >
-                          {value === 'yes' ? '○' : value === 'maybe' ? '△' : value === 'no' ? '×' : '—'}
-                        </div>
-                      )
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* この日で決定 CTA */}
+        <PrimaryBtn size="large" onClick={decideRecommendedDate}>
+          この日で決定 →
+        </PrimaryBtn>
+        <GhostBtn onClick={() => setStep('shareLink')}>← 戻る</GhostBtn>
 </>
 )}
 </div>
@@ -2222,14 +2200,19 @@ return (
 
       {dateShareTab === 'yes' && (
         <div className="mt-4">
-          <div className="rounded-2xl bg-stone-50 px-4 py-4">
-            <p className="whitespace-pre-line text-sm leading-6 text-stone-700">{dateConfirmedShareText}</p>
+          <div className="rounded-2xl bg-stone-50 px-4 py-3">
+            <textarea
+              value={editableDateConfirmedText}
+              onChange={(e) => setEditableDateConfirmedText(e.target.value)}
+              rows={4}
+              className="w-full resize-none bg-transparent text-sm leading-6 text-stone-700 outline-none"
+            />
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={async () => {
-                await navigator.clipboard.writeText(dateConfirmedShareText)
+                await navigator.clipboard.writeText(editableDateConfirmedText)
                 setDateCopied(true)
                 setTimeout(() => setDateCopied(false), 1600)
               }}
@@ -2239,7 +2222,7 @@ return (
             </button>
             <button
               type="button"
-              onClick={() => openLineShare(dateConfirmedShareText)}
+              onClick={() => openLineShare(editableDateConfirmedText)}
               className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
             >
               LINEで送る
@@ -2259,14 +2242,19 @@ return (
                   </span>
                 ))}
               </div>
-              <div className="rounded-2xl bg-stone-50 px-4 py-4">
-                <p className="whitespace-pre-line text-sm leading-6 text-stone-700">{maybeConfirmText}</p>
+              <div className="rounded-2xl bg-stone-50 px-4 py-3">
+                <textarea
+                  value={editableMaybeConfirmText}
+                  onChange={(e) => setEditableMaybeConfirmText(e.target.value)}
+                  rows={4}
+                  className="w-full resize-none bg-transparent text-sm leading-6 text-stone-700 outline-none"
+                />
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={async () => {
-                    await navigator.clipboard.writeText(maybeConfirmText)
+                    await navigator.clipboard.writeText(editableMaybeConfirmText)
                     setMaybeCopied(true)
                     setTimeout(() => setMaybeCopied(false), 1600)
                   }}
@@ -2276,7 +2264,7 @@ return (
                 </button>
                 <button
                   type="button"
-                  onClick={() => openLineShare(maybeConfirmText)}
+                  onClick={() => openLineShare(editableMaybeConfirmText)}
                   className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
                 >
                   LINEで送る
@@ -2472,10 +2460,10 @@ return (
           </div>
         )}
 
-        {/* 条件チップ — stagger で表示 */}
+        {/* 条件チップ + 条件変更リンク */}
         {organizerConditions.length > 0 && (
           <motion.div
-            className="flex flex-wrap gap-1.5 px-0.5"
+            className="flex flex-wrap items-center gap-1.5 px-0.5"
             initial="hidden"
             animate="visible"
             variants={{ visible: { transition: { staggerChildren: 0.05 } } }}
@@ -2490,6 +2478,14 @@ return (
                 {c}
               </motion.span>
             ))}
+            <motion.button
+              type="button"
+              onClick={() => setStep('organizerConditions')}
+              variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
+              className="ml-1 text-[11px] font-bold text-stone-400 underline underline-offset-2 hover:text-stone-600"
+            >
+              条件を変える
+            </motion.button>
           </motion.div>
         )}
 
@@ -2596,7 +2592,16 @@ return (
         {/* 2位以下 — 選択可能カード（stagger表示） */}
         {secondaryStores.length > 0 && (
           <div className="space-y-2">
-            <p className="px-0.5 text-[10px] font-black tracking-[0.15em] text-stone-400 uppercase">他の候補</p>
+            <div className="flex items-center justify-between px-0.5">
+              <p className="text-[10px] font-black tracking-[0.15em] text-stone-400 uppercase">他の候補</p>
+              <button
+                type="button"
+                onClick={isLoadingStores ? undefined : refreshStores}
+                className="text-[11px] font-bold text-stone-400 underline underline-offset-2 hover:text-stone-600"
+              >
+                候補を入れ替える
+              </button>
+            </div>
             <motion.div
               className="space-y-2"
               initial="hidden"
@@ -2664,16 +2669,6 @@ return (
           <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
             この候補で進む
           </PrimaryBtn>
-          <div className="grid grid-cols-2 gap-2">
-            {/* 候補入れ替え：現在の5件を除外して別候補セットを新規取得 */}
-            <GhostBtn onClick={isLoadingStores ? undefined : refreshStores}>
-              候補を入れ替える
-            </GhostBtn>
-            {/* 条件変更：organizerConditions に戻る */}
-            <GhostBtn onClick={() => setStep('organizerConditions')}>
-              条件を変える
-            </GhostBtn>
-          </div>
         </motion.div>
       </>
     )}
@@ -2885,16 +2880,30 @@ ${finalStore?.link ?? ''}`
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'settlement' && (() => {
           // 確定日の yes 参加者を優先。なければ active 全員
-          const settlementParticipants =
+          const baseParticipants =
             finalYesParticipants.length > 0
               ? finalYesParticipants
               : heroYesParticipants.length > 0
               ? heroYesParticipants
               : activeParticipants
 
+          // 幹事を必ず参加者に含める（重複チェック）
+          const organizerName = organizerSettings.organizerName || '幹事'
+          const alreadyIn = baseParticipants.some(
+            (p) => p.id === 'organizer-self' || p.name === organizerName
+          )
+          const settlementParticipants = alreadyIn
+            ? baseParticipants
+            : [{ id: 'organizer-self', name: organizerName }, ...baseParticipants]
+
           return (
             <SettlementStep
               participants={settlementParticipants.map((p) => ({ id: p.id, name: p.name }))}
+              organizerSettings={organizerSettings}
+              onSaveSettings={(s) => {
+                saveOrganizerSettings(s)
+                setOrganizerSettings(s)
+              }}
               onSubmit={(config) => {
                 const result = calcSettlement(
                   config,
@@ -2902,7 +2911,15 @@ ${finalStore?.link ?? ''}`
                 )
                 const storeName =
                   (selectedStore || recommendedStores[0])?.name ?? undefined
-                const msg = generateSettlementMessage(result, config.parties.map((p) => p.id), storeName)
+                const payment = {
+                  paypayId: organizerSettings.paypayId,
+                  bankName: organizerSettings.bankName,
+                  branchName: organizerSettings.branchName,
+                  accountType: organizerSettings.accountType,
+                  accountNumber: organizerSettings.accountNumber,
+                  accountName: organizerSettings.accountName,
+                }
+                const msg = generateSettlementMessage(result, config.parties.map((p) => p.id), storeName, payment)
                 setSettlementConfig(config)
                 setSettlementResult(result)
                 setSettlementMessage(msg)
@@ -2923,6 +2940,7 @@ ${finalStore?.link ?? ''}`
               result={settlementResult}
               config={settlementConfig}
               message={settlementMessage}
+              organizerSettings={organizerSettings}
               onBack={() => setStep('settlement')}
               onShare={() => setStep('settlementShared')}
             />
@@ -3519,6 +3537,8 @@ function CalendarPicker({
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   }
 
+  const todayKey = dk(new Date())
+
   return (
     <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
       {/* Month nav */}
@@ -3562,8 +3582,8 @@ function CalendarPicker({
           const id = `wd-${dateKeyValue}`
           const isWeekend = date.getDay() === 0 || date.getDay() === 6
           const isDisabledBefore = disabledBefore ? dateKeyValue < disabledBefore : false
-          const isSelected =
-            selectedIds.includes(id) || selectedIds.includes(dateKeyValue)
+          const isSelected = selectedIds.includes(id) || selectedIds.includes(dateKeyValue)
+          const isToday = dateKeyValue === todayKey
 
           return (
             <button
@@ -3572,21 +3592,16 @@ function CalendarPicker({
               disabled={isDisabledBefore}
               onClick={() => onDayClick(dateKeyValue)}
               className={cx(
-                'flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold transition',
+                'relative flex h-10 w-10 flex-col items-center justify-center rounded-xl text-sm font-bold transition',
                 isSelected && 'bg-stone-900 text-white ring-1 ring-stone-900',
-                !isSelected &&
-                  !isDisabledBefore &&
-                  !isWeekend &&
-                  'bg-white text-stone-700 ring-1 ring-stone-200 hover:bg-stone-50',
-                !isSelected &&
-                  !isDisabledBefore &&
-                  isWeekend &&
-                  'bg-stone-50 text-stone-400 ring-1 ring-stone-200 hover:bg-stone-100',
-                isDisabledBefore &&
-                  'cursor-not-allowed bg-stone-50 text-stone-300 ring-1 ring-stone-100'
+                !isSelected && isToday && !isDisabledBefore && 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-300',
+                !isSelected && !isToday && !isDisabledBefore && !isWeekend && 'bg-white text-stone-700 ring-1 ring-stone-200 hover:bg-stone-50',
+                !isSelected && !isToday && !isDisabledBefore && isWeekend && 'bg-stone-50 text-stone-400 ring-1 ring-stone-200 hover:bg-stone-100',
+                isDisabledBefore && 'cursor-not-allowed bg-stone-50 text-stone-300 ring-1 ring-stone-100'
               )}
             >
               {date.getDate()}
+              {isToday && <span className="absolute bottom-0.5 text-[7px] font-black leading-none text-emerald-500">今日</span>}
             </button>
           )
         })}
