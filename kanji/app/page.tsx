@@ -22,8 +22,11 @@ import {
   Receipt,
   CalendarPlus,
   ChevronRight,
+  ChevronLeft,
   CircleDashed,
   XCircle,
+  Share2,
+  House,
 } from 'lucide-react'
 
 import { createEvent, loadEventData } from '@/lib/kanji-db'
@@ -1504,28 +1507,55 @@ useEffect(() => { setEditableDateConfirmedText(dateConfirmedShareText) }, [dateC
 // eslint-disable-next-line react-hooks/exhaustive-deps
 useEffect(() => { setEditableMaybeConfirmText(maybeConfirmText) }, [maybeConfirmText])
 
+// ── 戻るナビゲーション — 各stepに対応する前のstepを返す ──────────────────────
+// FLOW_STEPSの順番と異なる特殊ケースのみ上書き
+const backStep: Step | null = (() => {
+  if (step === 'shared') return null
+  if (step === 'manualStore') return 'organizerConditions'
+  if (step === 'finalConfirm') return isManualStore ? 'manualStore' : 'storeSuggestion'
+  return getPreviousStep(step)
+})()
+
 
 
 return (
   <main className="min-h-screen" style={{ background: '#F5F3EF' }}>
     <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 pb-20 pt-6 sm:px-5">
-      {/* App header — step以外では非表示 */}
+      {/* ── グローバルナビ — ホーム以外で表示 ─────────────────────────────────── */}
       {step !== 'home' && (
-        <header className="mb-5 flex items-center justify-between">
+        <header className="mb-4 flex h-9 items-center justify-between">
+          {/* 左: 戻るナビゲーション */}
+          {backStep ? (
+            <button
+              type="button"
+              onClick={() => setStep(backStep)}
+              className="-ml-2 flex h-9 w-9 items-center justify-center rounded-xl text-stone-400 transition hover:text-stone-700 active:scale-95"
+              aria-label="戻る"
+            >
+              <ChevronLeft size={22} strokeWidth={2} />
+            </button>
+          ) : (
+            <div className="w-9" />
+          )}
+
+          {/* 中央: ワードマーク */}
           <button
             type="button"
             onClick={() => setStep('home')}
-            className="flex items-center gap-1.5 text-[11px] font-bold text-stone-400 transition hover:text-stone-700"
+            className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-stone-400 transition hover:text-stone-600"
           >
-            <CalendarDays size={12} strokeWidth={2.5} />
-            <span className="tracking-[0.18em] uppercase">Kanji</span>
+            <CalendarDays size={11} strokeWidth={2.5} />
+            Kanji
           </button>
+
+          {/* 右: ホームアイコン */}
           <button
             type="button"
             onClick={() => setStep('home')}
-            className="text-xs font-semibold text-stone-400 hover:text-stone-600"
+            className="-mr-2 flex h-9 w-9 items-center justify-center rounded-xl text-stone-400 transition hover:text-stone-700 active:scale-95"
+            aria-label="ホーム"
           >
-            ホーム
+            <House size={17} strokeWidth={2} />
           </button>
         </header>
       )}
@@ -1676,7 +1706,7 @@ return (
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
                 <CalendarPlus size={13} className="text-white" strokeWidth={2.5} />
               </div>
-              <p className="text-[10px] font-black tracking-[0.22em] text-stone-400 uppercase">Step 1 / 10</p>
+              <p className="text-[10px] font-black tracking-[0.22em] text-stone-400 uppercase">Step 1</p>
             </div>
             <h2 className="text-[22px] font-black tracking-tight text-stone-900">会を作る</h2>
             <p className="mt-1 text-[13px] leading-relaxed text-stone-400">イベント名と候補日を設定してください。</p>
@@ -1823,7 +1853,7 @@ return (
       <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
         <Users size={13} className="text-white" strokeWidth={2.5} />
       </div>
-      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 3 / 10</p>
+      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 2</p>
     </div>
     <h2 className="text-[22px] font-black tracking-tight text-stone-900">参加者に送る</h2>
     <p className="mt-1 text-[13px] leading-relaxed text-stone-400">リンクを送って回答を集めましょう。</p>
@@ -1903,8 +1933,6 @@ return (
 >
   回答状況を見る
 </PrimaryBtn>
-
-      <GhostBtn onClick={() => setStep('dates')}>← 戻る</GhostBtn>
     </div>
   </Card>
   </motion.div>
@@ -1927,7 +1955,7 @@ return (
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
           <CalendarDays size={13} className="text-white" strokeWidth={2.5} />
         </div>
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 6 / 10</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 3</p>
       </div>
       <h2 className="text-[22px] font-black tracking-tight text-stone-900">日程を決める</h2>
       <p className="mt-1 text-[13px] leading-relaxed text-stone-400">回答状況を確認して、最適な日程を決めましょう。</p>
@@ -1947,53 +1975,6 @@ return (
       </div>
     ) : (
       <>
-        {/* 優先したい人 — ヒーロー表示より先に選ぶ */}
-        <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-          <div className="flex items-center gap-1.5">
-            <Users size={11} className="text-stone-400" strokeWidth={2.5} />
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">優先したい人（任意）</p>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {activeParticipants.map((participant) => {
-              const selected = mainGuestIds.includes(participant.id)
-              return (
-                <button
-                  key={participant.id}
-                  type="button"
-                  onClick={() =>
-                    setMainGuestIds((prev) =>
-                      prev.includes(participant.id)
-                        ? prev.filter((id) => id !== participant.id)
-                        : [...prev, participant.id]
-                    )
-                  }
-                  className={`rounded-full px-4 py-2 text-sm font-bold ring-1 transition ${
-                    selected
-                      ? 'bg-stone-900 text-white ring-stone-900'
-                      : 'bg-white text-stone-600 ring-stone-200 hover:bg-stone-50'
-                  }`}
-                >
-                  {participant.name}
-                </button>
-              )
-            })}
-          </div>
-          {mainGuestIds.length > 0 && (
-            <p className="mt-4 text-xs font-bold text-stone-500">
-              選択中：
-              <span className="ml-1 text-stone-800">
-                {activeParticipants
-                  .filter((p) => mainGuestIds.includes(p.id))
-                  .map((p) => p.name)
-                  .join('、')}
-              </span>
-            </p>
-          )}
-          <p className="mt-3 text-[11px] leading-5 text-stone-400">
-            参加者の回答と優先設定をもとにおすすめ日程を算出しています。主賓がいる場合は上で設定してください。
-          </p>
-        </div>
-
         {/* おすすめ日程ヒーロー */}
         <div className="overflow-hidden rounded-3xl bg-stone-900">
           <div className="px-6 py-5">
@@ -2062,6 +2043,38 @@ return (
                 </div>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* 優先したい人 — ヒーロー直下の軽量フィルター */}
+        <div className="flex items-center gap-3 px-1">
+          <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">
+            優先
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {activeParticipants.map((participant) => {
+              const selected = mainGuestIds.includes(participant.id)
+              return (
+                <button
+                  key={participant.id}
+                  type="button"
+                  onClick={() =>
+                    setMainGuestIds((prev) =>
+                      prev.includes(participant.id)
+                        ? prev.filter((id) => id !== participant.id)
+                        : [...prev, participant.id]
+                    )
+                  }
+                  className={`rounded-full px-3 py-1 text-xs font-bold ring-1 transition active:scale-95 ${
+                    selected
+                      ? 'bg-stone-800 text-white ring-stone-800'
+                      : 'bg-white text-stone-500 ring-stone-200 hover:bg-stone-50'
+                  }`}
+                >
+                  {participant.name}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -2150,11 +2163,11 @@ return (
                           }`}
                         >
                           {value === 'yes' ? (
-                            <CheckCircle2 size={14} className="text-emerald-500" strokeWidth={2.5} />
+                            <span className="text-[15px] font-black leading-none text-emerald-500">○</span>
                           ) : value === 'maybe' ? (
-                            <Clock size={14} className="text-amber-400" strokeWidth={2.5} />
+                            <span className="text-[15px] font-black leading-none text-amber-400">△</span>
                           ) : value === 'no' ? (
-                            <XCircle size={14} className="text-stone-300" strokeWidth={2.5} />
+                            <span className="text-[14px] font-bold leading-none text-stone-300">×</span>
                           ) : (
                             <span className="text-[11px] text-stone-300">—</span>
                           )}
@@ -2203,14 +2216,14 @@ return (
                 setReminderCopied(true)
                 setTimeout(() => setReminderCopied(false), 1600)
               }}
-              className="inline-flex items-center justify-center rounded-2xl bg-stone-900 px-4 py-3 text-sm font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
+              className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
             >
-              {reminderCopied ? 'コピーしました ✓' : 'コピー'}
+              {reminderCopied ? 'コピーしました' : 'コピー'}
             </button>
             <button
               type="button"
               onClick={() => openLineShare(urlOnlyReminder ? shareUrl : editableReminderText)}
-              className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+              className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-[0.98]"
             >
               LINEで送る
             </button>
@@ -2218,11 +2231,10 @@ return (
         </div>
 
         {/* この日で決定 CTA — sticky bottom */}
-        <div className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+        <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
           <PrimaryBtn size="large" onClick={decideRecommendedDate}>
             この日で決定 →
           </PrimaryBtn>
-          <GhostBtn onClick={() => setStep('shareLink')}>← 戻る</GhostBtn>
         </div>
 </>
 )}
@@ -2251,7 +2263,7 @@ return (
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
           <CalendarDays size={13} className="text-white" strokeWidth={2.5} />
         </div>
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 7 / 10</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 4</p>
       </div>
       <h2 className="text-[22px] font-black tracking-tight text-stone-900">日程確定</h2>
       <p className="mt-1 text-[13px] leading-relaxed text-stone-400">参加者に日程を知らせましょう。</p>
@@ -2363,14 +2375,14 @@ return (
                 setDateCopied(true)
                 setTimeout(() => setDateCopied(false), 1600)
               }}
-              className="inline-flex items-center justify-center rounded-2xl bg-stone-900 px-4 py-3 text-sm font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
+              className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
             >
-              {dateCopied ? 'コピーしました ✓' : 'コピー'}
+              {dateCopied ? 'コピーしました' : 'コピー'}
             </button>
             <button
               type="button"
               onClick={() => openLineShare(editableDateConfirmedText)}
-              className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+              className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-[0.98]"
             >
               LINEで送る
             </button>
@@ -2405,14 +2417,14 @@ return (
                     setMaybeCopied(true)
                     setTimeout(() => setMaybeCopied(false), 1600)
                   }}
-                  className="inline-flex items-center justify-center rounded-2xl bg-stone-900 px-4 py-3 text-sm font-black text-white transition hover:bg-stone-800 active:scale-[0.98]"
+                  className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
                 >
-                  {maybeCopied ? 'コピーしました ✓' : 'コピー'}
+                  {maybeCopied ? 'コピーしました' : 'コピー'}
                 </button>
                 <button
                   type="button"
                   onClick={() => openLineShare(editableMaybeConfirmText)}
-                  className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+                  className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-[0.98]"
                 >
                   LINEで送る
                 </button>
@@ -2425,11 +2437,10 @@ return (
       )}
     </div>
 
-    <div className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+    <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
       <PrimaryBtn size="large" onClick={() => setStep('organizerConditions')}>
         お店を決める
       </PrimaryBtn>
-      <GhostBtn onClick={() => setStep('dashboard')}>← 戻る</GhostBtn>
     </div>
   </motion.div>
 )}
@@ -2448,11 +2459,20 @@ return (
             {isLoadingStores && <StoreLoadingOverlay />}
             {/* ヘッダー */}
             <div className="px-0.5">
-              <div className="mb-2 flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
-                  <UtensilsCrossed size={13} className="text-white" strokeWidth={2.5} />
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
+                    <UtensilsCrossed size={13} className="text-white" strokeWidth={2.5} />
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 5</p>
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 7 / 10</p>
+                <button
+                  type="button"
+                  onClick={() => { setIsManualStore(true); setStep('manualStore') }}
+                  className="rounded-full border border-stone-200 bg-white px-3.5 py-1 text-[11px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-95"
+                >
+                  お店を自分で決める
+                </button>
               </div>
               <h2 className="text-[22px] font-black tracking-tight text-stone-900">お店の条件</h2>
               <p className="mt-1 text-[13px] text-stone-400 leading-relaxed">
@@ -2563,24 +2583,13 @@ return (
             </div>
 
             {/* CTA — sticky bottom */}
-            <div className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+            <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
               <PrimaryBtn size="large" onClick={() => {
                 setIsManualStore(false)
                 fetchRecommendedStores()
               }}>
                 {isLoadingStores ? '候補を探しています…' : 'この条件でお店を提案してもらう'}
               </PrimaryBtn>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsManualStore(true)
-                  setStep('manualStore')
-                }}
-                className="w-full text-center text-sm font-bold text-stone-400 underline underline-offset-2 transition hover:text-stone-600"
-              >
-                店は自分で決める
-              </button>
-              <GhostBtn onClick={() => setStep('dateConfirmed')}>戻る</GhostBtn>
             </div>
           </motion.div>
         )}
@@ -2599,11 +2608,20 @@ return (
       transition={{ duration: 0.22, ease: 'easeOut' }}
       className="px-0.5"
     >
-      <div className="mb-2 flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
-          <UtensilsCrossed size={13} className="text-white" strokeWidth={2.5} />
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
+            <UtensilsCrossed size={13} className="text-white" strokeWidth={2.5} />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 6</p>
         </div>
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 9 / 10</p>
+        <button
+          type="button"
+          onClick={() => { setIsManualStore(true); setStep('manualStore') }}
+          className="rounded-full border border-stone-200 bg-white px-3.5 py-1 text-[11px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-95"
+        >
+          お店を自分で決める
+        </button>
       </div>
       <h2 className="text-[22px] font-black tracking-tight text-stone-900">お店を選ぶ</h2>
       <p className="mt-1 text-[13px] leading-relaxed text-stone-400">候補を比べて、最適なお店を決めましょう。</p>
@@ -2620,9 +2638,6 @@ return (
         <p className="mt-2 text-sm leading-6 text-stone-400">
           {storeFetchError || '価格帯やジャンル条件を変えてお試しください。'}
         </p>
-        <div className="mt-5">
-          <GhostBtn onClick={() => setStep('organizerConditions')}>条件を調整する</GhostBtn>
-        </div>
       </motion.div>
     ) : (
       /* ── 候補あり ────────────────────────────────────────────── */
@@ -2633,10 +2648,10 @@ return (
           </div>
         )}
 
-        {/* 条件チップ + 候補入れ替えリンク */}
-        {organizerConditions.length > 0 && (
+        {/* 条件チップ + 候補入れ替えボタン */}
+        <div className="flex items-center justify-between gap-2 px-0.5">
           <motion.div
-            className="flex flex-wrap items-center gap-1.5 px-0.5"
+            className="flex flex-wrap items-center gap-1.5"
             initial="hidden"
             animate="visible"
             variants={{ visible: { transition: { staggerChildren: 0.05 } } }}
@@ -2651,24 +2666,16 @@ return (
                 {c}
               </motion.span>
             ))}
-            <motion.button
-              type="button"
-              onClick={isLoadingStores ? undefined : refreshStores}
-              variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
-              className="ml-1 text-[11px] font-bold text-stone-400 underline underline-offset-2 hover:text-stone-600"
-            >
-              候補を入れ替える
-            </motion.button>
-            <motion.button
-              type="button"
-              onClick={() => { setIsManualStore(true); setStep('manualStore') }}
-              variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
-              className="text-[11px] font-bold text-stone-400 underline underline-offset-2 hover:text-stone-600"
-            >
-              店は自分で決める
-            </motion.button>
           </motion.div>
-        )}
+          <button
+            type="button"
+            onClick={isLoadingStores ? undefined : refreshStores}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-95"
+            aria-label="候補を入れ替える"
+          >
+            <RefreshCw size={14} className="text-stone-500" strokeWidth={2} />
+          </button>
+        </div>
 
         {/* Best候補 — selectedStoreId が変わると AnimatePresence で自然に入れ替わる */}
         <AnimatePresence mode="wait">
@@ -2716,12 +2723,14 @@ return (
 
               {/* テキスト + 情報 */}
               <div className="px-5 pt-5 pb-4">
-                {/* 画像がないときだけ Best Choice バッジを表示 */}
+                {/* 画像がないときだけ Best Choice バッジ */}
                 {!primaryStore.image && (
-                  <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/60 ring-1 ring-white/10">
-                    <Sparkles size={9} strokeWidth={2.5} />
-                    Best Choice
-                  </span>
+                  <div className="mb-3">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/60 ring-1 ring-white/10">
+                      <Sparkles size={9} strokeWidth={2.5} />
+                      Best Choice
+                    </span>
+                  </div>
                 )}
                 <h3 className="text-xl font-black tracking-tight text-white leading-snug">
                   {primaryStore.name}
@@ -2838,7 +2847,6 @@ return (
           <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
             この候補で進む
           </PrimaryBtn>
-          <GhostBtn onClick={() => setStep('organizerConditions')}>戻る</GhostBtn>
         </motion.div>
       </>
     )}
@@ -2910,12 +2918,9 @@ return (
             </div>
 
             {/* CTA */}
-            <div className="space-y-2.5">
-              <PrimaryBtn size="large" onClick={() => setStep('finalConfirm')}>
-                この内容で進む
-              </PrimaryBtn>
-              <GhostBtn onClick={() => setStep('organizerConditions')}>← 戻る</GhostBtn>
-            </div>
+            <PrimaryBtn size="large" onClick={() => setStep('finalConfirm')}>
+              この内容で進む
+            </PrimaryBtn>
           </motion.div>
         )}
 
@@ -2935,7 +2940,7 @@ return (
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
           <CheckCircle2 size={13} className="text-white" strokeWidth={2.5} />
         </div>
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 10 / 10</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 7</p>
       </div>
       <h2 className="text-[22px] font-black tracking-tight text-stone-900">確定情報の共有</h2>
       <p className="mt-1 text-[13px] leading-relaxed text-stone-400">決まった内容をみんなに伝えましょう。</p>
@@ -3119,10 +3124,6 @@ ${finalStore?.link ?? ''}`
             </a>
           )}
 
-          <GhostBtn onClick={() => setStep(isManualStore ? 'manualStore' : 'storeSuggestion')}>
-            戻る
-          </GhostBtn>
-
           {/* 清算へ進む — sticky bottom */}
           <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
             <button
@@ -3219,15 +3220,20 @@ ${finalStore?.link ?? ''}`
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'shared' && (
           <div className="space-y-4">
-            <div className="px-1">
-              <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 10</p>
-              <h2 className="mt-1 text-2xl font-black text-stone-900 tracking-tight">みんなに伝えよう</h2>
-              <p className="mt-1 text-sm text-stone-400">共有文をそのまま送れます。</p>
+            <div className="px-0.5">
+              <div className="mb-2 flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
+                  <Share2 size={13} className="text-white" strokeWidth={2.5} />
+                </div>
+                
+              </div>
+              <h2 className="text-[22px] font-black tracking-tight text-stone-900">みんなに伝えよう</h2>
+              <p className="mt-1 text-[13px] leading-relaxed text-stone-400">共有文をそのまま送れます。</p>
             </div>
 
-            <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+            <div className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-stone-100">
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-bold text-stone-900">共有文</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">共有文</p>
                 <label className="flex cursor-pointer items-center gap-1.5">
                   <input
                     type="checkbox"
@@ -3238,34 +3244,34 @@ ${finalStore?.link ?? ''}`
                   <span className="text-[11px] font-bold text-stone-500">URLのみ</span>
                 </label>
               </div>
-              <p className="whitespace-pre-line text-sm leading-7 text-stone-700">
-                {urlOnly ? (selectedStore?.link ?? '') : shareText}
-              </p>
-            </div>
-
-            <div className="space-y-2.5">
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(urlOnly ? (selectedStore?.link ?? '') : shareText)
-                    setCopied(true)
-                    setTimeout(() => setCopied(false), 1600)
-                  } catch { alert('コピーに失敗しました') }
-                }}
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
-              >
-                {copied ? 'コピーしました ✓' : 'コピー'}
-              </button>
-              <a
-                href={`https://line.me/R/msg/text/?${encodeURIComponent(urlOnly ? (selectedStore?.link ?? '') : shareText)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
-              >
-                LINEで送る
-              </a>
-              <GhostBtn onClick={() => setStep('home')}>ホームに戻る</GhostBtn>
+              <div className="rounded-xl bg-stone-50 px-4 py-3">
+                <p className="whitespace-pre-line text-sm leading-7 text-stone-700">
+                  {urlOnly ? (selectedStore?.link ?? '') : shareText}
+                </p>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(urlOnly ? (selectedStore?.link ?? '') : shareText)
+                      setCopied(true)
+                      setTimeout(() => setCopied(false), 1600)
+                    } catch { alert('コピーに失敗しました') }
+                  }}
+                  className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
+                >
+                  {copied ? 'コピーしました' : 'コピー'}
+                </button>
+                <a
+                  href={`https://line.me/R/msg/text/?${encodeURIComponent(urlOnly ? (selectedStore?.link ?? '') : shareText)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-[0.98]"
+                >
+                  LINEで送る
+                </a>
+              </div>
             </div>
           </div>
         )}
@@ -3326,7 +3332,7 @@ ${finalStore?.link ?? ''}`
           <div>
             <div className="mb-5">
               <button type="button" onClick={() => setStep(storeDetailOrigin)} className="text-sm font-semibold text-stone-400 hover:text-stone-600">
-                ← 戻る
+                戻る
               </button>
             </div>
             <div className="space-y-3">
@@ -3602,7 +3608,7 @@ function GhostBtn({ children, onClick }: { children: React.ReactNode; onClick?: 
       onClick={onClick}
       whileTap={{ scale: 0.975 }}
       transition={{ duration: 0.12 }}
-      className="inline-flex w-full items-center justify-center gap-1.5 rounded-2xl px-4 py-3 text-sm font-medium text-stone-400 transition-colors duration-150 hover:bg-stone-100 hover:text-stone-600"
+      className="inline-flex w-full items-center justify-center py-2.5 text-sm font-medium text-stone-400 transition-colors duration-150 hover:text-stone-600"
     >
       {children}
     </motion.button>

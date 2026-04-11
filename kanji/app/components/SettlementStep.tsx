@@ -616,7 +616,7 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
 
       {/* CTA — sticky bottom（他Stepと共通パターン） */}
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4">
-        <div className="mx-auto max-w-xl space-y-2">
+        <div className="mx-auto max-w-xl">
           <button
             type="button"
             onClick={handleSubmit}
@@ -624,13 +624,6 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
             className="w-full rounded-2xl bg-stone-900 px-4 py-4 text-sm font-black text-white shadow-md transition hover:opacity-90 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30"
           >
             計算して確認する →
-          </button>
-          <button
-            type="button"
-            onClick={onBack}
-            className="w-full text-center text-sm text-stone-400 underline"
-          >
-            ← 戻る
           </button>
         </div>
       </div>

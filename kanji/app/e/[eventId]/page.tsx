@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { CheckCircle2, Clock, XCircle } from 'lucide-react'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -229,54 +228,39 @@ export default function EventParticipantPage() {
                       <button
                         type="button"
                         onClick={() => setAnswer(d.id, 'yes')}
-                        className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold ring-1 transition active:scale-95 ${
+                        className={`flex items-center justify-center rounded-xl px-3 py-3 ring-1 transition active:scale-95 ${
                           selected === 'yes'
-                            ? 'bg-emerald-500 text-white ring-emerald-500'
-                            : 'bg-white text-stone-400 ring-stone-200 hover:ring-emerald-300'
+                            ? 'bg-emerald-500 ring-emerald-500'
+                            : 'bg-white ring-stone-200 hover:ring-emerald-300'
                         }`}
                       >
-                        <CheckCircle2
-                          size={15}
-                          strokeWidth={2.5}
-                          className={selected === 'yes' ? 'text-white' : 'text-emerald-400'}
-                        />
-                        <span>○</span>
+                        <span className={`text-[18px] font-black leading-none tracking-tight ${selected === 'yes' ? 'text-white' : 'text-emerald-400'}`}>○</span>
                       </button>
 
                       {/* △ 調整できるかも */}
                       <button
                         type="button"
                         onClick={() => setAnswer(d.id, 'maybe')}
-                        className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold ring-1 transition active:scale-95 ${
+                        className={`flex items-center justify-center rounded-xl px-3 py-3 ring-1 transition active:scale-95 ${
                           selected === 'maybe'
-                            ? 'bg-amber-400 text-white ring-amber-400'
-                            : 'bg-white text-stone-400 ring-stone-200 hover:ring-amber-300'
+                            ? 'bg-amber-400 ring-amber-400'
+                            : 'bg-white ring-stone-200 hover:ring-amber-300'
                         }`}
                       >
-                        <Clock
-                          size={14}
-                          strokeWidth={2.5}
-                          className={selected === 'maybe' ? 'text-white' : 'text-amber-400'}
-                        />
-                        <span>△</span>
+                        <span className={`text-[18px] font-black leading-none tracking-tight ${selected === 'maybe' ? 'text-white' : 'text-amber-400'}`}>△</span>
                       </button>
 
                       {/* × 参加できない */}
                       <button
                         type="button"
                         onClick={() => setAnswer(d.id, 'no')}
-                        className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold ring-1 transition active:scale-95 ${
+                        className={`flex items-center justify-center rounded-xl px-3 py-3 ring-1 transition active:scale-95 ${
                           selected === 'no'
-                            ? 'bg-stone-600 text-white ring-stone-600'
-                            : 'bg-white text-stone-400 ring-stone-200 hover:ring-stone-300'
+                            ? 'bg-stone-500 ring-stone-500'
+                            : 'bg-white ring-stone-200 hover:ring-stone-300'
                         }`}
                       >
-                        <XCircle
-                          size={14}
-                          strokeWidth={2.5}
-                          className={selected === 'no' ? 'text-white' : 'text-stone-300'}
-                        />
-                        <span>×</span>
+                        <span className={`text-[18px] font-black leading-none tracking-tight ${selected === 'no' ? 'text-white' : 'text-stone-300'}`}>×</span>
                       </button>
                     </div>
                   </div>

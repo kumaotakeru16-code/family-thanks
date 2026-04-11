@@ -198,7 +198,7 @@ export function SettlementSummaryTable({ result, config, message, organizerSetti
         <button
           type="button"
           onClick={onBack}
-          className="w-full text-center text-sm text-stone-400 underline"
+          className="w-full py-2 text-center text-sm font-medium text-stone-400 transition hover:text-stone-600"
         >
           戻る
         </button>
