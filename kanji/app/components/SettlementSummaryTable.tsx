@@ -176,29 +176,31 @@ export function SettlementSummaryTable({ result, config, message, organizerSetti
         </div>
       </div>
 
-      {/* CTA — コピー・LINE・完了 */}
+      {/* CTA — LINE + コピー横並び・戻る */}
       <div className="space-y-2.5">
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 px-4 py-4 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
-        >
-          {copied ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
-          {copied ? 'コピーしました ✓' : '共有文をコピーする'}
-        </button>
-        <button
-          type="button"
-          onClick={onShare}
-          className="inline-flex w-full items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
-        >
-          LINEで送る
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-white px-4 py-3.5 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
+          >
+            {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+            {copied ? 'コピーしました' : 'コピー'}
+          </button>
+          <button
+            type="button"
+            onClick={onShare}
+            className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+          >
+            LINEで送る
+          </button>
+        </div>
         <button
           type="button"
           onClick={onBack}
           className="w-full text-center text-sm text-stone-400 underline"
         >
-          ← 内容を修正する
+          戻る
         </button>
       </div>
     </div>

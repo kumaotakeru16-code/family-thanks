@@ -1870,7 +1870,7 @@ return (
           }}
           className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
         >
-          {copied ? 'コピーしました' : '全文をコピー'}
+          {copied ? 'コピーしました' : 'コピー'}
         </button>
 
         <button
@@ -2633,7 +2633,7 @@ return (
           </div>
         )}
 
-        {/* 条件チップ + 条件変更リンク */}
+        {/* 条件チップ + 候補入れ替えリンク */}
         {organizerConditions.length > 0 && (
           <motion.div
             className="flex flex-wrap items-center gap-1.5 px-0.5"
@@ -2653,11 +2653,19 @@ return (
             ))}
             <motion.button
               type="button"
-              onClick={() => setStep('organizerConditions')}
+              onClick={isLoadingStores ? undefined : refreshStores}
               variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
               className="ml-1 text-[11px] font-bold text-stone-400 underline underline-offset-2 hover:text-stone-600"
             >
-              条件を変える
+              候補を入れ替える
+            </motion.button>
+            <motion.button
+              type="button"
+              onClick={() => { setIsManualStore(true); setStep('manualStore') }}
+              variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
+              className="text-[11px] font-bold text-stone-400 underline underline-offset-2 hover:text-stone-600"
+            >
+              店は自分で決める
             </motion.button>
           </motion.div>
         )}
@@ -2830,13 +2838,7 @@ return (
           <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
             この候補で進む
           </PrimaryBtn>
-          <button
-            type="button"
-            onClick={isLoadingStores ? undefined : refreshStores}
-            className="w-full text-center text-sm text-stone-400 underline underline-offset-2 transition hover:text-stone-600"
-          >
-            候補を入れ替える
-          </button>
+          <GhostBtn onClick={() => setStep('organizerConditions')}>戻る</GhostBtn>
         </motion.div>
       </>
     )}
@@ -3084,7 +3086,7 @@ ${finalStore?.link ?? ''}`
                 {urlOnly ? (finalStore?.link ?? '') : finalShareText}
               </p>
             </div>
-            <div className="mt-3 space-y-2">
+            <div className="mt-3 grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={async () => {
@@ -3092,14 +3094,14 @@ ${finalStore?.link ?? ''}`
                   setCopied(true)
                   setTimeout(() => setCopied(false), 1600)
                 }}
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+                className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-white px-4 py-3.5 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
               >
-                {copied ? 'コピーしました ✓' : '共有文をコピーする'}
+                {copied ? 'コピーしました' : 'コピー'}
               </button>
               <button
                 type="button"
                 onClick={() => openLineShare(urlOnly ? (finalStore?.link ?? '') : finalShareText)}
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+                className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
               >
                 LINEで送る
               </button>
@@ -3118,7 +3120,7 @@ ${finalStore?.link ?? ''}`
           )}
 
           <GhostBtn onClick={() => setStep(isManualStore ? 'manualStore' : 'storeSuggestion')}>
-            {isManualStore ? '← お店の情報を編集する' : '← 店候補を見直す'}
+            戻る
           </GhostBtn>
 
           {/* 清算へ進む — sticky bottom */}
@@ -3391,7 +3393,7 @@ ${finalStore?.link ?? ''}`
         {step === 'home' && (
           <motion.button
             type="button"
-            onClick={() => setStep('create')}
+            onClick={() => { setEventName(''); setStep('create') }}
             aria-label="新しい会を作る"
             initial={{ opacity: 0, scale: 0.7, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}

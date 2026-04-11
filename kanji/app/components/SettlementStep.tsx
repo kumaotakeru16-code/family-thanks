@@ -512,24 +512,31 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
               className="overflow-hidden"
             >
               {(() => {
-                // 代表金額プレビュー計算
-                // 前提: 全員 通常 と仮定したときの1人あたり基準額 (base)
-                // 各役割の金額 = base * coeff（近似プレビュー）
                 const totalAmt = parseInt(party1Amount, 10) || 0
-                const count = party1Ids.length || 1
-                const base = totalAmt > 0 ? totalAmt / count : 0
-                const baseRounded = roundUp100(base)
                 const previewEnabled = party1Gradient && totalAmt > 0
+
+                // calcSettlement と同一ロジック:
+                // totalWeight = 参加者全員の係数の合計（主賓は 0）
+                const totalWeight = party1Ids.reduce((sum, id) => {
+                  const role = roles[id] ?? '通常'
+                  return sum + (gradient[role] ?? 1.0)
+                }, 0)
 
                 // 1次会参加者に存在する役割のみアクティブ
                 const activeRoles = new Set(party1Ids.map((id) => roles[id] ?? '通常'))
 
-                const previewAmount = (coeff: number) =>
-                  coeff === 0 ? 0 : roundUp100(base * coeff)
+                // coeff ごとの代表金額（calcSettlement と完全一致）
+                const previewAmount = (coeff: number): number => {
+                  if (!previewEnabled || totalWeight <= 0) return 0
+                  return coeff === 0 ? 0 : roundUp100((totalAmt * coeff) / totalWeight)
+                }
+
+                // diff 基準: 通常の金額との差
+                const normalAmt = previewAmount(gradient['通常'])
 
                 return (
                   <div className="space-y-4 border-t border-stone-100 px-4 pb-4 pt-3">
-                    {/* 主賓（固定0） */}
+                    {/* 主賓（係数 0 固定） */}
                     {(() => {
                       const isPresent = activeRoles.has('主賓')
                       return (
@@ -548,7 +555,7 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
                     {(['上長', '先輩', '通常'] as const).map((role) => {
                       const isPresent = activeRoles.has(role)
                       const amt = previewAmount(gradient[role])
-                      const diff = amt - baseRounded
+                      const diff = amt - normalAmt
                       return (
                         <div key={role} className={!isPresent ? 'opacity-30 pointer-events-none' : ''}>
                           <div className="mb-1 flex items-center justify-between">
