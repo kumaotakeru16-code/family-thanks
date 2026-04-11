@@ -51,7 +51,6 @@ type Step =
   | 'finalConfirm'
   | 'settlement'
   | 'settlementConfirm'
-  | 'settlementShared'
   | 'shared'
   | 'pastStores'
   | 'storeDetail'
@@ -471,7 +470,6 @@ const FLOW_STEPS: Step[] = [
   'finalConfirm',
   'settlement',
   'settlementConfirm',
-  'settlementShared',
   'shared',
 ]
 
@@ -2931,7 +2929,7 @@ ${finalStore?.link ?? ''}`
         })()}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            清算 ② settlementConfirm（確認テーブル）
+            清算 ② settlementConfirm（確認 + 共有）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'settlementConfirm' &&
           settlementConfig &&
@@ -2942,80 +2940,10 @@ ${finalStore?.link ?? ''}`
               message={settlementMessage}
               organizerSettings={organizerSettings}
               onBack={() => setStep('settlement')}
-              onShare={() => setStep('settlementShared')}
+              onShare={() => openLineShare(settlementMessage)}
+              onDone={() => setStep('home')}
             />
           )}
-
-        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            清算 ③ settlementShared（共有）
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        {step === 'settlementShared' && settlementResult && (
-          <div className="space-y-4">
-            <div className="px-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
-                Complete
-              </p>
-              <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">
-                幹事の仕事、完了！
-              </h2>
-              <p className="mt-1 text-sm text-stone-400">
-                このメッセージを送ったら、あとはみんなが払うだけです。
-              </p>
-            </div>
-
-            {/* 共有文 */}
-            <div className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-stone-100">
-              <p className="mb-2 text-xs font-black uppercase tracking-wider text-stone-500">
-                共有文
-              </p>
-              <div className="rounded-xl bg-stone-50 px-4 py-3">
-                <p className="whitespace-pre-line text-sm leading-7 text-stone-700">
-                  {settlementMessage}
-                </p>
-              </div>
-            </div>
-
-            {/* CTA */}
-            <div className="space-y-2.5">
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(settlementMessage)
-                    setSettlementCopied(true)
-                    setTimeout(() => setSettlementCopied(false), 1800)
-                  } catch {
-                    alert('コピーに失敗しました')
-                  }
-                }}
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
-              >
-                {settlementCopied ? 'コピーしました ✓' : '共有文をコピーする'}
-              </button>
-              <button
-                type="button"
-                onClick={() => openLineShare(settlementMessage)}
-                className="inline-flex w-full items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
-              >
-                LINEで送る
-              </button>
-              <button
-                type="button"
-                onClick={() => setStep('settlementConfirm')}
-                className="w-full text-center text-sm text-stone-400 underline"
-              >
-                ← 内容を確認する
-              </button>
-              <button
-                type="button"
-                onClick={() => setStep('home')}
-                className="w-full text-center text-sm text-stone-400 underline"
-              >
-                ホームに戻る
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑩ 共有

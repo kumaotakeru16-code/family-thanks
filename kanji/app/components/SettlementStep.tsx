@@ -466,38 +466,31 @@ export function SettlementStep({ participants, organizerSettings, onSaveSettings
             >
               <div className="space-y-4 border-t border-stone-100 px-4 pb-4 pt-3">
                 <p className="text-[10px] text-stone-400">主賓は常に 0（無料）です。</p>
-                {(['上長', '先輩', '通常'] as const).map((role) => {
-                  const bounds = {
-                    上長: { min: 1.0, max: 2.0 },
-                    先輩: { min: 1.0, max: 1.8 },
-                    通常: { min: 0.8, max: 1.3 },
-                  }[role]
-                  return (
-                    <div key={role}>
-                      <div className="mb-1 flex items-center justify-between">
-                        <span className="text-sm font-bold text-stone-700">{role}</span>
-                        <span className="text-sm font-black text-stone-900">
-                          {gradient[role].toFixed(1)}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={bounds.min}
-                        max={bounds.max}
-                        step={0.1}
-                        value={gradient[role]}
-                        onChange={(e) =>
-                          setGradient((g) => ({ ...g, [role]: parseFloat(e.target.value) }))
-                        }
-                        className="w-full accent-stone-900"
-                      />
-                      <div className="flex justify-between text-[10px] text-stone-300">
-                        <span>{bounds.min}</span>
-                        <span>{bounds.max}</span>
-                      </div>
+                {(['上長', '先輩', '通常'] as const).map((role) => (
+                  <div key={role}>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-sm font-bold text-stone-700">{role}</span>
+                      <span className="text-sm font-black text-stone-900">
+                        {gradient[role].toFixed(1)}
+                      </span>
                     </div>
-                  )
-                })}
+                    <input
+                      type="range"
+                      min={0}
+                      max={2.0}
+                      step={0.1}
+                      value={gradient[role]}
+                      onChange={(e) =>
+                        setGradient((g) => ({ ...g, [role]: parseFloat(e.target.value) }))
+                      }
+                      className="w-full accent-stone-900"
+                    />
+                    <div className="flex justify-between text-[10px] text-stone-300">
+                      <span>0</span>
+                      <span>2.0</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </motion.div>
           )}

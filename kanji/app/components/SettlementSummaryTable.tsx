@@ -11,7 +11,8 @@ type Props = {
   message: string
   organizerSettings?: OrganizerSettings
   onBack: () => void
-  onShare: () => void
+  onShare: () => void // LINE共有に使用
+  onDone: () => void  // 完了（ホームへ）
 }
 
 const ROLE_BADGE: Record<string, string> = {
@@ -21,7 +22,7 @@ const ROLE_BADGE: Record<string, string> = {
   通常: '',
 }
 
-export function SettlementSummaryTable({ result, config, message, organizerSettings, onBack, onShare }: Props) {
+export function SettlementSummaryTable({ result, config, message, organizerSettings, onBack, onShare, onDone }: Props) {
   const [copied, setCopied] = useState(false)
 
   const hasMultiParty =
@@ -42,9 +43,9 @@ export function SettlementSummaryTable({ result, config, message, organizerSetti
       {/* ヘッダー */}
       <div className="px-1">
         <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
-          Confirm
+          Confirm &amp; Share
         </p>
-        <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">清算の確認</h2>
+        <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">清算の確認と共有</h2>
         <p className="mt-1 text-sm text-stone-400">内容を確認して、共有文を送りましょう。</p>
       </div>
 
@@ -150,6 +151,7 @@ export function SettlementSummaryTable({ result, config, message, organizerSetti
                 <Landmark size={13} className="mt-0.5 shrink-0 text-stone-400" />
                 <span className="text-sm text-stone-700">
                   <span className="font-bold">銀行</span>
+                  {'　'}
                   {[
                     organizerSettings.bankName,
                     organizerSettings.branchName,
@@ -174,29 +176,38 @@ export function SettlementSummaryTable({ result, config, message, organizerSetti
         </div>
       </div>
 
-      {/* CTA */}
-      <button
-        type="button"
-        onClick={onShare}
-        className="w-full rounded-2xl bg-stone-900 px-4 py-4 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
-      >
-        共有する →
-      </button>
-      <button
-        type="button"
-        onClick={handleCopy}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-3.5 text-sm font-bold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98]"
-      >
-        {copied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} />}
-        {copied ? 'コピーしました' : 'テキストをコピー'}
-      </button>
-      <button
-        type="button"
-        onClick={onBack}
-        className="w-full text-center text-sm text-stone-400 underline"
-      >
-        ← 内容を修正する
-      </button>
+      {/* CTA — コピー・LINE・完了 */}
+      <div className="space-y-2.5">
+        <button
+          type="button"
+          onClick={handleCopy}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 px-4 py-4 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+        >
+          {copied ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
+          {copied ? 'コピーしました ✓' : '共有文をコピーする'}
+        </button>
+        <button
+          type="button"
+          onClick={onShare}
+          className="inline-flex w-full items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+        >
+          LINEで送る
+        </button>
+        <button
+          type="button"
+          onClick={onDone}
+          className="w-full text-center text-sm text-stone-400 underline"
+        >
+          ホームに戻る
+        </button>
+        <button
+          type="button"
+          onClick={onBack}
+          className="w-full text-center text-sm text-stone-400 underline"
+        >
+          ← 内容を修正する
+        </button>
+      </div>
     </div>
   )
 }
