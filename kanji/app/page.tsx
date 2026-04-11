@@ -1766,40 +1766,42 @@ return (
 
             </div>
 
-            <div className="mt-6 space-y-3">
-              <PrimaryBtn
-                size="large"
-                disabled={selectedDateIds.length === 0}
-                onClick={async () => {
-                  const selectedDates = generatedDates
-                    .filter((d) => selectedDateIds.includes(d.id))
-                    .map((d) => {
-                      const base = d.id.replace('wd-', '')
-                      const [y, mo, dy] = base.split('-').map(Number)
-                      const date = new Date(y, mo - 1, dy)
-                      return { ...d, label: weekdayLabel(date, selectedTime) }
-                    })
-                    .sort((a, b) => (a.id < b.id ? -1 : 1))
-
-                  setDates(selectedDates)
-                  setGeneratedDates(selectedDates)
-
-                  const eventId = await createEvent(
-                    eventName,
-                    eventType,
-                    selectedDates.map((d) => d.label)
-                  )
-                  setCreatedEventId(eventId)
-                  persistEvent(eventId, eventName, eventType)
-                  setStep('shareLink')
-                }}
-              >
-                {selectedDateIds.length === 0 ? '候補日を選んでください' : `この${selectedDateIds.length}件で作成`}
-              </PrimaryBtn>
-              <GhostBtn onClick={() => setStep('home')}>← 戻る</GhostBtn>
-            </div>
           </Card>
           </motion.div>
+        )}
+        {/* ── 会を作る sticky CTA ── */}
+        {(step === 'create' || step === 'dates') && (
+          <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+            <PrimaryBtn
+              size="large"
+              disabled={selectedDateIds.length === 0}
+              onClick={async () => {
+                const selectedDates = generatedDates
+                  .filter((d) => selectedDateIds.includes(d.id))
+                  .map((d) => {
+                    const base = d.id.replace('wd-', '')
+                    const [y, mo, dy] = base.split('-').map(Number)
+                    const date = new Date(y, mo - 1, dy)
+                    return { ...d, label: weekdayLabel(date, selectedTime) }
+                  })
+                  .sort((a, b) => (a.id < b.id ? -1 : 1))
+
+                setDates(selectedDates)
+                setGeneratedDates(selectedDates)
+
+                const eventId = await createEvent(
+                  eventName,
+                  eventType,
+                  selectedDates.map((d) => d.label)
+                )
+                setCreatedEventId(eventId)
+                persistEvent(eventId, eventName, eventType)
+                setStep('shareLink')
+              }}
+            >
+              {selectedDateIds.length === 0 ? '候補日を選んでください' : `この${selectedDateIds.length}件で作成`}
+            </PrimaryBtn>
+          </div>
         )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2422,10 +2424,12 @@ return (
       )}
     </div>
 
-    <PrimaryBtn size="large" onClick={() => setStep('organizerConditions')}>
-      お店を決める
-    </PrimaryBtn>
-    <GhostBtn onClick={() => setStep('dashboard')}>← 戻る</GhostBtn>
+    <div className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+      <PrimaryBtn size="large" onClick={() => setStep('organizerConditions')}>
+        お店を決める
+      </PrimaryBtn>
+      <GhostBtn onClick={() => setStep('dashboard')}>← 戻る</GhostBtn>
+    </div>
   </motion.div>
 )}
 
@@ -2557,8 +2561,8 @@ return (
 
             </div>
 
-            {/* CTA */}
-            <div className="space-y-2.5">
+            {/* CTA — sticky bottom */}
+            <div className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
               <PrimaryBtn size="large" onClick={() => {
                 setIsManualStore(false)
                 fetchRecommendedStores()
@@ -3101,15 +3105,6 @@ ${finalStore?.link ?? ''}`
             </div>
           </div>
 
-          {/* 清算へ進む */}
-          <button
-            type="button"
-            onClick={() => setStep('settlement')}
-            className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-4 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
-          >
-            会計をまとめる（清算）→
-          </button>
-
           {finalStore?.link && (
             <a
               href={finalStore.link}
@@ -3124,6 +3119,17 @@ ${finalStore?.link ?? ''}`
           <GhostBtn onClick={() => setStep(isManualStore ? 'manualStore' : 'storeSuggestion')}>
             {isManualStore ? '← お店の情報を編集する' : '← 店候補を見直す'}
           </GhostBtn>
+
+          {/* 清算へ進む — sticky bottom */}
+          <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+            <button
+              type="button"
+              onClick={() => setStep('settlement')}
+              className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-4 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+            >
+              会計をまとめる（清算）→
+            </button>
+          </div>
         </div>
       )
     })()}

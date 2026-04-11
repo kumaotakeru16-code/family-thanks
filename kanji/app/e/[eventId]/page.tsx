@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { CheckCircle2, Clock, XCircle } from 'lucide-react'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,10 +24,10 @@ type EventDateRow = {
 }
 
 type AvailabilityValue = 'yes' | 'maybe' | 'no'
-type ParticipantGenre = '和風・居酒屋' | '洋食' | '中華'
+type ParticipantGenre = '和食' | '洋食' | '中華'
 
 const PARTICIPANT_GENRE_OPTIONS: ParticipantGenre[] = [
-  '和風・居酒屋',
+  '和食',
   '洋食',
   '中華',
 ]
@@ -185,7 +186,7 @@ export default function EventParticipantPage() {
   }
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-2xl px-4 py-8 sm:px-6">
+    <div className="mx-auto min-h-screen w-full max-w-2xl px-4 pb-28 pt-8 sm:px-6">
       <div className="space-y-6">
         <div className="px-1">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
@@ -224,40 +225,58 @@ export default function EventParticipantPage() {
                     </p>
 
                     <div className="mt-3 grid grid-cols-3 gap-2">
+                      {/* ○ 参加できる */}
                       <button
                         type="button"
                         onClick={() => setAnswer(d.id, 'yes')}
-                        className={`rounded-xl px-3 py-1.5 text-sm font-bold ring-1 ${
+                        className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold ring-1 transition active:scale-95 ${
                           selected === 'yes'
                             ? 'bg-emerald-500 text-white ring-emerald-500'
-                            : 'bg-white text-stone-700 ring-stone-200'
+                            : 'bg-white text-stone-400 ring-stone-200 hover:ring-emerald-300'
                         }`}
                       >
-                        ○
+                        <CheckCircle2
+                          size={15}
+                          strokeWidth={2.5}
+                          className={selected === 'yes' ? 'text-white' : 'text-emerald-400'}
+                        />
+                        <span>○</span>
                       </button>
 
+                      {/* △ 調整できるかも */}
                       <button
                         type="button"
                         onClick={() => setAnswer(d.id, 'maybe')}
-                        className={`rounded-xl px-3 py-1.5 text-sm font-bold ring-1 ${
+                        className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold ring-1 transition active:scale-95 ${
                           selected === 'maybe'
                             ? 'bg-amber-400 text-white ring-amber-400'
-                            : 'bg-white text-stone-700 ring-stone-200'
+                            : 'bg-white text-stone-400 ring-stone-200 hover:ring-amber-300'
                         }`}
                       >
-                        △
+                        <Clock
+                          size={14}
+                          strokeWidth={2.5}
+                          className={selected === 'maybe' ? 'text-white' : 'text-amber-400'}
+                        />
+                        <span>△</span>
                       </button>
 
+                      {/* × 参加できない */}
                       <button
                         type="button"
                         onClick={() => setAnswer(d.id, 'no')}
-                        className={`rounded-xl px-3 py-1.5 text-sm font-bold ring-1 ${
+                        className={`flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold ring-1 transition active:scale-95 ${
                           selected === 'no'
-                            ? 'bg-stone-700 text-white ring-stone-700'
-                            : 'bg-white text-stone-700 ring-stone-200'
+                            ? 'bg-stone-600 text-white ring-stone-600'
+                            : 'bg-white text-stone-400 ring-stone-200 hover:ring-stone-300'
                         }`}
                       >
-                        ×
+                        <XCircle
+                          size={14}
+                          strokeWidth={2.5}
+                          className={selected === 'no' ? 'text-white' : 'text-stone-300'}
+                        />
+                        <span>×</span>
                       </button>
                     </div>
                   </div>
@@ -296,15 +315,20 @@ export default function EventParticipantPage() {
             {errorMessage}
           </div>
         ) : null}
+      </div>
 
-        <button
-          type="button"
-          onClick={submitResponse}
-          disabled={submitting}
-          className="w-full rounded-2xl bg-stone-900 px-4 py-4 text-base font-black text-white transition hover:bg-stone-800 active:scale-[0.98] disabled:opacity-50"
-        >
-          {submitting ? '送信中…' : '回答を送信'}
-        </button>
+      {/* Sticky CTA */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-white via-white/95 to-transparent px-4 pb-6 pt-4">
+        <div className="mx-auto max-w-2xl">
+          <button
+            type="button"
+            onClick={submitResponse}
+            disabled={submitting}
+            className="w-full rounded-2xl bg-stone-900 px-4 py-4 text-base font-black text-white shadow-lg transition hover:bg-stone-800 active:scale-[0.98] disabled:opacity-40"
+          >
+            {submitting ? '送信中…' : '回答を送信'}
+          </button>
+        </div>
       </div>
     </div>
   )
