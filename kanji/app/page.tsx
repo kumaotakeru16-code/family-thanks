@@ -54,6 +54,7 @@ type Step =
   | 'dateConfirmed'
   | 'organizerConditions'
   | 'storeSuggestion'
+  | 'manualStore'
   | 'finalConfirm'
   | 'settlement'
   | 'settlementConfirm'
@@ -473,6 +474,7 @@ const FLOW_STEPS: Step[] = [
   'dateConfirmed',
   'organizerConditions',
   'storeSuggestion',
+  'manualStore',
   'finalConfirm',
   'settlement',
   'settlementConfirm',
@@ -580,6 +582,12 @@ export default function Page() {
   const [settlementMessage, setSettlementMessage] = useState('')
   const [settlementCopied, setSettlementCopied] = useState(false)
   const [organizerSettings, setOrganizerSettings] = useState<OrganizerSettings>(() => loadOrganizerSettings())
+
+  // ── 手動店舗 state ───────────────────────────────────────────────────────────
+  const [isManualStore, setIsManualStore] = useState(false)
+  const [manualStoreName, setManualStoreName] = useState('')
+  const [manualStoreUrl, setManualStoreUrl] = useState('')
+  const [manualStoreMemo, setManualStoreMemo] = useState('')
 
   const stepHistoryRef = useRef<Step[]>(['home'])
   const isHandlingBackRef = useRef(false)
@@ -1568,17 +1576,17 @@ return (
                 variants={{ visible: { transition: { staggerChildren: 0.07, delayChildren: 0.15 } } }}
               >
                 {[
-                  { icon: CalendarDays, label: '日程調整', color: 'bg-sky-50 text-sky-700 ring-sky-200/60' },
-                  { icon: UtensilsCrossed, label: 'お店決め', color: 'bg-amber-50 text-amber-700 ring-amber-200/60' },
-                  { icon: Receipt, label: '清算共有', color: 'bg-emerald-50 text-emerald-700 ring-emerald-200/60' },
-                ].map(({ icon: Icon, label, color }) => (
+                  { icon: CalendarDays, label: '日程調整' },
+                  { icon: UtensilsCrossed, label: 'お店決め' },
+                  { icon: Receipt, label: '清算共有' },
+                ].map(({ icon: Icon, label }) => (
                   <motion.span
                     key={label}
                     variants={{ hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0 } }}
                     transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold ring-1 ${color}`}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1.5 text-[11px] font-bold text-stone-500 ring-1 ring-stone-200/60"
                   >
-                    <Icon size={11} strokeWidth={2.5} />
+                    <Icon size={11} strokeWidth={2} />
                     {label}
                   </motion.span>
                 ))}
@@ -1597,10 +1605,10 @@ return (
                     const s = ev.status ?? 'date_pending'
                     const statusCfg =
                       s === 'store_confirmed'
-                        ? { label: 'お店決定済み', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200', Icon: CheckCircle2 }
+                        ? { label: 'お店決定済み', cls: 'bg-emerald-100 text-emerald-700 ring-emerald-300', Icon: CheckCircle2 }
                         : s === 'store_pending'
-                        ? { label: 'お店未確定', cls: 'bg-sky-50 text-sky-700 ring-sky-200', Icon: Sparkles }
-                        : { label: '回答収集中', cls: 'bg-amber-50 text-amber-700 ring-amber-200', Icon: Clock }
+                        ? { label: 'お店未確定', cls: 'bg-stone-100 text-stone-500 ring-stone-300', Icon: CircleDashed }
+                        : { label: '回答収集中', cls: 'bg-orange-50 text-orange-700 ring-orange-200', Icon: Clock }
                     const { Icon: StatusIcon } = statusCfg
                     return (
                       <motion.button
@@ -2544,9 +2552,22 @@ return (
 
             {/* CTA */}
             <div className="space-y-2.5">
-              <PrimaryBtn size="large" onClick={() => fetchRecommendedStores()}>
-                {isLoadingStores ? '候補を探しています…' : 'お店候補を見る'}
+              <PrimaryBtn size="large" onClick={() => {
+                setIsManualStore(false)
+                fetchRecommendedStores()
+              }}>
+                {isLoadingStores ? '候補を探しています…' : 'この条件でお店を提案してもらう'}
               </PrimaryBtn>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsManualStore(true)
+                  setStep('manualStore')
+                }}
+                className="w-full text-center text-sm font-bold text-stone-400 underline underline-offset-2 transition hover:text-stone-600"
+              >
+                店は自分で決める
+              </button>
               <GhostBtn onClick={() => setStep('dateConfirmed')}>戻る</GhostBtn>
             </div>
           </motion.div>
@@ -2816,6 +2837,80 @@ return (
 )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            ⑨-c 手動店舗入力
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        {step === 'manualStore' && (
+          <motion.div
+            className="space-y-5"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            {/* ヘッダー */}
+            <div className="px-0.5">
+              <div className="mb-2 flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
+                  <UtensilsCrossed size={13} className="text-white" strokeWidth={2.5} />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Store</p>
+              </div>
+              <h2 className="text-[22px] font-black tracking-tight text-stone-900">お店を登録する</h2>
+              <p className="mt-1 text-[13px] leading-relaxed text-stone-400">
+                決まっているお店の情報を入れてください。すべて任意です。
+              </p>
+            </div>
+
+            {/* 入力フォーム */}
+            <div className="divide-y divide-stone-100 rounded-2xl bg-white shadow-sm ring-1 ring-stone-100">
+              {/* 店名 */}
+              <div className="px-4 py-4">
+                <label className="mb-1.5 block text-[11px] font-bold text-stone-500">店名</label>
+                <input
+                  type="text"
+                  value={manualStoreName}
+                  onChange={(e) => setManualStoreName(e.target.value)}
+                  placeholder="例：炭火焼鳥 鳥一"
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm font-bold text-stone-900 outline-none transition placeholder:font-normal placeholder:text-stone-400 focus:border-stone-400 focus:bg-white"
+                />
+              </div>
+
+              {/* URL */}
+              <div className="px-4 py-4">
+                <label className="mb-1.5 block text-[11px] font-bold text-stone-500">URL</label>
+                <input
+                  type="url"
+                  inputMode="url"
+                  value={manualStoreUrl}
+                  onChange={(e) => setManualStoreUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-400 focus:bg-white"
+                />
+              </div>
+
+              {/* メモ */}
+              <div className="px-4 py-4">
+                <label className="mb-1.5 block text-[11px] font-bold text-stone-500">メモ</label>
+                <textarea
+                  value={manualStoreMemo}
+                  onChange={(e) => setManualStoreMemo(e.target.value)}
+                  placeholder="個室あり、渋谷3分など"
+                  rows={3}
+                  className="w-full resize-none rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-400 focus:bg-white"
+                />
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div className="space-y-2.5">
+              <PrimaryBtn size="large" onClick={() => setStep('finalConfirm')}>
+                この内容で進む
+              </PrimaryBtn>
+              <GhostBtn onClick={() => setStep('organizerConditions')}>← 戻る</GhostBtn>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑨-b 最終確認（決定内容 + 共有文プレビュー）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
 {/* 確定日程 ヒーロー */}
@@ -2843,9 +2938,9 @@ return (
           ? finalDates.find((d: any) => d.id === finalDecision.selected_date_id) ?? null
           : null
 
-      const finalStore = selectedStore || recommendedStores?.[0] || null
-
-
+      const finalStore = isManualStore
+        ? (manualStoreName ? { id: 'manual', name: manualStoreName, link: manualStoreUrl, area: undefined as string | undefined } : null)
+        : (selectedStore || recommendedStores?.[0] || null)
 
 const finalShareText =
   shareText ||
@@ -2872,10 +2967,22 @@ ${finalStore?.link ?? ''}`
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-white/40">お店候補</p>
-                  <p className="mt-1 text-xl font-black text-white">{finalStore?.name ?? '未設定'}</p>
-                  {finalStore?.area && (
-                    <p className="mt-0.5 text-sm text-white/50">{finalStore.area}</p>
+                  <p className="text-xs font-bold text-white/40">お店</p>
+                  {isManualStore && !manualStoreName ? (
+                    <div>
+                      <p className="mt-1 text-base font-bold text-white/50">お店は未登録です</p>
+                      <p className="mt-0.5 text-xs text-white/30">あとで追記できます</p>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="mt-1 text-xl font-black text-white">{finalStore?.name ?? '未設定'}</p>
+                      {finalStore?.area && (
+                        <p className="mt-0.5 text-sm text-white/50">{finalStore.area}</p>
+                      )}
+                      {isManualStore && manualStoreMemo && (
+                        <p className="mt-0.5 text-xs text-white/40">{manualStoreMemo}</p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -3012,7 +3119,9 @@ ${finalStore?.link ?? ''}`
             </a>
           )}
 
-          <GhostBtn onClick={() => setStep('storeSuggestion')}>← 店候補を見直す</GhostBtn>
+          <GhostBtn onClick={() => setStep(isManualStore ? 'manualStore' : 'storeSuggestion')}>
+            {isManualStore ? '← お店の情報を編集する' : '← 店候補を見直す'}
+          </GhostBtn>
         </div>
       )
     })()}
@@ -3052,8 +3161,9 @@ ${finalStore?.link ?? ''}`
                   config,
                   settlementParticipants.map((p) => ({ id: p.id, name: p.name }))
                 )
-                const storeName =
-                  (selectedStore || recommendedStores[0])?.name ?? undefined
+                const storeName = isManualStore
+                  ? (manualStoreName || undefined)
+                  : ((selectedStore || recommendedStores[0])?.name ?? undefined)
                 const payment = {
                   paypayId: organizerSettings.paypayId,
                   bankName: organizerSettings.bankName,
