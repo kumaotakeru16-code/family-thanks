@@ -2428,8 +2428,13 @@ return (
             {isLoadingStores && <StoreLoadingOverlay />}
             {/* ヘッダー */}
             <div className="px-0.5">
-              <p className="text-[10px] font-bold tracking-[0.22em] text-stone-400 uppercase">Step 7</p>
-              <h2 className="mt-1 text-[22px] font-black tracking-tight text-stone-900">お店の条件</h2>
+              <div className="mb-2 flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
+                  <UtensilsCrossed size={13} className="text-white" strokeWidth={2.5} />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 7 / 10</p>
+              </div>
+              <h2 className="text-[22px] font-black tracking-tight text-stone-900">お店の条件</h2>
               <p className="mt-1 text-[13px] text-stone-400 leading-relaxed">
                 条件は4つだけ。あとはAIが選びます。
               </p>
@@ -2559,10 +2564,16 @@ return (
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
-      className="px-1"
+      className="px-0.5"
     >
-      <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">Step 9</p>
-      <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">お店を選ぶ</h2>
+      <div className="mb-2 flex items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
+          <UtensilsCrossed size={13} className="text-white" strokeWidth={2.5} />
+        </div>
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 9 / 10</p>
+      </div>
+      <h2 className="text-[22px] font-black tracking-tight text-stone-900">お店を選ぶ</h2>
+      <p className="mt-1 text-[13px] leading-relaxed text-stone-400">候補を比べて、最適なお店を決めましょう。</p>
     </motion.div>
 
     {storePool.length === 0 ? (
