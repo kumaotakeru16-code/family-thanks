@@ -41,6 +41,7 @@ export type PastEventRecord = {
   storeName: string
   memo: string
   hasPhoto: boolean
+  photoDataUrl?: string // base64 data URL（端末ローカル保存）
   createdAt: string
 }
 

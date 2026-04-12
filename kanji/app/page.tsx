@@ -1986,10 +1986,22 @@ return (
                     </div>
                   )}
                   {completedEventDetail.hasPhoto && (
-                    <div className="flex items-center gap-2 rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
-                      <ImagePlus size={13} className="text-stone-400" />
-                      <p className="text-sm text-stone-500">写真あり（端末に保存済み）</p>
-                    </div>
+                    completedEventDetail.photoDataUrl ? (
+                      <div>
+                        <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-stone-400">写真</p>
+                        <img
+                          src={completedEventDetail.photoDataUrl}
+                          alt="会の写真"
+                          className="w-full rounded-2xl object-cover ring-1 ring-stone-100"
+                          style={{ maxHeight: 240 }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
+                        <ImagePlus size={13} className="text-stone-400" />
+                        <p className="text-sm text-stone-500">写真（データなし）</p>
+                      </div>
+                    )
                   )}
                 </div>
                 <button
@@ -3748,6 +3760,7 @@ ${finalStore?.link ?? ''}`
                 storeName: settlementStore?.name ?? '',
                 memo: data.memo,
                 hasPhoto: data.hasPhoto,
+                photoDataUrl: data.photoDataUrl,
                 createdAt: now,
               }
               const updatedSettings = {

@@ -14,6 +14,7 @@ export type CompletionData = {
   memo: string
   isFavorite: boolean
   hasPhoto: boolean
+  photoDataUrl?: string
 }
 
 type Props = {
@@ -81,7 +82,7 @@ export function SettlementSummaryTable({
   const handleComplete = () => {
     setShowCongrats(true)
     setTimeout(() => {
-      onComplete({ memo: memoText, isFavorite, hasPhoto: !!photoDataUrl })
+      onComplete({ memo: memoText, isFavorite, hasPhoto: !!photoDataUrl, photoDataUrl: photoDataUrl ?? undefined })
     }, 1400)
   }
 
