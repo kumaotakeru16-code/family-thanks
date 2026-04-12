@@ -56,6 +56,17 @@ import {
   loadUserSettings,
   saveUserSettings,
 } from '@/app/lib/user-settings'
+import {
+  type SavedEvent,
+  loadSavedEvents,
+  persistSavedEvent,
+  updateSavedEventStatus,
+  removeSavedEvent,
+} from '@/app/lib/event-store'
+import {
+  buildPastEventRecord,
+  saveCompletionData,
+} from '@/app/lib/event-actions'
 
 // --- Types ---
 type Step =
@@ -123,24 +134,7 @@ type PastStore = {
   memo: string
 }
 
-// --- Types (continued) ---
-type SavedEvent = {
-  id: string
-  name: string
-  eventType: string
-  createdAt: number
-  /** Phase reached by this event */
-  status?: 'date_pending' | 'store_pending' | 'store_confirmed'
-  /** Date ID confirmed by the organizer (set when status becomes store_pending) */
-  confirmedDateId?: string
-  /** Store info — saved when status becomes store_confirmed */
-  isManualStore?: boolean
-  storeName?: string
-  storeUrl?: string
-  storeMemo?: string
-  storeId?: string
-  storeArea?: string
-}
+// SavedEvent 型は event-store.ts で定義・管理（import 済み）
 
 // --- Constants ---
 const EVENT_TYPES: EventType[] = ['歓迎会', '送別会', '普通の飲み会', '少人数ごはん', '会食']
@@ -981,11 +975,8 @@ useEffect(() => {
 }, [step, participantMajority])
 
 useEffect(() => {
-  if (typeof window === 'undefined') return
-  try {
-    const raw = localStorage.getItem('kanji_events')
-    if (raw) setSavedEvents(JSON.parse(raw))
-  } catch {}
+  // 進行中の会を event-store.ts 経由でロード（直接 localStorage を触らない）
+  setSavedEvents(loadSavedEvents())
 }, [])
 
 useEffect(() => {
@@ -1105,19 +1096,11 @@ const genreHit = activeParticipants.some((p) =>
     setStep('create')
   }
 
+// ── 進行中の会 更新ヘルパー ──────────────────────────────────────────────────
+// localStorage への直接アクセスは event-store.ts に委譲する。
+
 function persistEvent(id: string, name: string, type: string) {
-  const item: SavedEvent = { id, name, eventType: type, createdAt: Date.now(), status: 'date_pending' }
-
-  setSavedEvents((prev) => {
-    const filtered = prev.filter((e) => e.id !== id)
-    const updated = [item, ...filtered].slice(0, 3)
-
-    try {
-      localStorage.setItem('kanji_events', JSON.stringify(updated))
-    } catch {}
-
-    return updated
-  })
+  setSavedEvents(prev => persistSavedEvent(prev, id, name, type))
 }
 
 function updateEventStatus(
@@ -1126,23 +1109,11 @@ function updateEventStatus(
   confirmedDateId?: string,
   storeInfo?: Pick<SavedEvent, 'isManualStore' | 'storeName' | 'storeUrl' | 'storeMemo' | 'storeId' | 'storeArea'>
 ) {
-  setSavedEvents(prev => {
-    const updated = prev.map(e =>
-      e.id === id
-        ? { ...e, status, ...(confirmedDateId ? { confirmedDateId } : {}), ...(storeInfo ?? {}) }
-        : e
-    )
-    try { localStorage.setItem('kanji_events', JSON.stringify(updated)) } catch {}
-    return updated
-  })
+  setSavedEvents(prev => updateSavedEventStatus(prev, id, status, confirmedDateId, storeInfo))
 }
 
 function removeSavedEventById(id: string) {
-  setSavedEvents(prev => {
-    const updated = prev.filter(e => e.id !== id)
-    try { localStorage.setItem('kanji_events', JSON.stringify(updated)) } catch {}
-    return updated
-  })
+  setSavedEvents(prev => removeSavedEvent(prev, id))
 }
 
 async function openSavedEvent(id: string, name: string, type: string) {
@@ -3910,61 +3881,52 @@ ${finalStore?.link ?? ''}`
 
             // onComplete: 保存を試みて結果を返す。ナビゲーションは onCompleted に委譲。
             const handleComplete = (data: CompletionData): CompleteResult => {
-              const now = new Date().toISOString()
-
-              // 1. 完了済みレコード生成（参加者名・店舗情報も含める）
-              const participants = settlementResult.personResults.map(p => p.name)
-              const newRecord = {
-                id: crypto.randomUUID(),
-                title: eventName || '名称未設定',
+              // 1. 完了済みレコードを組み立てる（event-actions.ts に委譲）
+              const record = buildPastEventRecord({
+                eventName,
                 eventDate: settlementDate,
                 storeName: settlementStore?.name ?? '',
-                storeId: settlementStore?.id ?? undefined,
-                storeLink: settlementStore?.link ?? undefined,
-                storeArea: settlementStore?.area ?? undefined,
-                storeGenre: settlementStore?.genre ?? undefined,
+                storeId: settlementStore?.id,
+                storeLink: settlementStore?.link,
+                storeArea: settlementStore?.area,
+                storeGenre: settlementStore?.genre,
                 memo: data.memo,
                 hasPhoto: data.hasPhoto,
                 photoDataUrl: data.photoDataUrl,
-                participants,
-                createdAt: now,
-              }
+                participants: settlementResult.personResults.map(p => p.name),
+              })
 
-              // 2. userSettings 更新（pastEventRecords + お気に入り）
-              const updatedSettings = {
-                ...userSettings,
-                pastEventRecords: [newRecord, ...userSettings.pastEventRecords],
-                ...(data.isFavorite && settlementStore ? {
-                  favoriteStores: [
-                    {
+              // 2. お気に入り情報を組み立て（任意）
+              const favoriteStore =
+                data.isFavorite && settlementStore
+                  ? {
                       id: settlementStore.id,
                       name: settlementStore.name,
                       area: settlementStore.area ?? '',
                       genre: settlementStore.genre ?? '',
                       link: settlementStore.link ?? '',
-                      savedAt: now,
-                    },
-                    ...userSettings.favoriteStores.filter(s => s.id !== settlementStore.id),
-                  ],
-                } : {}),
-              }
+                      savedAt: new Date().toISOString(),
+                    }
+                  : undefined
 
-              // 3. localStorage へ書き込む（戻り値で成否を確認）
-              const saveResult = saveUserSettings(updatedSettings)
+              // 3. userSettings へ保存（event-actions.ts に委譲）
+              //    - pastEventRecords 追加 + お気に入り追加（任意）を一括保存
+              //    - 写真が容量超過の場合は photoDataUrl を除いて再保存する
+              const { result: saveResult, next: nextSettings } = saveCompletionData(
+                userSettings,
+                record,
+                favoriteStore,
+              )
 
               if (!saveResult.ok) {
                 // 完全失敗 — 保存できていないのでナビゲーションしない
                 return 'error'
               }
 
-              // 4. 保存成功（写真ありまたはなし）— state 更新
-              setUserSettings(saveResult.photoStripped
-                // 写真が除かれた版を state にも反映
-                ? { ...updatedSettings, pastEventRecords: updatedSettings.pastEventRecords.map(r => ({ ...r, photoDataUrl: undefined })) }
-                : updatedSettings
-              )
+              // 4. 保存成功 — state 更新（写真除去版も考慮）
+              setUserSettings(nextSettings)
 
-              // 5. 進行中一覧から除外（kanji_events も同時更新）
+              // 5. 進行中一覧から除外（event-store.ts 経由で kanji_events も更新）
               if (createdEventId) removeSavedEventById(createdEventId)
 
               return saveResult.photoStripped ? 'photo_failed' : 'ok'

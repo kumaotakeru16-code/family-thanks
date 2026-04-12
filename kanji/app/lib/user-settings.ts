@@ -1,13 +1,21 @@
 /**
  * user-settings.ts
  *
- * ユーザー設定を管理するユーティリティ。
+ * ユーザー設定（お気に入り店・完了済みの会）の型定義と永続化を一元管理する。
  *
  * 設計方針:
  *   - 登録不要・匿名ファースト
- *   - 今は localStorage のみ。将来 Supabase 連携に差し替えられる構造
+ *   - 現在は localStorage のみ。将来 Supabase 連携に差し替えられる構造
  *   - saveMode で現在の保存状態を表現
- *   - FavoriteStore / PastEventRecord の型だけ先に定義しておく（将来の実装に備える）
+ *   - page.tsx / component からは直接 localStorage を触らず、
+ *     このファイルの関数経由でのみアクセスする
+ *
+ * CLOUD-MIGRATION ガイド:
+ *   localStorage.setItem  → Supabase: profiles / user_data テーブルへの INSERT/UPDATE
+ *   localStorage.getItem  → Supabase: SELECT + React Query / SWR キャッシュ
+ *   photoDataUrl (base64) → Supabase Storage に PUT して URL を保持する
+ *   SaveMode 'cloud' が有効になったとき、loadUserSettings / saveUserSettings を
+ *   Supabase クライアント呼び出しに差し替えるだけで移行できる構造を保つ。
  */
 
 const STORAGE_KEY = 'kanji_user_settings'
@@ -21,7 +29,8 @@ const STORAGE_KEY = 'kanji_user_settings'
  */
 export type SaveMode = 'none' | 'local' | 'cloud'
 
-// ── お気に入り店（将来実装） ────────────────────────────────────────────────────
+// ── お気に入り店 ───────────────────────────────────────────────────────────────
+// CLOUD-MIGRATION: Supabase favorite_stores テーブルへ移行予定
 
 export type FavoriteStore = {
   id: string          // Hot Pepper ID など
@@ -32,7 +41,12 @@ export type FavoriteStore = {
   savedAt: string     // ISO 8601
 }
 
-// ── 会の記録（将来実装） ────────────────────────────────────────────────────────
+// ── 完了済みの会の記録 ─────────────────────────────────────────────────────────
+// 清算完了時に event-actions.ts の buildPastEventRecord で生成し、
+// saveCompletionData で pastEventRecords の先頭に追加する。
+//
+// CLOUD-MIGRATION: Supabase past_events テーブルへ移行予定
+//   photoDataUrl (base64) → Supabase Storage の URL に置き換える
 
 export type PastEventRecord = {
   id: string
@@ -71,6 +85,8 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
 }
 
 // ── 永続化 ────────────────────────────────────────────────────────────────────
+// CLOUD-MIGRATION: loadUserSettings → Supabase SELECT（anonymous auth の UID でフェッチ）
+// CLOUD-MIGRATION: saveUserSettings → Supabase UPDATE（onConflict: user_id）
 
 export function loadUserSettings(): UserSettings {
   if (typeof window === 'undefined') return { ...DEFAULT_USER_SETTINGS }
