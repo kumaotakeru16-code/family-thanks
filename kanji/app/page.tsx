@@ -644,6 +644,7 @@ export default function Page() {
   const [editableFinalShareText, setEditableFinalShareText] = useState('')
   // 完了済みの会 詳細モーダル
   const [completedEventDetail, setCompletedEventDetail] = useState<import('@/app/lib/user-settings').PastEventRecord | null>(null)
+  const [showDetailParticipants, setShowDetailParticipants] = useState(false)
   // manual store お気に入りパネル
   const [showFavoritePicker, setShowFavoritePicker] = useState(false)
   const [urlOnly, setUrlOnly] = useState(false)
@@ -1128,6 +1129,14 @@ function updateEventStatus(
         ? { ...e, status, ...(confirmedDateId ? { confirmedDateId } : {}), ...(storeInfo ?? {}) }
         : e
     )
+    try { localStorage.setItem('kanji_events', JSON.stringify(updated)) } catch {}
+    return updated
+  })
+}
+
+function removeSavedEventById(id: string) {
+  setSavedEvents(prev => {
+    const updated = prev.filter(e => e.id !== id)
     try { localStorage.setItem('kanji_events', JSON.stringify(updated)) } catch {}
     return updated
   })
@@ -1896,7 +1905,7 @@ return (
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.18, delay: idx * 0.04 }}
                       whileTap={{ scale: 0.984 }}
-                      onClick={() => setCompletedEventDetail(record)}
+                      onClick={() => { setCompletedEventDetail(record); setShowDetailParticipants(false) }}
                       className="flex w-full items-center justify-between rounded-2xl bg-stone-50 px-4 py-3.5 text-left ring-1 ring-stone-100 transition hover:bg-white hover:shadow-sm"
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -1960,6 +1969,7 @@ return (
                 </div>
                 <h3 className="text-xl font-black tracking-tight text-stone-900">{completedEventDetail.title}</h3>
                 <div className="mt-5 space-y-4">
+                  {/* 日時 */}
                   <div className="flex gap-3">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-stone-50 ring-1 ring-stone-100">
                       <CalendarDays size={14} className="text-stone-400" />
@@ -1969,6 +1979,7 @@ return (
                       <p className="mt-0.5 text-sm font-bold text-stone-800">{completedEventDetail.eventDate || '—'}</p>
                     </div>
                   </div>
+                  {/* お店 */}
                   {completedEventDetail.storeName && (
                     <div className="flex gap-3">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-stone-50 ring-1 ring-stone-100">
@@ -1980,12 +1991,58 @@ return (
                       </div>
                     </div>
                   )}
+                  {/* 参加者（展開式） */}
+                  {completedEventDetail.participants && completedEventDetail.participants.length > 0 && (
+                    <div className="overflow-hidden rounded-2xl bg-stone-50 ring-1 ring-stone-100">
+                      <button
+                        type="button"
+                        onClick={() => setShowDetailParticipants(v => !v)}
+                        className="flex w-full items-center justify-between px-4 py-3"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Users size={13} className="text-stone-400" strokeWidth={2} />
+                          <span className="text-sm font-bold text-stone-700">参加者を見る</span>
+                          <span className="rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-bold text-stone-500">
+                            {completedEventDetail.participants.length}名
+                          </span>
+                        </div>
+                        <ChevronDown
+                          size={14}
+                          className={`text-stone-400 transition-transform duration-200 ${showDetailParticipants ? 'rotate-180' : ''}`}
+                        />
+                      </button>
+                      <AnimatePresence>
+                        {showDetailParticipants && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="flex flex-wrap gap-1.5 border-t border-stone-100 px-4 pb-3.5 pt-3">
+                              {completedEventDetail.participants.map((name) => (
+                                <span
+                                  key={name}
+                                  className="rounded-full bg-white px-3 py-1 text-[12px] font-bold text-stone-700 ring-1 ring-stone-200"
+                                >
+                                  {name}
+                                </span>
+                              ))}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
+                  {/* メモ */}
                   {completedEventDetail.memo && (
                     <div className="rounded-2xl bg-stone-50 px-4 py-3.5 ring-1 ring-stone-100">
                       <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-stone-400">メモ</p>
                       <p className="text-sm leading-6 text-stone-700 whitespace-pre-line">{completedEventDetail.memo}</p>
                     </div>
                   )}
+                  {/* 写真 */}
                   {completedEventDetail.hasPhoto && (
                     completedEventDetail.photoDataUrl ? (
                       <div>
@@ -3753,6 +3810,9 @@ ${finalStore?.link ?? ''}`
 
             const handleComplete = (data: CompletionData) => {
               const now = new Date().toISOString()
+
+              // 1. 完了済みレコード生成（参加者名も含める）
+              const participants = settlementResult.personResults.map(p => p.name)
               const newRecord = {
                 id: crypto.randomUUID(),
                 title: eventName || '名称未設定',
@@ -3761,8 +3821,11 @@ ${finalStore?.link ?? ''}`
                 memo: data.memo,
                 hasPhoto: data.hasPhoto,
                 photoDataUrl: data.photoDataUrl,
+                participants,
                 createdAt: now,
               }
+
+              // 2. userSettings 更新（pastEventRecords + お気に入り）
               const updatedSettings = {
                 ...userSettings,
                 pastEventRecords: [newRecord, ...userSettings.pastEventRecords],
@@ -3780,8 +3843,15 @@ ${finalStore?.link ?? ''}`
                   ],
                 } : {}),
               }
+
+              // 3. 先に localStorage へ書き込む（リロード対策）
               saveUserSettings(updatedSettings)
               setUserSettings(updatedSettings)
+
+              // 4. 進行中一覧から除外（kanji_events も同時更新）
+              if (createdEventId) removeSavedEventById(createdEventId)
+
+              // 5. ホームへ
               setStep('home')
             }
 
