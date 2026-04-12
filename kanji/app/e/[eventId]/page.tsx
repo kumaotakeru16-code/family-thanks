@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
+import { CalendarDays } from 'lucide-react'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -169,16 +170,45 @@ export default function EventParticipantPage() {
   if (submitted) {
     return (
       <div className="mx-auto min-h-screen w-full max-w-2xl px-4 py-12 sm:px-6">
-        <div className="rounded-3xl bg-white px-6 py-8 shadow-sm ring-1 ring-black/5">
-          <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
-            Thanks
-          </p>
-          <h1 className="mt-2 text-2xl font-black tracking-tight text-stone-900">
-            回答ありがとうございました
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-stone-600">
-            幹事がみんなの回答を見て、日程を調整します。
-          </p>
+        <div className="space-y-4">
+          {/* 完了メッセージ（主役） */}
+          <div className="rounded-3xl bg-white px-6 py-8 shadow-sm ring-1 ring-black/5">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
+              Thanks
+            </p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-stone-900">
+              回答ありがとうございました
+            </h1>
+            <p className="mt-3 text-sm leading-6 text-stone-600">
+              幹事がみんなの回答を見て、日程を調整します。
+            </p>
+          </div>
+
+          {/* 認知導線（補助） */}
+          <div className="rounded-2xl border border-stone-100 bg-stone-50 px-5 py-5">
+            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">
+              この会の幹事が使っているアプリ
+            </p>
+            {/* アイコン + アプリ名 */}
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-stone-800">
+                <div className="flex flex-col items-center gap-0">
+                  <CalendarDays size={13} className="text-white/80" strokeWidth={1.8} />
+                  <span className="text-[7px] font-black leading-none tracking-tight text-white">幹事</span>
+                </div>
+              </div>
+              <span className="text-sm font-black tracking-wide text-stone-800">KANJI</span>
+            </div>
+            <p className="mt-2.5 text-xs leading-5 text-stone-400">
+              幹事のやることを、まとめて進められます
+            </p>
+            <a
+              href="/"
+              className="mt-3.5 inline-block text-xs font-bold text-stone-600 underline underline-offset-2 transition hover:text-stone-800"
+            >
+              このアプリで会を作る →
+            </a>
+          </div>
         </div>
       </div>
     )

@@ -308,6 +308,11 @@ export function SettlementSummaryTable({
           />
         </div>
 
+        {/* 補足文 */}
+        <p className="px-1 text-[11px] leading-5 text-stone-400">
+          ※金額は調整のうえ、100円単位で切り上げて計算しています
+        </p>
+
         {/* LINE共有 + コピー */}
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -460,13 +465,6 @@ export function SettlementSummaryTable({
             className="w-full rounded-2xl bg-stone-900 px-4 py-4 text-sm font-black text-white shadow-md transition hover:opacity-90 active:scale-[0.98]"
           >
             会を完了する
-          </button>
-          <button
-            type="button"
-            onClick={onBack}
-            className="w-full py-2 text-center text-sm font-medium text-stone-400 transition hover:text-stone-600"
-          >
-            戻る
           </button>
         </div>
       </div>

@@ -267,5 +267,9 @@ export function generateSettlementMessage(
     }
   }
 
+  // ── 補足文 ───────────────────────────────────────────────────────────────
+  lines.push('')
+  lines.push('※金額は調整のうえ、100円単位で切り上げて計算しています')
+
   return lines.join('\n')
 }

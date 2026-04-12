@@ -643,6 +643,8 @@ export default function Page() {
   const [reminderCopied, setReminderCopied] = useState(false)
   const [showReminderPanel, setShowReminderPanel] = useState(false)
   const [editableFinalShareText, setEditableFinalShareText] = useState('')
+  // 会作成中の開始感演出
+  const [showCreating, setShowCreating] = useState(false)
   // 完了済みの会 詳細モーダル
   const [completedEventDetail, setCompletedEventDetail] = useState<import('@/app/lib/user-settings').PastEventRecord | null>(null)
   const [showDetailParticipants, setShowDetailParticipants] = useState(false)
@@ -1713,46 +1715,53 @@ return (
   </AnimatePresence>
   <main className="min-h-screen" style={{ background: '#F5F3EF' }}>
     <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 pb-20 pt-6 sm:px-5">
-      {/* ── グローバルナビ — ホーム以外で表示 ─────────────────────────────────── */}
+      {/* ── グローバルナビ + ステップバー — ホーム以外で sticky 表示 ─────────── */}
       {step !== 'home' && (
-        <header className="mb-4 flex h-9 items-center justify-between">
-          {/* 左: 戻るナビゲーション */}
-          {backStep ? (
+        <div className="sticky top-0 z-40 -mx-4 sm:-mx-5 mb-5 border-b border-stone-200/60 bg-[#F5F3EF] px-4 pb-2 pt-3 sm:px-5">
+          <header className="flex h-8 items-center justify-between">
+            {/* 左: 戻るナビゲーション */}
+            {backStep ? (
+              <button
+                type="button"
+                onClick={() => setStep(backStep)}
+                className="-ml-2 flex h-8 w-8 items-center justify-center rounded-xl text-stone-400 transition hover:text-stone-700 active:scale-95"
+                aria-label="戻る"
+              >
+                <ChevronLeft size={20} strokeWidth={2} />
+              </button>
+            ) : (
+              <div className="w-8" />
+            )}
+
+            {/* 中央: ワードマーク */}
             <button
               type="button"
-              onClick={() => setStep(backStep)}
-              className="-ml-2 flex h-9 w-9 items-center justify-center rounded-xl text-stone-400 transition hover:text-stone-700 active:scale-95"
-              aria-label="戻る"
+              onClick={() => setStep('home')}
+              className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-stone-400 transition hover:text-stone-600"
             >
-              <ChevronLeft size={22} strokeWidth={2} />
+              <CalendarDays size={11} strokeWidth={2.5} />
+              Kanji
             </button>
-          ) : (
-            <div className="w-9" />
+
+            {/* 右: ホームアイコン */}
+            <button
+              type="button"
+              onClick={() => setStep('home')}
+              className="-mr-2 flex h-8 w-8 items-center justify-center rounded-xl text-stone-400 transition hover:text-stone-700 active:scale-95"
+              aria-label="ホーム"
+            >
+              <House size={17} strokeWidth={2} />
+            </button>
+          </header>
+
+          {/* ステップバー */}
+          {showProgress && (
+            <div className="mt-2">
+              <FlowProgress step={step} />
+            </div>
           )}
-
-          {/* 中央: ワードマーク */}
-          <button
-            type="button"
-            onClick={() => setStep('home')}
-            className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-stone-400 transition hover:text-stone-600"
-          >
-            <CalendarDays size={11} strokeWidth={2.5} />
-            Kanji
-          </button>
-
-          {/* 右: ホームアイコン */}
-          <button
-            type="button"
-            onClick={() => setStep('home')}
-            className="-mr-2 flex h-9 w-9 items-center justify-center rounded-xl text-stone-400 transition hover:text-stone-700 active:scale-95"
-            aria-label="ホーム"
-          >
-            <House size={17} strokeWidth={2} />
-          </button>
-        </header>
+        </div>
       )}
-
-      {showProgress && <FlowProgress step={step} />}
 
       
 
@@ -1949,6 +1958,33 @@ return (
             )}
           </motion.div>
         )}
+
+        {/* 会作成 開始感オーバーレイ */}
+        <AnimatePresence>
+          {showCreating && (
+            <motion.div
+              key="creating"
+              className="fixed inset-0 z-[9998] flex flex-col items-center justify-center bg-[#F5F3EF]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05, duration: 0.18, ease: 'easeOut' }}
+                className="flex flex-col items-center gap-3"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-900">
+                  <CalendarPlus size={20} className="text-white" strokeWidth={2} />
+                </div>
+                <p className="text-[15px] font-black tracking-tight text-stone-900">会を作成しました</p>
+                <p className="text-[12px] text-stone-400">準備を始めましょう</p>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* 完了済みの会 詳細モーダル */}
         <AnimatePresence>
@@ -2189,30 +2225,24 @@ return (
               <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
                 <p className="text-xs font-bold text-stone-600">開始時間</p>
                 <div className="mt-3 grid grid-cols-2 gap-3">
-                  <label className="block">
-                    <span className="mb-1.5 block text-[11px] font-bold text-stone-400">時</span>
-                    <select
-                      value={selectedHour}
-                      onChange={(e) => setSelectedHour(e.target.value)}
-                      className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-base font-bold text-stone-700 outline-none transition focus:border-stone-400"
-                    >
-                      {['17', '18', '19', '20', '21', '22', '23'].map((hour) => (
-                        <option key={hour} value={hour}>{hour}時</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="mb-1.5 block text-[11px] font-bold text-stone-400">分</span>
-                    <select
-                      value={selectedMinute}
-                      onChange={(e) => setSelectedMinute(e.target.value)}
-                      className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-base font-bold text-stone-700 outline-none transition focus:border-stone-400"
-                    >
-                      {['00', '15', '30', '45'].map((minute) => (
-                        <option key={minute} value={minute}>{minute}分</option>
-                      ))}
-                    </select>
-                  </label>
+                  <select
+                    value={selectedHour}
+                    onChange={(e) => setSelectedHour(e.target.value)}
+                    className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-base font-bold text-stone-700 outline-none transition focus:border-stone-400"
+                  >
+                    {['17', '18', '19', '20', '21', '22', '23'].map((hour) => (
+                      <option key={hour} value={hour}>{hour}時</option>
+                    ))}
+                  </select>
+                  <select
+                    value={selectedMinute}
+                    onChange={(e) => setSelectedMinute(e.target.value)}
+                    className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-base font-bold text-stone-700 outline-none transition focus:border-stone-400"
+                  >
+                    {['00', '15', '30', '45'].map((minute) => (
+                      <option key={minute} value={minute}>{minute}分</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -2262,9 +2292,12 @@ return (
         {/* ── 会を作る sticky CTA ── */}
         {(step === 'create' || step === 'dates') && (
           <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+            {!eventName.trim() && (
+              <p className="mb-2 text-center text-[11px] text-stone-400">会の名前を入力してください</p>
+            )}
             <PrimaryBtn
               size="large"
-              disabled={selectedDateIds.length === 0}
+              disabled={!eventName.trim() || selectedDateIds.length === 0}
               onClick={async () => {
                 const selectedDates = generatedDates
                   .filter((d) => selectedDateIds.includes(d.id))
@@ -2279,6 +2312,9 @@ return (
                 setDates(selectedDates)
                 setGeneratedDates(selectedDates)
 
+                // 開始感演出（作成APIと並行して表示）
+                setShowCreating(true)
+
                 const eventId = await createEvent(
                   eventName,
                   eventType,
@@ -2286,7 +2322,12 @@ return (
                 )
                 setCreatedEventId(eventId)
                 persistEvent(eventId, eventName, eventType)
-                setStep('shareLink')
+
+                // 演出を短時間見せてから遷移
+                setTimeout(() => {
+                  setShowCreating(false)
+                  setStep('shareLink')
+                }, 200)
               }}
             >
               {selectedDateIds.length === 0 ? '候補日を選んでください' : `この${selectedDateIds.length}件で作成`}
@@ -4161,7 +4202,7 @@ ${finalStore?.link ?? ''}`
 function FlowProgress({ step }: { step: Step }) {
   const current = FLOW_STEPS.indexOf(step)
   return (
-    <div className="mb-7 flex gap-1">
+    <div className="flex gap-1">
       {FLOW_STEPS.map((_, i) => (
         <div
           key={i}
@@ -4537,8 +4578,8 @@ function CalendarPicker({
               disabled={isDisabledBefore}
               onClick={() => onDayClick(dateKeyValue)}
               className={cx(
-                'relative flex h-10 w-10 flex-col items-center justify-center rounded-xl text-sm font-bold transition',
-                isSelected && 'bg-stone-900 text-white ring-1 ring-stone-900',
+                'relative flex h-10 w-10 flex-col items-center justify-center rounded-xl text-sm font-bold transition-all duration-150',
+                isSelected && 'scale-[1.08] bg-stone-900 text-white ring-1 ring-stone-900',
                 !isSelected && isToday && !isDisabledBefore && 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-300',
                 !isSelected && !isToday && !isDisabledBefore && !isWeekend && 'bg-white text-stone-700 ring-1 ring-stone-200 hover:bg-stone-50',
                 !isSelected && !isToday && !isDisabledBefore && isWeekend && 'bg-stone-50 text-stone-400 ring-1 ring-stone-200 hover:bg-stone-100',
