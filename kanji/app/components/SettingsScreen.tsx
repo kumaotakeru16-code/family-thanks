@@ -8,11 +8,9 @@ import {
   Cloud,
   HardDrive,
   Heart,
-  BookOpen,
   Trash2,
   ChevronRight,
   UtensilsCrossed,
-  CalendarDays,
   Info,
   LogIn,
 } from 'lucide-react'
@@ -283,54 +281,7 @@ export function SettingsScreen({ settings, onSettingsChange, organizerName, onOr
         </SectionCard>
       </div>
 
-      {/* ── D. 会の記録 ────────────────────────────────────────────────────── */}
-      <div className="space-y-2">
-        <SectionLabel>会の記録</SectionLabel>
-        <SectionCard>
-          {settings.pastEventRecords.length === 0 ? (
-            <div className="px-4 py-8 text-center">
-              <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-stone-50">
-                <BookOpen size={18} className="text-stone-300" strokeWidth={1.8} />
-              </div>
-              <p className="text-sm font-bold text-stone-500">まだ記録はありません</p>
-              <p className="mt-1.5 text-[11px] leading-5 text-stone-400">
-                会が終わったとき、メモや写真を残せるようになります。
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-stone-100">
-              {settings.pastEventRecords.map((record) => (
-                <div key={record.id} className="flex items-start gap-3 px-4 py-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-stone-50">
-                    <CalendarDays size={13} className="text-stone-400" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-stone-900">{record.title}</p>
-                    <p className="text-[11px] text-stone-400">
-                      {record.eventDate}
-                      {record.storeName ? `　${record.storeName}` : ''}
-                    </p>
-                    <div className="mt-1 flex gap-1.5">
-                      {record.memo && (
-                        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[9px] font-bold text-stone-500">
-                          メモあり
-                        </span>
-                      )}
-                      {record.hasPhoto && (
-                        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[9px] font-bold text-stone-500">
-                          写真あり
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </SectionCard>
-      </div>
-
-      {/* ── E. データ管理 ──────────────────────────────────────────────────── */}
+      {/* ── D. データ管理 ──────────────────────────────────────────────────── */}
       <div className="space-y-2">
         <SectionLabel>データ管理</SectionLabel>
         <SectionCard>

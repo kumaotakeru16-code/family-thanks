@@ -28,6 +28,8 @@ import {
   Share2,
   House,
   Settings,
+  ImagePlus,
+  Heart,
 } from 'lucide-react'
 
 import { createEvent, loadEventData } from '@/lib/kanji-db'
@@ -637,6 +639,10 @@ export default function Page() {
   const [reminderCopied, setReminderCopied] = useState(false)
   const [showReminderPanel, setShowReminderPanel] = useState(false)
   const [editableFinalShareText, setEditableFinalShareText] = useState('')
+  // 完了済みの会 詳細モーダル
+  const [completedEventDetail, setCompletedEventDetail] = useState<import('@/app/lib/user-settings').PastEventRecord | null>(null)
+  // manual store お気に入りパネル
+  const [showFavoritePicker, setShowFavoritePicker] = useState(false)
   const [urlOnly, setUrlOnly] = useState(false)
   const [urlOnlyInvite, setUrlOnlyInvite] = useState(false)
   const [urlOnlyReminder, setUrlOnlyReminder] = useState(false)
@@ -1870,8 +1876,131 @@ return (
                 </motion.div>
               )}
             </section>
+
+            {/* ── 完了済みの会 ─────────────────────────────────── */}
+            {userSettings.pastEventRecords.length > 0 && (
+              <section className="mt-6">
+                <div className="mb-3 flex items-center gap-2">
+                  <CheckCircle2 size={12} className="text-stone-300" strokeWidth={2.5} />
+                  <p className="text-[11px] font-black tracking-[0.2em] text-stone-300 uppercase">完了済みの会</p>
+                </div>
+                <div className="space-y-2">
+                  {userSettings.pastEventRecords.slice(0, 5).map((record, idx) => (
+                    <motion.button
+                      type="button"
+                      key={record.id}
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.18, delay: idx * 0.04 }}
+                      whileTap={{ scale: 0.984 }}
+                      onClick={() => setCompletedEventDetail(record)}
+                      className="flex w-full items-center justify-between rounded-2xl bg-stone-50 px-4 py-3.5 text-left ring-1 ring-stone-100 transition hover:bg-white hover:shadow-sm"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-stone-100">
+                          <CheckCircle2 size={13} className="text-stone-300" strokeWidth={2} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-[13px] font-bold text-stone-600">{record.title}</p>
+                          <p className="text-[11px] text-stone-400">
+                            {record.eventDate}
+                            {record.storeName ? `　${record.storeName}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="ml-2 flex shrink-0 items-center gap-1.5">
+                        {record.memo && (
+                          <span className="rounded-full bg-stone-200/80 px-2 py-0.5 text-[9px] font-bold text-stone-500">メモ</span>
+                        )}
+                        {record.hasPhoto && (
+                          <span className="rounded-full bg-stone-200/80 px-2 py-0.5 text-[9px] font-bold text-stone-500">写真</span>
+                        )}
+                        <ChevronRight size={12} className="text-stone-300" />
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              </section>
+            )}
           </motion.div>
         )}
+
+        {/* 完了済みの会 詳細モーダル */}
+        <AnimatePresence>
+          {completedEventDetail && (
+            <motion.div
+              key="completed-detail"
+              className="fixed inset-0 z-[200] flex flex-col"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+            >
+              {/* 背景 */}
+              <div
+                className="absolute inset-0 bg-black/40"
+                onClick={() => setCompletedEventDetail(null)}
+              />
+              {/* シート */}
+              <motion.div
+                className="absolute bottom-0 left-0 right-0 max-h-[80vh] overflow-y-auto rounded-t-3xl bg-white px-5 pb-10 pt-6 shadow-2xl"
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              >
+                {/* ハンドル */}
+                <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-stone-200" />
+                <div className="mb-1 flex items-center gap-1.5">
+                  <CheckCircle2 size={11} className="text-stone-300" strokeWidth={2.5} />
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">完了済みの会</p>
+                </div>
+                <h3 className="text-xl font-black tracking-tight text-stone-900">{completedEventDetail.title}</h3>
+                <div className="mt-5 space-y-4">
+                  <div className="flex gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-stone-50 ring-1 ring-stone-100">
+                      <CalendarDays size={14} className="text-stone-400" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">日時</p>
+                      <p className="mt-0.5 text-sm font-bold text-stone-800">{completedEventDetail.eventDate || '—'}</p>
+                    </div>
+                  </div>
+                  {completedEventDetail.storeName && (
+                    <div className="flex gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-stone-50 ring-1 ring-stone-100">
+                        <UtensilsCrossed size={14} className="text-stone-400" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">お店</p>
+                        <p className="mt-0.5 text-sm font-bold text-stone-800">{completedEventDetail.storeName}</p>
+                      </div>
+                    </div>
+                  )}
+                  {completedEventDetail.memo && (
+                    <div className="rounded-2xl bg-stone-50 px-4 py-3.5 ring-1 ring-stone-100">
+                      <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-stone-400">メモ</p>
+                      <p className="text-sm leading-6 text-stone-700 whitespace-pre-line">{completedEventDetail.memo}</p>
+                    </div>
+                  )}
+                  {completedEventDetail.hasPhoto && (
+                    <div className="flex items-center gap-2 rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
+                      <ImagePlus size={13} className="text-stone-400" />
+                      <p className="text-sm text-stone-500">写真あり（端末に保存済み）</p>
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCompletedEventDetail(null)}
+                  className="mt-6 w-full rounded-2xl bg-stone-100 py-3 text-sm font-bold text-stone-600 transition hover:bg-stone-200 active:scale-[0.98]"
+                >
+                  閉じる
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             設定
@@ -3104,17 +3233,85 @@ return (
           >
             {/* ヘッダー */}
             <div className="px-0.5">
-              <div className="mb-2 flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
-                  <UtensilsCrossed size={13} className="text-white" strokeWidth={2.5} />
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
+                    <UtensilsCrossed size={13} className="text-white" strokeWidth={2.5} />
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Store</p>
                 </div>
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Store</p>
+                {/* お気に入りから選ぶ */}
+                <button
+                  type="button"
+                  onClick={() => setShowFavoritePicker((v) => !v)}
+                  className="flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 py-1.5 text-[11px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-95"
+                >
+                  <Heart size={10} strokeWidth={2.5} />
+                  お気に入りから選ぶ
+                </button>
               </div>
               <h2 className="text-[22px] font-black tracking-tight text-stone-900">お店を登録する</h2>
               <p className="mt-1 text-[13px] leading-relaxed text-stone-400">
                 店名で候補を検索して選ぶか、直接入力して進めることもできます。
               </p>
             </div>
+
+            {/* お気に入りピッカー */}
+            <AnimatePresence>
+              {showFavoritePicker && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="rounded-2xl bg-white shadow-sm ring-1 ring-stone-100">
+                    <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-stone-500">お気に入りのお店</p>
+                      <button
+                        type="button"
+                        onClick={() => setShowFavoritePicker(false)}
+                        className="text-[11px] text-stone-400 hover:text-stone-600"
+                      >
+                        閉じる
+                      </button>
+                    </div>
+                    {userSettings.favoriteStores.length === 0 ? (
+                      <div className="px-4 py-6 text-center">
+                        <Heart size={22} className="mx-auto mb-2 text-stone-200" strokeWidth={1.5} />
+                        <p className="text-sm font-bold text-stone-400">お気に入りはまだありません</p>
+                        <p className="mt-1 text-[11px] text-stone-300">会を完了するときに登録できます</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-stone-100">
+                        {userSettings.favoriteStores.map((fav) => (
+                          <button
+                            key={fav.id}
+                            type="button"
+                            onClick={() => {
+                              setManualStoreName(fav.name)
+                              setManualStoreUrl(fav.link)
+                              setShowFavoritePicker(false)
+                            }}
+                            className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-stone-50 active:scale-[0.99]"
+                          >
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-stone-50 ring-1 ring-stone-100">
+                              <UtensilsCrossed size={12} className="text-stone-400" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-bold text-stone-900">{fav.name}</p>
+                              {fav.area && <p className="text-[11px] text-stone-400">{fav.area}</p>}
+                            </div>
+                            <span className="text-[11px] font-bold text-stone-400">選択 →</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* 候補検索 */}
             <div className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-stone-100">
