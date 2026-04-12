@@ -1,19 +1,33 @@
 /**
  * organizer-settings.ts
- * 幹事の定型情報を localStorage に保存・読み込みするユーティリティ。
+ *
+ * 幹事の定型情報（送金先・傾斜係数・幹事名）の型定義と永続化を一元管理する。
  *
  * 設計方針:
- *   - localStorage への直接アクセスはすべてここに集約する
+ *   - 保存先は storage/index.ts の storageAdapter に委譲する
  *   - page.tsx / component 内では loadOrganizerSettings / saveOrganizerSettings のみ使う
- *   - 将来的に匿名ID保存や Supabase 連携に変えるときは、この関数を差し替えるだけでOK
+ *
+ * 保存責務:
+ *   - organizerName   : 幹事名（共有文・清算メッセージに使用）
+ *   - paypayId        : PayPay ID（清算共有文に添付）
+ *   - bankName 等     : 銀行口座情報（清算共有文に添付）
+ *   - defaultGradient : 傾斜配分係数（清算の初期値）
+ *
+ * CLOUD-MIGRATION:
+ *   storage/index.ts で storageAdapter を差し替えるだけで Supabase に移行可能。
+ *   Supabase: organizer_settings テーブル (user_id で 1 行 UPSERT)
  */
 
-/** 傾斜配分係数（英語キーで保存 → 日本語UIへの変換は utilityで行う） */
+import { storageAdapter, STORAGE_KEYS } from './storage'
+
+// ── 型 ────────────────────────────────────────────────────────────────────────
+
+/** 傾斜配分係数（英語キーで保存 → 日本語UIへの変換は utility で行う） */
 export type OrganizerGradient = {
-  guestOfHonor: number // 主賓
-  boss: number         // 上長
-  senior: number       // 先輩
-  standard: number     // 通常
+  guestOfHonor: number  // 主賓
+  boss: number          // 上長
+  senior: number        // 先輩
+  standard: number      // 通常
 }
 
 export type OrganizerSettings = {
@@ -43,33 +57,28 @@ export const DEFAULT_ORGANIZER_SETTINGS: OrganizerSettings = {
   },
 }
 
-const STORAGE_KEY = 'kanji_organizer_settings'
+// ── 永続化 ────────────────────────────────────────────────────────────────────
+// 保存先の実装詳細は storageAdapter に閉じ込める。
+// CLOUD-MIGRATION: storage/index.ts で storageAdapter を差し替えるだけで移行可能。
 
 export function loadOrganizerSettings(): OrganizerSettings {
-  if (typeof window === 'undefined') return { ...DEFAULT_ORGANIZER_SETTINGS }
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { ...DEFAULT_ORGANIZER_SETTINGS }
-    const parsed = JSON.parse(raw) as Partial<OrganizerSettings>
-    return {
-      ...DEFAULT_ORGANIZER_SETTINGS,
-      ...parsed,
-      defaultGradient: {
-        ...DEFAULT_ORGANIZER_SETTINGS.defaultGradient,
-        ...(parsed.defaultGradient ?? {}),
-      },
-    }
-  } catch {
-    return { ...DEFAULT_ORGANIZER_SETTINGS }
+  const data = storageAdapter.read<Partial<OrganizerSettings>>(STORAGE_KEYS.ORGANIZER_SETTINGS)
+  if (!data) return { ...DEFAULT_ORGANIZER_SETTINGS }
+  return {
+    ...DEFAULT_ORGANIZER_SETTINGS,
+    ...data,
+    defaultGradient: {
+      ...DEFAULT_ORGANIZER_SETTINGS.defaultGradient,
+      ...(data.defaultGradient ?? {}),
+    },
   }
 }
 
 export function saveOrganizerSettings(settings: OrganizerSettings): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
-  } catch {}
+  storageAdapter.write(STORAGE_KEYS.ORGANIZER_SETTINGS, settings)
 }
+
+// ── ヘルパー ──────────────────────────────────────────────────────────────────
 
 /** 送金先情報が1つ以上入力されているか */
 export function hasPaymentInfo(s: OrganizerSettings): boolean {

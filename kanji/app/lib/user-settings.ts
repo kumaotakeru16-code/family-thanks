@@ -5,27 +5,41 @@
  *
  * 設計方針:
  *   - 登録不要・匿名ファースト
- *   - 現在は localStorage のみ。将来 Supabase 連携に差し替えられる構造
- *   - saveMode で現在の保存状態を表現
- *   - page.tsx / component からは直接 localStorage を触らず、
+ *   - 保存先は storage/index.ts の storageAdapter に委譲する
+ *   - page.tsx / component からは直接 storageAdapter を触らず、
  *     このファイルの関数経由でのみアクセスする
  *
+ * 保存責務:
+ *   - saveMode      : 端末の保存モード（none / local / cloud）
+ *   - displayName   : 表示名
+ *   - favoriteStores: お気に入り店一覧
+ *   - pastEventRecords: 完了済みの会の記録
+ *     （buildPastEventRecord で生成 → saveCompletionData で先頭追加）
+ *
  * CLOUD-MIGRATION ガイド:
- *   localStorage.setItem  → Supabase: profiles / user_data テーブルへの INSERT/UPDATE
- *   localStorage.getItem  → Supabase: SELECT + React Query / SWR キャッシュ
- *   photoDataUrl (base64) → Supabase Storage に PUT して URL を保持する
- *   SaveMode 'cloud' が有効になったとき、loadUserSettings / saveUserSettings を
- *   Supabase クライアント呼び出しに差し替えるだけで移行できる構造を保つ。
+ *   storage/index.ts で storageAdapter を cloudStorageAdapter に切り替えるだけで
+ *   このファイルの読み書きが Supabase に移行する。
+ *   以下の個別対応も必要:
+ *     photoDataUrl (base64) → Supabase Storage に PUT して URL に置き換える
+ *     pastEventRecords      → Supabase: past_events テーブル (user_id + event_id)
+ *     favoriteStores        → Supabase: favorite_stores テーブル (user_id + store_id)
  */
 
-const STORAGE_KEY = 'kanji_user_settings'
+import { storageAdapter, STORAGE_KEYS } from './storage'
+import {
+  loadFavoriteStoresCloud,
+  loadPastEventsCloud,
+  upsertFavoriteStoreCloud,
+  deleteFavoriteStoreCloud,
+  insertPastEventCloud,
+} from './supabase-user-store'
 
 // ── 保存モード ─────────────────────────────────────────────────────────────────
 
 /**
- * none      : まだ保存設定していない（デフォルト）
- * local     : この端末のみ保存（localStorage）
- * cloud     : アカウント連携済み（将来実装）
+ * none  : まだ保存設定していない（デフォルト）
+ * local : この端末のみ保存（localStorage）
+ * cloud : アカウント連携済み（将来実装）
  */
 export type SaveMode = 'none' | 'local' | 'cloud'
 
@@ -50,16 +64,17 @@ export type FavoriteStore = {
 
 export type PastEventRecord = {
   id: string
-  title: string         // 会の名前
-  eventDate: string     // YYYY-MM-DD
+  title: string           // 会の名前
+  eventDate: string       // YYYY-MM-DD
   storeName: string
-  storeId?: string      // お気に入り登録に使う
+  storeId?: string        // お気に入り登録に使う
   storeLink?: string
   storeArea?: string
   storeGenre?: string
   memo: string
   hasPhoto: boolean
-  photoDataUrl?: string // base64 data URL（端末ローカル保存）
+  photoDataUrl?: string   // base64 data URL（端末ローカル保存）
+                          // CLOUD-MIGRATION: Supabase Storage URL に置き換える
   participants?: string[] // 参加者名一覧
   createdAt: string
 }
@@ -71,9 +86,9 @@ export type UserSettings = {
   saveMode: SaveMode
   /** 表示名（幹事名と共有 or 独立して使う想定） */
   displayName: string
-  /** お気に入り店一覧（将来実装。今は常に []） */
+  /** お気に入り店一覧 */
   favoriteStores: FavoriteStore[]
-  /** 会の記録一覧（将来実装。今は常に []） */
+  /** 完了済みの会の記録一覧 */
   pastEventRecords: PastEventRecord[]
 }
 
@@ -85,23 +100,17 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
 }
 
 // ── 永続化 ────────────────────────────────────────────────────────────────────
-// CLOUD-MIGRATION: loadUserSettings → Supabase SELECT（anonymous auth の UID でフェッチ）
-// CLOUD-MIGRATION: saveUserSettings → Supabase UPDATE（onConflict: user_id）
+// 保存先の実装詳細は storageAdapter に閉じ込める。
+// CLOUD-MIGRATION: storage/index.ts で storageAdapter を差し替えるだけで移行可能。
 
 export function loadUserSettings(): UserSettings {
-  if (typeof window === 'undefined') return { ...DEFAULT_USER_SETTINGS }
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { ...DEFAULT_USER_SETTINGS }
-    const parsed = JSON.parse(raw) as Partial<UserSettings>
-    return {
-      ...DEFAULT_USER_SETTINGS,
-      ...parsed,
-      favoriteStores: parsed.favoriteStores ?? [],
-      pastEventRecords: parsed.pastEventRecords ?? [],
-    }
-  } catch {
-    return { ...DEFAULT_USER_SETTINGS }
+  const data = storageAdapter.read<Partial<UserSettings>>(STORAGE_KEYS.USER_SETTINGS)
+  if (!data) return { ...DEFAULT_USER_SETTINGS }
+  return {
+    ...DEFAULT_USER_SETTINGS,
+    ...data,
+    favoriteStores: data.favoriteStores ?? [],
+    pastEventRecords: data.pastEventRecords ?? [],
   }
 }
 
@@ -111,27 +120,22 @@ export type SaveResult =
   | { ok: false; photoStripped: false }  // 保存失敗
 
 /**
- * UserSettings を localStorage へ書き込む。
+ * UserSettings を保存する。
  * 戻り値で成否と写真ストリップの有無が分かる。
  *
  * ok: true, photoStripped: false → 完全成功
- * ok: true, photoStripped: true  → 容量超過のため写真なしで保存（詳細画面で「写真（データなし）」表示）
+ * ok: true, photoStripped: true  → 容量超過のため写真なしで保存
+ *                                   （詳細画面で「写真（データなし）」表示）
  * ok: false                      → 保存失敗（容量が深刻に不足）
+ *
+ * 写真ストリップのリトライ戦略はここに集約する。
+ * storageAdapter.write は容量超過を false で返すだけで、リトライの知識を持たない。
  */
 export function saveUserSettings(settings: UserSettings): SaveResult {
-  if (typeof window === 'undefined') return { ok: false, photoStripped: false }
-
-  const tryWrite = (data: UserSettings): boolean => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-      return true
-    } catch {
-      return false
-    }
-  }
-
   // まず全データで保存を試みる
-  if (tryWrite(settings)) return { ok: true, photoStripped: false }
+  if (storageAdapter.write(STORAGE_KEYS.USER_SETTINGS, settings)) {
+    return { ok: true, photoStripped: false }
+  }
 
   // QuotaExceededError の可能性 — photoDataUrl だけ除いて再試行
   // hasPhoto: true は残すので、詳細画面で「写真（データなし）」として表示される
@@ -139,16 +143,66 @@ export function saveUserSettings(settings: UserSettings): SaveResult {
     ...settings,
     pastEventRecords: settings.pastEventRecords.map(r => ({ ...r, photoDataUrl: undefined })),
   }
-  if (tryWrite(stripped)) return { ok: true, photoStripped: true }
+  if (storageAdapter.write(STORAGE_KEYS.USER_SETTINGS, stripped)) {
+    return { ok: true, photoStripped: true }
+  }
 
   return { ok: false, photoStripped: false }
 }
 
 export function clearUserSettings(): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.removeItem(STORAGE_KEY)
-  } catch {}
+  storageAdapter.remove(STORAGE_KEYS.USER_SETTINGS)
+}
+
+// ── クラウド同期 ──────────────────────────────────────────────────────────────
+// 保存先は supabase-user-store.ts に閉じ込める。
+// page.tsx は直接 supabase-user-store.ts を import しない。
+//
+// 同期戦略:
+//   書き込み: saveUserSettings（localStorage）が成功した後に fire-and-forget で呼ぶ
+//             → event-actions.ts が saveXxxCloud() を void で呼ぶ
+//   読み込み: page.tsx の mount useEffect で loadUserSettingsCloud() を呼び、
+//             クラウドにデータがあれば React state にマージする
+
+/**
+ * クラウドから favoriteStores / pastEventRecords をロードして返す。
+ * SSR ではクライアントが存在しないため null を返す。
+ *
+ * page.tsx の mount useEffect から 1 度だけ呼び、
+ * 戻り値を setUserSettings でマージする。
+ */
+export async function loadUserSettingsCloud(): Promise<Pick<UserSettings, 'favoriteStores' | 'pastEventRecords'> | null> {
+  if (typeof window === 'undefined') return null
+  const [favoriteStores, pastEventRecords] = await Promise.all([
+    loadFavoriteStoresCloud(),
+    loadPastEventsCloud(),
+  ])
+  return { favoriteStores, pastEventRecords }
+}
+
+/**
+ * お気に入り店舗をクラウドに upsert する。
+ * fire-and-forget で呼ぶ（void）。
+ */
+export async function saveFavoriteStoreCloud(store: FavoriteStore): Promise<void> {
+  await upsertFavoriteStoreCloud(store)
+}
+
+/**
+ * お気に入り店舗をクラウドから削除する。
+ * fire-and-forget で呼ぶ（void）。
+ */
+export async function removeFavoriteStoreCloud(storeId: string): Promise<void> {
+  await deleteFavoriteStoreCloud(storeId)
+}
+
+/**
+ * 完了済みの会の記録をクラウドに保存する。
+ * fire-and-forget で呼ぶ（void）。
+ * photoDataUrl（base64）はクラウドに保存しない。
+ */
+export async function savePastEventCloud(record: PastEventRecord): Promise<void> {
+  await insertPastEventCloud(record)
 }
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────────

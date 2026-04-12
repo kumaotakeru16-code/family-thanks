@@ -16,7 +16,13 @@
  */
 
 import type { PastEventRecord, UserSettings, FavoriteStore } from './user-settings'
-import { saveUserSettings, type SaveResult } from './user-settings'
+import {
+  saveUserSettings,
+  savePastEventCloud,
+  saveFavoriteStoreCloud,
+  removeFavoriteStoreCloud,
+  type SaveResult,
+} from './user-settings'
 
 // ── 完了済みレコード生成 ─────────────────────────────────────────────────────
 
@@ -85,8 +91,7 @@ export function savePastEventRecord(
 
 /**
  * お気に入り店舗を userSettings に追加して保存する（重複は先頭に移動）。
- *
- * CLOUD-MIGRATION: localStorage.setItem → Supabase UPSERT
+ * localStorage 保存後、クラウドへも fire-and-forget で同期する。
  */
 export function saveFavoriteStore(
   current: UserSettings,
@@ -100,17 +105,61 @@ export function saveFavoriteStore(
     ],
   }
   const result = saveUserSettings(next)
+  void saveFavoriteStoreCloud(store)
   return { result, next }
+}
+
+/**
+ * お気に入り店舗をトグルする（追加 or 削除）。
+ *
+ * 追加の場合は先頭に挿入し、同一 ID の重複エントリは除去する。
+ * 削除の場合は一覧から除外する。
+ * localStorage 保存後、クラウドへも fire-and-forget で同期する。
+ */
+export function toggleFavoriteStore(
+  current: UserSettings,
+  store: Pick<FavoriteStore, 'id' | 'name' | 'area' | 'genre' | 'link'>,
+  isFavorite: boolean,
+): { next: UserSettings } {
+  const storeKey = store.id
+  if (isFavorite) {
+    const next: UserSettings = {
+      ...current,
+      favoriteStores: current.favoriteStores.filter((f) => f.id !== storeKey),
+    }
+    saveUserSettings(next)
+    void removeFavoriteStoreCloud(storeKey)
+    return { next }
+  } else {
+    const newEntry: FavoriteStore = { ...store, savedAt: new Date().toISOString() }
+    const next: UserSettings = {
+      ...current,
+      favoriteStores: [
+        newEntry,
+        ...current.favoriteStores.filter((f) => f.id !== storeKey),
+      ],
+    }
+    saveUserSettings(next)
+    void saveFavoriteStoreCloud(newEntry)
+    return { next }
+  }
 }
 
 /**
  * 完了済みレコード追加 + お気に入り登録（任意）をまとめて保存する。
  *
- * 何が行われるか:
- *   1. pastEventRecords の先頭に record を追加
- *   2. isFavorite === true の場合、favoriteStores の先頭に store を追加（重複排除）
- *   3. saveUserSettings で localStorage に書き込む
+ * 清算完了時の保存フロー:
+ *   1. buildPastEventRecord でレコードを生成（event-actions.ts）
+ *   2. saveCompletionData で保存（この関数）
+ *   3. removeSavedEvent で進行中一覧から削除（event-store.ts）
+ *   4. setUserSettings で React state を更新（page.tsx）
  *
+ * 保存される情報:
+ *   - 会名 / 日程 / 店舗（名前・ID・リンク・エリア・ジャンル）
+ *   - 参加者名一覧 / メモ / 写真（base64、容量超過時は除去）
+ *   - お気に入り登録（favoriteStore が渡された場合）
+ *
+ * localStorage 保存後、クラウドへも fire-and-forget で同期する。
  * @returns SaveResult と更新後の UserSettings
  */
 export function saveCompletionData(
@@ -142,6 +191,10 @@ export function saveCompletionData(
         })),
       }
     : withRecord
+
+  // クラウド同期（fire-and-forget）
+  void savePastEventCloud(record)
+  if (favoriteStore) void saveFavoriteStoreCloud(favoriteStore)
 
   return { result, next }
 }

@@ -55,6 +55,7 @@ import {
   type UserSettings,
   loadUserSettings,
   saveUserSettings,
+  loadUserSettingsCloud,
 } from '@/app/lib/user-settings'
 import {
   type SavedEvent,
@@ -66,6 +67,7 @@ import {
 import {
   buildPastEventRecord,
   saveCompletionData,
+  toggleFavoriteStore,
 } from '@/app/lib/event-actions'
 
 // --- Types ---
@@ -609,6 +611,16 @@ export default function Page() {
   useEffect(() => {
     setMounted(true)
     setUserSettings(loadUserSettings())
+    // クラウドからもロードしてマージする（クラウド側を優先）
+    // データがなければ localStorage の値をそのまま使う
+    void loadUserSettingsCloud().then((cloud) => {
+      if (!cloud) return
+      setUserSettings((prev) => ({
+        ...prev,
+        favoriteStores: cloud.favoriteStores.length > 0 ? cloud.favoriteStores : prev.favoriteStores,
+        pastEventRecords: cloud.pastEventRecords.length > 0 ? cloud.pastEventRecords : prev.pastEventRecords,
+      }))
+    })
     const t = setTimeout(() => setShowSplash(false), 1800)
     return () => clearTimeout(t)
   }, [])
@@ -1098,11 +1110,14 @@ const genreHit = activeParticipants.some((p) =>
 
 // ── 進行中の会 更新ヘルパー ──────────────────────────────────────────────────
 // localStorage への直接アクセスは event-store.ts に委譲する。
+// 命名は「何をしているか」ベースで、保存先（localStorage / Supabase）に依存しない。
 
-function persistEvent(id: string, name: string, type: string) {
+/** 進行中イベントを保存する（新規追加 or 上書き） */
+function saveCurrentEventProgress(id: string, name: string, type: string) {
   setSavedEvents(prev => persistSavedEvent(prev, id, name, type))
 }
 
+/** 進行中イベントのフェーズ・店舗情報を更新する */
 function updateEventStatus(
   id: string,
   status: NonNullable<SavedEvent['status']>,
@@ -1112,21 +1127,36 @@ function updateEventStatus(
   setSavedEvents(prev => updateSavedEventStatus(prev, id, status, confirmedDateId, storeInfo))
 }
 
-function removeSavedEventById(id: string) {
+/** 進行中イベントを削除する（清算完了後に呼ぶ） */
+function removeCurrentSavedEvent(id: string) {
   setSavedEvents(prev => removeSavedEvent(prev, id))
 }
 
-async function openSavedEvent(id: string, name: string, type: string) {
-  setCreatedEventId(id)
-  setEventName(name)
-  setEventType(type as EventType)
-  setHeroBestDateId(null)
-  setRecommendedStores([])
-  setFinalDecision(null)
-  setMainGuestIds([])
-  setShowHeroParticipants(false)
-  setShowAltDates(false)
-  // 別の会を開く時に前の manual store 情報をリセット
+// ── 設定保存ヘルパー ─────────────────────────────────────────────────────────
+// 保存と state 更新を常にセットで行う。片方だけ更新する事故を防ぐ。
+// CLOUD-MIGRATION: saveUserSettings / saveOrganizerSettings の実装を差し替えるだけで移行可能。
+
+/** ユーザー設定を更新して保存する */
+function applyUserSettings(next: UserSettings) {
+  saveUserSettings(next)
+  setUserSettings(next)
+}
+
+/** 幹事設定を更新して保存する */
+function applyOrganizerSettings(next: OrganizerSettings) {
+  saveOrganizerSettings(next)
+  setOrganizerSettings(next)
+}
+
+// ── フロー state 初期化ヘルパー ──────────────────────────────────────────────
+// 会を切り替えるとき / 新規作成するときに呼ぶ。
+// 「どの state が per-event スコープか」が一箇所で分かるようにする。
+
+/**
+ * 手動店舗の入力状態をリセットする。
+ * manualStore step に入るとき・別の会を開くときに必ず呼ぶ。
+ */
+function resetManualStoreState() {
   setIsManualStore(false)
   setManualStoreName('')
   setManualStoreUrl('')
@@ -1136,8 +1166,128 @@ async function openSavedEvent(id: string, name: string, type: string) {
   setManualSearchResults([])
   setManualSearchError('')
   setManualSearchSelectedId('')
+}
 
-  // Read persisted status from localStorage (set as the event progresses)
+/**
+ * フロー全体の per-event state をリセットする。
+ * 別の会を開く・新規作成するときに前の会の情報が混入しないよう呼ぶ。
+ */
+function resetFlowState() {
+  setHeroBestDateId(null)
+  setRecommendedStores([])
+  setFinalDecision(null)
+  setMainGuestIds([])
+  setShowHeroParticipants(false)
+  setShowAltDates(false)
+  resetManualStoreState()
+}
+
+/**
+ * 清算完了後にホームへ戻るときの UI state を掃除する。
+ * 完了済みレコードや userSettings は保持したまま、フロー中間状態だけ捨てる。
+ */
+function resetFlowStateAfterCompletion() {
+  resetFlowState()
+  setSettlementDraft(null)
+  setSettlementConfig(null)
+  setSettlementResult(null)
+  setSettlementMessage('')
+  setCreatedEventId('')
+  setEventName('')
+  setDbDates([])
+  setDbResponses([])
+  setFinalDates([])
+  setFinalEvent(null)
+}
+
+/**
+ * SavedEvent に記録された手動店舗情報を state に復元する。
+ * openSavedEvent の store_confirmed 分岐で使う。
+ */
+function restoreManualStoreState(savedEv: SavedEvent) {
+  setIsManualStore(true)
+  setManualStoreName(savedEv.storeName ?? '')
+  setManualStoreUrl(savedEv.storeUrl ?? '')
+  setManualStoreMemo(savedEv.storeMemo ?? '')
+}
+
+/**
+ * SavedEvent に記録された AI 推薦店情報を最小限の StoreCandidate として復元する。
+ * openSavedEvent の store_confirmed 分岐で使う。
+ */
+function restoreRecommendedStoreState(savedEv: SavedEvent) {
+  setIsManualStore(false)
+  const restored: StoreCandidate = {
+    id: savedEv.storeId ?? 'restored',
+    name: savedEv.storeName ?? '',
+    link: savedEv.storeUrl ?? '',
+    area: savedEv.storeArea ?? '',
+    tags: [],
+    access: '',
+    image: '',
+  }
+  setRecommendedStores([restored])
+  setSelectedStoreId(restored.id)
+}
+
+/**
+ * AI 提案フローを開始する（organizerConditions CTA から呼ぶ）。
+ * isManualStore を必ず false にリセットしてから店舗取得を行う。
+ * 前提: heroDate（確定日程）が入っていること
+ */
+function startStoreSuggestion() {
+  setIsManualStore(false)
+  fetchRecommendedStores()
+}
+
+/**
+ * ホームへ戻る。
+ * フロー中間状態を掃除してから遷移する。
+ * nav のロゴ / ホームアイコンから呼ぶ。
+ */
+function navigateHome() {
+  resetFlowStateAfterCompletion()
+  setStep('home')
+}
+
+/**
+ * manualStore step へ遷移する。
+ * isManualStore フラグのセットと入力欄のクリアをまとめて行う。
+ * orgPrefs.areas[0] を初期駅名として引き継ぐ（ユーザーが設定した条件を活かす）。
+ */
+function enterManualStoreStep() {
+  setIsManualStore(true)
+  setManualStoreName('')
+  setManualStoreUrl('')
+  setManualStoreMemo('')
+  setManualSearchQuery('')
+  setManualSearchStation(orgPrefs.areas[0] ?? '')
+  setManualSearchResults([])
+  setManualSearchError('')
+  setManualSearchSelectedId('')
+  setStep('manualStore')
+}
+
+/**
+ * 保存済みの会を開く。
+ *
+ * フロー:
+ *   1. フロー全体の state をリセット（前の会の情報が混入しないよう）
+ *   2. Supabase から日程・回答データを取得
+ *   3. 保存されたフェーズ（status）に応じてステップを復元
+ *      - date_pending  → dashboard（回答収集中）
+ *      - store_pending → organizerConditions（日程確定済み、店未選択）
+ *      - store_confirmed → finalConfirm（店も確定済み）
+ */
+async function openSavedEvent(id: string, name: string, type: string) {
+  setCreatedEventId(id)
+  setEventName(name)
+  setEventType(type as EventType)
+
+  // 前の会の state をすべてリセット（per-event scope の state）
+  resetFlowState()
+
+  // 保存されたフェーズ情報を読む
   const savedEv = savedEvents.find(e => e.id === id)
   const status = savedEv?.status ?? 'date_pending'
   const confirmedDateId = savedEv?.confirmedDateId ?? null
@@ -1148,16 +1298,13 @@ async function openSavedEvent(id: string, name: string, type: string) {
     setDbResponses(result.responses ?? [])
 
     if (status === 'store_pending' && confirmedDateId) {
-      // Date confirmed, store not yet selected
-      // → resume at organizerConditions so the organizer can search for stores
+      // 日程確定済み・店未選択 → 店探しから再開
       setHeroBestDateId(confirmedDateId)
-      // orgPrefs を再初期化させる（participantMajority useEffect が走るよう ref をリセット）
-      orgPrefsInitRef.current = false
+      orgPrefsInitRef.current = false // participantMajority useEffect を再実行させる
       setStep('organizerConditions')
 
     } else if (status === 'store_confirmed') {
-      // Store was already selected in a previous session
-      // → resume at finalConfirm with full decision + store state restored
+      // 店も確定済み → 最終確認から再開（決定内容 + 店舗情報を復元）
       try {
         const dr = await loadDecision(id)
         const decision = dr?.decision ?? null
@@ -1166,37 +1313,22 @@ async function openSavedEvent(id: string, name: string, type: string) {
         setFinalEvent(dr?.event ?? null)
         if (decision?.selected_date_id) setHeroBestDateId(decision.selected_date_id)
 
-        // Restore store state from localStorage
+        // 店舗状態を復元（手動入力 or AI 推薦）
         if (savedEv?.isManualStore) {
-          setIsManualStore(true)
-          setManualStoreName(savedEv.storeName ?? '')
-          setManualStoreUrl(savedEv.storeUrl ?? '')
-          setManualStoreMemo(savedEv.storeMemo ?? '')
+          restoreManualStoreState(savedEv)
         } else if (savedEv?.storeName) {
-          setIsManualStore(false)
-          // Reconstruct a minimal StoreCandidate so selectedStore resolves
-          const restored: StoreCandidate = {
-            id: savedEv.storeId ?? 'restored',
-            name: savedEv.storeName,
-            link: savedEv.storeUrl ?? '',
-            area: savedEv.storeArea ?? '',
-            tags: [],
-            access: '',
-            image: '',
-          }
-          setRecommendedStores([restored])
-          setSelectedStoreId(restored.id)
+          restoreRecommendedStoreState(savedEv)
         }
 
         setStep('finalConfirm')
       } catch {
-        // loadDecision failed → fall back to dateConfirmed
+        // loadDecision 失敗 → dateConfirmed へ fallback
         if (confirmedDateId) setHeroBestDateId(confirmedDateId)
         setStep('dateConfirmed')
       }
 
     } else {
-      // date_pending or unknown → show dashboard (collect responses)
+      // date_pending or unknown → 回答収集画面
       setStep('dashboard')
     }
   } catch {
@@ -1707,7 +1839,7 @@ return (
             {/* 中央: ワードマーク */}
             <button
               type="button"
-              onClick={() => setStep('home')}
+              onClick={navigateHome}
               className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-stone-400 transition hover:text-stone-600"
             >
               <CalendarDays size={11} strokeWidth={2.5} />
@@ -1717,7 +1849,7 @@ return (
             {/* 右: ホームアイコン */}
             <button
               type="button"
-              onClick={() => setStep('home')}
+              onClick={navigateHome}
               className="-mr-2 flex h-8 w-8 items-center justify-center rounded-xl text-stone-400 transition hover:text-stone-700 active:scale-95"
               aria-label="ホーム"
             >
@@ -1873,6 +2005,10 @@ return (
             {/* ── 完了済みの会 ─────────────────────────────────── */}
             {mounted && (
               <section className="mt-6">
+                {/* 完了済みの会の一覧
+                    表示ソース: userSettings.pastEventRecords（saveCompletionData で追加）
+                    各レコードは buildPastEventRecord で生成し、settlementConfirm 完了時に保存される
+                    CLOUD-MIGRATION: Supabase past_events テーブルから SELECT に差し替え予定 */}
                 <div className="mb-3 flex items-center gap-2">
                   <CheckCircle2 size={12} className="text-stone-300" strokeWidth={2.5} />
                   <p className="text-[11px] font-black tracking-[0.2em] text-stone-300 uppercase">完了済みの会</p>
@@ -2001,29 +2137,20 @@ return (
                   </div>
                   {/* お店 + お気に入りトグル */}
                   {completedEventDetail.storeName && (() => {
-                    const isFav = userSettings.favoriteStores.some(
-                      f => f.id === (completedEventDetail.storeId ?? completedEventDetail.storeName)
-                    )
-                    const toggleFav = () => {
-                      const now = new Date().toISOString()
-                      const storeKey = completedEventDetail.storeId ?? completedEventDetail.storeName
-                      const next = isFav
-                        ? { ...userSettings, favoriteStores: userSettings.favoriteStores.filter(f => f.id !== storeKey) }
-                        : {
-                            ...userSettings,
-                            favoriteStores: [
-                              {
-                                id: storeKey,
-                                name: completedEventDetail.storeName,
-                                area: completedEventDetail.storeArea ?? '',
-                                genre: completedEventDetail.storeGenre ?? '',
-                                link: completedEventDetail.storeLink ?? '',
-                                savedAt: now,
-                              },
-                              ...userSettings.favoriteStores.filter(f => f.id !== storeKey),
-                            ],
-                          }
-                      saveUserSettings(next)
+                    const storeKey = completedEventDetail.storeId ?? completedEventDetail.storeName
+                    const isFav = userSettings.favoriteStores.some(f => f.id === storeKey)
+                    const handleToggleFav = () => {
+                      const { next } = toggleFavoriteStore(
+                        userSettings,
+                        {
+                          id: storeKey,
+                          name: completedEventDetail.storeName,
+                          area: completedEventDetail.storeArea ?? '',
+                          genre: completedEventDetail.storeGenre ?? '',
+                          link: completedEventDetail.storeLink ?? '',
+                        },
+                        isFav,
+                      )
                       setUserSettings(next)
                     }
                     return (
@@ -2039,7 +2166,7 @@ return (
                         </div>
                         <button
                           type="button"
-                          onClick={toggleFav}
+                          onClick={handleToggleFav}
                           className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold transition active:scale-95 ${
                             isFav
                               ? 'bg-rose-100 text-rose-600 ring-1 ring-rose-200'
@@ -2144,15 +2271,10 @@ return (
         {step === 'settings' && (
           <SettingsScreen
             settings={userSettings}
-            onSettingsChange={(s) => {
-              saveUserSettings(s)
-              setUserSettings(s)
-            }}
+            onSettingsChange={(s) => applyUserSettings(s)}
             organizerName={organizerSettings.organizerName}
             onOrganizerNameChange={(name) => {
-              const next = { ...organizerSettings, organizerName: name }
-              saveOrganizerSettings(next)
-              setOrganizerSettings(next)
+              applyOrganizerSettings({ ...organizerSettings, organizerName: name })
             }}
           />
         )}
@@ -2292,7 +2414,7 @@ return (
                   selectedDates.map((d) => d.label)
                 )
                 setCreatedEventId(eventId)
-                persistEvent(eventId, eventName, eventType)
+                saveCurrentEventProgress(eventId, eventName, eventType)
 
                 // 演出を短時間見せてから遷移
                 setTimeout(() => {
@@ -2748,6 +2870,7 @@ return (
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑦ 日程確定
+            前提: heroDate（確定日程）— decideRecommendedDate で saveDecision 後に設定
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
 {step === 'dateConfirmed' && heroDate && (
   <motion.div
@@ -2945,6 +3068,10 @@ return (
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑧ 幹事条件設定
+            前提: heroDate（確定日程）— この step は日程確定後にのみ到達する
+                  orgPrefs は participantMajority useEffect で初期化済み（orgPrefsInitRef で1回のみ）
+            CTA: startStoreSuggestion() → AI 提案フロー開始
+                 enterManualStoreStep() → 手動入力フロー開始
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'organizerConditions' && (
           <motion.div
@@ -2966,7 +3093,7 @@ return (
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setIsManualStore(true); setManualStoreName(''); setManualStoreUrl(''); setManualStoreMemo(''); setManualSearchQuery(''); setManualSearchStation(orgPrefs.areas[0] ?? ''); setManualSearchResults([]); setManualSearchError(''); setManualSearchSelectedId(''); setStep('manualStore') }}
+                  onClick={enterManualStoreStep}
                   className="rounded-full border border-stone-200 bg-white px-3.5 py-1 text-[11px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-95"
                 >
                   お店を自分で決める
@@ -3082,10 +3209,7 @@ return (
 
             {/* CTA — sticky bottom */}
             <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
-              <PrimaryBtn size="large" onClick={() => {
-                setIsManualStore(false)
-                fetchRecommendedStores()
-              }}>
+              <PrimaryBtn size="large" onClick={startStoreSuggestion}>
                 {isLoadingStores ? '候補を探しています…' : 'この条件でお店を提案してもらう'}
               </PrimaryBtn>
             </div>
@@ -3115,7 +3239,7 @@ return (
         </div>
         <button
           type="button"
-          onClick={() => { setIsManualStore(true); setManualStoreName(''); setManualStoreUrl(''); setManualStoreMemo(''); setManualSearchQuery(''); setManualSearchStation(orgPrefs.areas[0] ?? ''); setManualSearchResults([]); setManualSearchError(''); setManualSearchSelectedId(''); setStep('manualStore') }}
+          onClick={enterManualStoreStep}
           className="rounded-full border border-stone-200 bg-white px-3.5 py-1 text-[11px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-95"
         >
           お店を自分で決める
@@ -3361,6 +3485,10 @@ return (
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑨-c 手動店舗入力
+            前提: enterManualStoreStep() で遷移してきていること
+                  isManualStore === true（遷移時にセット済み）
+                  manualStoreName / manualStoreUrl / manualStoreMemo は空の状態で入る
+            完了: confirmManualStore() → finalConfirm へ遷移し store_confirmed を保存
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'manualStore' && (
           <motion.div
@@ -3592,8 +3720,10 @@ return (
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑨-b 最終確認（決定内容 + 共有文プレビュー）
+            前提: heroDate（確定日程）または finalDecision（DB保存済み日程）
+                  isManualStore ? manualStoreName : selectedStore（確定店舗）
+            openSavedEvent で store_confirmed のとき、store 情報が復元されていること
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-{/* 確定日程 ヒーロー */}
 {step === 'finalConfirm' && (
   <motion.div
     className="space-y-4"
@@ -3806,6 +3936,8 @@ ${finalStore?.link ?? ''}`
 )}
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             清算 ① settlement（入力）
+            前提: heroDate（確定日程）+ organizerSettings（幹事名）
+            参加者は finalYesParticipants → heroYesParticipants → activeParticipants の優先順
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'settlement' && (() => {
           // 確定日の yes 参加者を優先。なければ active 全員
@@ -3829,10 +3961,7 @@ ${finalStore?.link ?? ''}`
             <SettlementStep
               participants={settlementParticipants.map((p) => ({ id: p.id, name: p.name }))}
               organizerSettings={organizerSettings}
-              onSaveSettings={(s) => {
-                saveOrganizerSettings(s)
-                setOrganizerSettings(s)
-              }}
+              onSaveSettings={(s) => applyOrganizerSettings(s)}
               initialDraft={settlementDraft}
               onSaveDraft={setSettlementDraft}
               onSubmit={(config) => {
@@ -3865,6 +3994,13 @@ ${finalStore?.link ?? ''}`
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             清算 ② settlementConfirm（確認 + 共有）
+            前提: settlementConfig（清算設定）+ settlementResult（計算結果）
+            どちらも settlement ステップで SettlementStep.onSubmit から設定される
+            完了処理フロー:
+              1. buildPastEventRecord でレコード生成
+              2. saveCompletionData で userSettings に保存（写真容量超過も吸収）
+              3. removeCurrentSavedEvent で進行中一覧から削除
+              4. setUserSettings で state 更新 → ホームに戻る（onCompleted 経由）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'settlementConfirm' &&
           settlementConfig &&
@@ -3927,10 +4063,16 @@ ${finalStore?.link ?? ''}`
               setUserSettings(nextSettings)
 
               // 5. 進行中一覧から除外（event-store.ts 経由で kanji_events も更新）
-              if (createdEventId) removeSavedEventById(createdEventId)
+              if (createdEventId) removeCurrentSavedEvent(createdEventId)
 
               return saveResult.photoStripped ? 'photo_failed' : 'ok'
               // ナビゲーション（setStep('home')）は onCompleted に委譲
+            }
+
+            // 完了後にホームへ戻る。フロー中間状態を掃除してから遷移する。
+            function handleCompleted() {
+              resetFlowStateAfterCompletion()
+              setStep('home')
             }
 
             return (
@@ -3946,10 +4088,10 @@ ${finalStore?.link ?? ''}`
                 storeGenre={settlementStore?.genre}
                 eventName={eventName}
                 eventDate={settlementDate}
-                onBack={() => setStep('settlement')}
+                onBack={() => setStep('settlement')}  // 清算入力へ戻る
                 onShare={(text) => openLineShare(text)}
                 onComplete={handleComplete}
-                onCompleted={() => setStep('home')}
+                onCompleted={handleCompleted}
               />
             )
           })()}
@@ -4021,7 +4163,7 @@ ${finalStore?.link ?? ''}`
         {step === 'pastStores' && (
           <div>
             <div className="mb-5 flex items-center gap-3">
-              <button type="button" onClick={() => setStep('home')} className="text-stone-400 hover:text-stone-600">←</button>
+              <button type="button" onClick={navigateHome} className="text-stone-400 hover:text-stone-600">←</button>
               <div>
                 <h2 className="text-xl font-black tracking-tight text-stone-900">過去に使ったお店</h2>
                 <p className="mt-0.5 text-[11px] text-stone-400">次の幹事業務に活かせます</p>

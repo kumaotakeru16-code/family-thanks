@@ -160,7 +160,7 @@ export function StationInput({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           autoComplete="off"
-          className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-300 focus:bg-white"
+          className="w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-base text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-300 focus:bg-white"
         />
         {single && !committed && query.length > 0 && (
           <p className="mt-1.5 text-xs text-stone-400">一覧から選んでください（Enterで先頭を確定）</p>

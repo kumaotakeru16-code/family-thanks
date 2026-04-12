@@ -4,15 +4,23 @@
  * 進行中の会（SavedEvent）の永続化を一元管理する。
  *
  * 設計方針:
- *   - localStorage への直接アクセスはすべてここに集約する
+ *   - 保存先は storage/index.ts の storageAdapter に委譲する
  *   - page.tsx 側では loadSavedEvents / persistSavedEvent などのみ使う
- *   - 将来 Supabase へ移行するときは、write 関数の実装を差し替えるだけでよい
  *
- * CLOUD-MIGRATION: loadSavedEvents → Supabase organizer_events テーブルの SELECT
- * CLOUD-MIGRATION: writeSavedEvents → Supabase organizer_events テーブルの UPSERT / DELETE
+ * 保存責務:
+ *   - SavedEvent の一覧（最大 3 件）
+ *   - 会のフェーズ（date_pending / store_pending / store_confirmed）
+ *   - 確定日程 ID・店舗情報
+ *   - 清算完了時に removeSavedEvent で削除し、PastEventRecord として user-settings.ts 側へ移す
+ *
+ * CLOUD-MIGRATION:
+ *   storage/index.ts で storageAdapter を差し替えるだけで Supabase に移行可能。
+ *   Supabase: in_progress_events テーブル (user_id + event_id)
+ *     loadSavedEvents  → SELECT WHERE user_id = ?
+ *     writeSavedEvents → UPSERT / DELETE
  */
 
-const STORAGE_KEY = 'kanji_events'
+import { storageAdapter, STORAGE_KEYS } from './storage'
 
 // ── 型 ──────────────────────────────────────────────────────────────────────
 
@@ -39,32 +47,27 @@ export type SavedEvent = {
 }
 
 // ── 永続化 ───────────────────────────────────────────────────────────────────
+// 保存先の実装詳細は storageAdapter に閉じ込める。
+// CLOUD-MIGRATION: storage/index.ts で storageAdapter を差し替えるだけで移行可能。
 
 export function loadSavedEvents(): SavedEvent[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as SavedEvent[]) : []
-  } catch {
-    return []
-  }
+  return storageAdapter.read<SavedEvent[]>(STORAGE_KEYS.EVENTS) ?? []
 }
 
-/** 内部向け: state → localStorage に書き込む */
+/**
+ * 内部向け: events 配列をまるごと書き込む。
+ * QuotaExceededError は実質起きない（SavedEvent は軽量）ため戻り値は無視する。
+ */
 function writeSavedEvents(events: SavedEvent[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(events))
-  } catch {
-    // QuotaExceededError などは無視（進行中一覧は軽量なので実質ヒットしない）
-  }
+  storageAdapter.write(STORAGE_KEYS.EVENTS, events)
 }
 
 // ── 更新関数（前の state を受け取り、新 state を返す） ───────────────────────
 // setSavedEvents(prev => persistSavedEvent(prev, ...)) のように使う。
-// localStorage への書き込みも内部で行う。
+// 書き込みも内部で行う。
 
 /**
- * 会を新規追加または既存を上書きする（最大3件）。
+ * 会を新規追加または既存を上書きする（最大 3 件）。
  */
 export function persistSavedEvent(
   events: SavedEvent[],
