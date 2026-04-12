@@ -1132,6 +1132,16 @@ async function openSavedEvent(id: string, name: string, type: string) {
   setMainGuestIds([])
   setShowHeroParticipants(false)
   setShowAltDates(false)
+  // 別の会を開く時に前の manual store 情報をリセット
+  setIsManualStore(false)
+  setManualStoreName('')
+  setManualStoreUrl('')
+  setManualStoreMemo('')
+  setManualSearchQuery('')
+  setManualSearchStation('')
+  setManualSearchResults([])
+  setManualSearchError('')
+  setManualSearchSelectedId('')
 
   // Read persisted status from localStorage (set as the event progresses)
   const savedEv = savedEvents.find(e => e.id === id)
@@ -1569,6 +1579,20 @@ async function loadFinalDecisionView() {
   } catch (e: any) {
     alert(`最終確認データの取得に失敗しました: ${e?.message ?? 'unknown error'}`)
   }
+}
+
+// manual store から「この内容で進む」 — 店情報を保存してから finalConfirm へ
+function confirmManualStore() {
+  const currentEventId = createdEventId || finalEvent?.id
+  if (currentEventId) {
+    updateEventStatus(currentEventId, 'store_confirmed', undefined, {
+      isManualStore: true,
+      storeName: manualStoreName,
+      storeUrl: manualStoreUrl,
+      storeMemo: manualStoreMemo,
+    })
+  }
+  setStep('finalConfirm')
 }
 
 
@@ -2642,7 +2666,7 @@ return (
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setIsManualStore(true); setManualSearchStation(orgPrefs.areas[0] ?? ''); setStep('manualStore') }}
+                  onClick={() => { setIsManualStore(true); setManualStoreName(''); setManualStoreUrl(''); setManualStoreMemo(''); setManualSearchQuery(''); setManualSearchStation(orgPrefs.areas[0] ?? ''); setManualSearchResults([]); setManualSearchError(''); setManualSearchSelectedId(''); setStep('manualStore') }}
                   className="rounded-full border border-stone-200 bg-white px-3.5 py-1 text-[11px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-95"
                 >
                   お店を自分で決める
@@ -2791,7 +2815,7 @@ return (
         </div>
         <button
           type="button"
-          onClick={() => { setIsManualStore(true); setManualSearchStation(orgPrefs.areas[0] ?? ''); setStep('manualStore') }}
+          onClick={() => { setIsManualStore(true); setManualStoreName(''); setManualStoreUrl(''); setManualStoreMemo(''); setManualSearchQuery(''); setManualSearchStation(orgPrefs.areas[0] ?? ''); setManualSearchResults([]); setManualSearchError(''); setManualSearchSelectedId(''); setStep('manualStore') }}
           className="rounded-full border border-stone-200 bg-white px-3.5 py-1 text-[11px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-95"
         >
           お店を自分で決める
@@ -3189,7 +3213,7 @@ return (
                 )}
                 <button
                   type="button"
-                  onClick={() => setStep('finalConfirm')}
+                  onClick={confirmManualStore}
                   className="w-full rounded-2xl bg-stone-900 px-4 py-4 text-sm font-black text-white shadow-md transition hover:opacity-90 active:scale-[0.98]"
                 >
                   この内容で進む →

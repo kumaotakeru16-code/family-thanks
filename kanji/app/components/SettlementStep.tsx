@@ -152,72 +152,136 @@ function PartySection({
   )
 }
 
-// ── 傾斜配分プレビューカード ──────────────────────────────────────────────────
+// ── 傾斜配分係数 + プレビューカード（会ごと） ────────────────────────────────
 
-function GradientPreviewCard({
-  label,
+function GradientCoeffCard({
   participantIds,
   roles,
   gradient,
+  onGradientChange,
   totalAmount,
 }: {
-  label: string
   participantIds: string[]
   roles: Record<string, ParticipantRole>
   gradient: GradientConfig
+  onGradientChange: (g: GradientConfig) => void
   totalAmount: number
 }) {
-  const enabled = totalAmount > 0
+  const [open, setOpen] = useState(true)
+
+  const previewEnabled = totalAmount > 0
   const totalWeight = participantIds.reduce((sum, id) => {
     const role = roles[id] ?? '通常'
     return sum + (gradient[role] ?? 1.0)
   }, 0)
   const activeRoles = new Set(participantIds.map((id) => roles[id] ?? '通常'))
   const previewAmount = (coeff: number): number => {
-    if (!enabled || totalWeight <= 0) return 0
+    if (!previewEnabled || totalWeight <= 0) return 0
     return coeff === 0 ? 0 : roundUp100((totalAmount * coeff) / totalWeight)
   }
   const normalAmt = previewAmount(gradient['通常'])
 
   return (
-    <div className="rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
-      <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-stone-400">
-        {label} 役割別目安
-      </p>
-      {!enabled && (
-        <p className="text-[11px] text-stone-300">金額を入力すると目安額が表示されます</p>
-      )}
-      {enabled && (
-        <div className="space-y-1">
-          {(['主賓', '上長', '先輩', '通常'] as const).map((role) => {
-            const isPresent = activeRoles.has(role)
-            const amt = previewAmount(gradient[role])
-            const diff = amt - normalAmt
-            return (
-              <div
-                key={role}
-                className={`flex items-center justify-between ${!isPresent ? 'opacity-25' : ''}`}
-              >
-                <span className="text-[11px] font-bold text-stone-600">{role}</span>
-                <span className="text-[11px] text-stone-700">
-                  {isPresent ? (
-                    role === '主賓' ? (
-                      <span className="font-medium">¥0</span>
-                    ) : (
-                      <>
-                        <span className="font-medium">¥{formatYen(amt)}</span>
-                        {role !== '通常' && diff > 0 && (
-                          <span className="ml-1.5 text-stone-400">+¥{formatYen(diff)}</span>
-                        )}
-                      </>
-                    )
-                  ) : '—'}
-                </span>
-              </div>
-            )
-          })}
+    <div className="rounded-2xl bg-white shadow-sm ring-1 ring-stone-100">
+      {/* ヘッダー（タップで開閉） */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-4 py-3.5"
+      >
+        <div className="flex items-start gap-2">
+          <SlidersHorizontal size={13} className="mt-0.5 shrink-0 text-stone-400" strokeWidth={2} />
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-stone-500">
+              傾斜配分の係数
+            </p>
+            <p className="mt-0.5 text-[11px] text-stone-400">
+              主賓 0 ／ 上長 {gradient.上長.toFixed(1)} ／ 先輩 {gradient.先輩.toFixed(1)} ／ 通常 {gradient.通常.toFixed(1)}
+            </p>
+          </div>
         </div>
-      )}
+        {open ? (
+          <ChevronUp size={16} className="shrink-0 text-stone-400" />
+        ) : (
+          <ChevronDown size={16} className="shrink-0 text-stone-400" />
+        )}
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-4 border-t border-stone-100 px-4 pb-4 pt-3">
+              {/* 主賓は係数 0 固定 */}
+              <div className={`flex items-center justify-between ${activeRoles.has('主賓') ? '' : 'opacity-30'}`}>
+                <span className="text-sm font-bold text-stone-700">主賓</span>
+                <div className="flex items-baseline gap-3">
+                  {previewEnabled && activeRoles.has('主賓') && (
+                    <span className="text-sm font-medium text-stone-500">¥0</span>
+                  )}
+                  <span className="w-8 text-right text-sm font-black text-stone-900 opacity-40">0.0</span>
+                </div>
+              </div>
+
+              {(['上長', '先輩', '通常'] as const).map((role) => {
+                const isPresent = activeRoles.has(role)
+                const amt = previewAmount(gradient[role])
+                const diff = amt - normalAmt
+                return (
+                  <div key={role} className={!isPresent ? 'opacity-30 pointer-events-none' : ''}>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-sm font-bold text-stone-700">{role}</span>
+                      <div className="flex items-baseline gap-3">
+                        {previewEnabled && isPresent && (
+                          <span className="text-sm font-medium text-stone-800">
+                            ¥{formatYen(amt)}
+                            {role !== '通常' && diff > 0 && (
+                              <span className="ml-1.5 text-[11px] text-stone-400">+¥{formatYen(diff)}</span>
+                            )}
+                          </span>
+                        )}
+                        {!isPresent ? (
+                          <span className="w-8 text-right text-sm font-black text-stone-400">—</span>
+                        ) : (
+                          <span className="w-8 text-right text-sm font-black text-stone-900">
+                            {gradient[role].toFixed(1)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={2.0}
+                      step={0.1}
+                      value={gradient[role]}
+                      onChange={(e) =>
+                        onGradientChange({ ...gradient, [role]: parseFloat(e.target.value) })
+                      }
+                      className="w-full accent-stone-900"
+                    />
+                    <div className="flex justify-between text-[10px] text-stone-300">
+                      <span>0</span>
+                      <span>2.0</span>
+                    </div>
+                  </div>
+                )
+              })}
+
+              {!previewEnabled && (
+                <p className="text-[10px] text-stone-300">
+                  金額を入力すると役割ごとの目安額が表示されます。
+                </p>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -509,7 +573,6 @@ export function SettlementStep({
   const [gradient, setGradient] = useState<GradientConfig>(() =>
     initialDraft?.gradient ?? toGradientConfig(organizerSettings.defaultGradient)
   )
-  const [showGradient, setShowGradient] = useState(false)
 
   // ── 金額指定（fixed_amount モード） ──
   const [fixedAmounts, setFixedAmounts] = useState<Record<string, string>>(
@@ -696,13 +759,13 @@ export function SettlementStep({
         />
       )}
 
-      {/* 傾斜プレビュー（1次会）*/}
-      {mode === 'gradient' && party1Gradient && party1Ids.length > 0 && (
-        <GradientPreviewCard
-          label="1次会"
+      {/* 傾斜係数＋プレビュー（1次会・gradient ON時） */}
+      {mode === 'gradient' && party1Gradient && (
+        <GradientCoeffCard
           participantIds={party1Ids}
           roles={roles}
           gradient={gradient}
+          onGradientChange={setGradient}
           totalAmount={parseInt(party1Amount, 10) || 0}
         />
       )}
@@ -743,13 +806,13 @@ export function SettlementStep({
               onFixedAmountChange={setFixedAmount}
             />
           )}
-          {/* 傾斜プレビュー（2次会：ONのときのみ） */}
-          {mode === 'gradient' && party2Gradient && party2Ids.length > 0 && (
-            <GradientPreviewCard
-              label="2次会"
+          {/* 傾斜係数＋プレビュー（2次会・ON時のみ） */}
+          {mode === 'gradient' && party2Gradient && (
+            <GradientCoeffCard
               participantIds={party2Ids}
               roles={roles}
               gradient={gradient}
+              onGradientChange={setGradient}
               totalAmount={parseInt(party2Amount, 10) || 0}
             />
           )}
@@ -760,80 +823,6 @@ export function SettlementStep({
           >
             2次会を削除
           </button>
-        </div>
-      )}
-
-      {/* 傾斜設定（gradient モードのみ） */}
-      {mode === 'gradient' && (
-        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-stone-100">
-          <button
-            type="button"
-            onClick={() => setShowGradient((v) => !v)}
-            className="flex w-full items-center justify-between px-4 py-3.5"
-          >
-            <div className="flex items-start gap-2">
-              <SlidersHorizontal size={13} className="mt-0.5 shrink-0 text-stone-400" strokeWidth={2} />
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-stone-500">
-                  傾斜配分の係数
-                </p>
-                <p className="mt-0.5 text-[11px] text-stone-400">
-                  主賓 0 ／ 上長 {gradient.上長.toFixed(1)} ／ 先輩 {gradient.先輩.toFixed(1)} ／ 通常{' '}
-                  {gradient.通常.toFixed(1)}
-                </p>
-              </div>
-            </div>
-            {showGradient ? (
-              <ChevronUp size={16} className="shrink-0 text-stone-400" />
-            ) : (
-              <ChevronDown size={16} className="shrink-0 text-stone-400" />
-            )}
-          </button>
-
-          <AnimatePresence>
-            {showGradient && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.18 }}
-                className="overflow-hidden"
-              >
-                <div className="space-y-4 border-t border-stone-100 px-4 pb-4 pt-3">
-                  {/* 主賓は係数固定（0）なのでスライダーなし */}
-                  <div className="flex items-center justify-between opacity-40">
-                    <span className="text-sm font-bold text-stone-700">主賓</span>
-                    <span className="text-sm font-black text-stone-900">0.0</span>
-                  </div>
-                  {(['上長', '先輩', '通常'] as const).map((role) => (
-                    <div key={role}>
-                      <div className="mb-1 flex items-center justify-between">
-                        <span className="text-sm font-bold text-stone-700">{role}</span>
-                        <span className="w-8 text-right text-sm font-black text-stone-900">
-                          {gradient[role].toFixed(1)}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0}
-                        max={2.0}
-                        step={0.1}
-                        value={gradient[role]}
-                        onChange={(e) =>
-                          setGradient((g) => ({ ...g, [role]: parseFloat(e.target.value) }))
-                        }
-                        className="w-full accent-stone-900"
-                      />
-                      <div className="flex justify-between text-[10px] text-stone-300">
-                        <span>0</span>
-                        <span>2.0</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       )}
 
