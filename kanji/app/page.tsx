@@ -1717,7 +1717,7 @@ return (
     <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 pb-20 pt-6 sm:px-5">
       {/* ── グローバルナビ + ステップバー — ホーム以外で sticky 表示 ─────────── */}
       {step !== 'home' && (
-        <div className="sticky top-0 z-40 -mx-4 sm:-mx-5 mb-5 border-b border-stone-200/60 bg-[#F5F3EF] px-4 pb-2 pt-3 sm:px-5">
+        <div className="sticky top-0 z-40 -mx-4 sm:-mx-5 mb-5 border-b border-stone-200/70 bg-[#F0EDE8]/90 px-4 pb-2 pt-3 backdrop-blur-sm sm:px-5">
           <header className="flex h-8 items-center justify-between">
             {/* 左: 戻るナビゲーション */}
             {backStep ? (
