@@ -35,7 +35,7 @@ import { saveDecision } from '@/lib/kanji-db'
 import { loadDecision } from '@/lib/kanji-db'
 import { StationInput } from '@/app/components/StationInput'
 import { SettlementStep, type SettlementDraft } from '@/app/components/SettlementStep'
-import { SettlementSummaryTable } from '@/app/components/SettlementSummaryTable'
+import { SettlementSummaryTable, type CompletionData } from '@/app/components/SettlementSummaryTable'
 import { SettingsScreen } from '@/app/components/SettingsScreen'
 import {
   type SettlementConfig,
@@ -635,6 +635,8 @@ export default function Page() {
   }
 
   const [reminderCopied, setReminderCopied] = useState(false)
+  const [showReminderPanel, setShowReminderPanel] = useState(false)
+  const [editableFinalShareText, setEditableFinalShareText] = useState('')
   const [urlOnly, setUrlOnly] = useState(false)
   const [urlOnlyInvite, setUrlOnlyInvite] = useState(false)
   const [urlOnlyReminder, setUrlOnlyReminder] = useState(false)
@@ -731,7 +733,7 @@ useEffect(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     const cutoff = new Date(today)
-    cutoff.setDate(today.getDate() + 3)
+    cutoff.setDate(today.getDate() + 1) // 明日から選べる
     const monday = getNextWeekMonday()
     const twoWeeksEnd = new Date(monday)
     twoWeeksEnd.setDate(monday.getDate() + 13)
@@ -1638,6 +1640,8 @@ useEffect(() => { setEditableReminderText(reminderText) }, [reminderText])
 useEffect(() => { setEditableDateConfirmedText(dateConfirmedShareText) }, [dateConfirmedShareText])
 // eslint-disable-next-line react-hooks/exhaustive-deps
 useEffect(() => { setEditableMaybeConfirmText(maybeConfirmText) }, [maybeConfirmText])
+// eslint-disable-next-line react-hooks/exhaustive-deps
+useEffect(() => { if (step !== 'finalConfirm') setEditableFinalShareText('') }, [step])
 
 // ── 戻るナビゲーション — 各stepに対応する前のstepを返す ──────────────────────
 // FLOW_STEPSの順番と異なる特殊ケースのみ上書き
@@ -1971,7 +1975,7 @@ return (
                     const t = new Date()
                     t.setHours(0, 0, 0, 0)
                     const c = new Date(t)
-                    c.setDate(t.getDate() + 3)
+                    c.setDate(t.getDate() + 1) // 明日から
                     return dateKey(c)
                   })()}
                   onDayClick={(key) => {
@@ -2334,11 +2338,23 @@ return (
                 style={{ gridTemplateColumns: `92px repeat(${activeDates.length}, minmax(72px, 1fr))` }}
               >
                 <div>参加者</div>
-                {activeDates.map((date) => (
-                  <div key={date.id} className={date.id === heroDate.id ? 'text-stone-900' : ''}>
-                    {date.label}
-                  </div>
-                ))}
+                {activeDates.map((date) => {
+                  const isSelected = date.id === heroDate?.id
+                  return (
+                    <button
+                      key={date.id}
+                      type="button"
+                      onClick={() => setHeroBestDateId(date.id)}
+                      className={`rounded-lg px-1 py-1 text-left text-xs font-bold transition active:scale-95 ${
+                        isSelected
+                          ? 'bg-stone-900 text-white'
+                          : 'text-stone-500 hover:bg-stone-100 hover:text-stone-900'
+                      }`}
+                    >
+                      {date.label}
+                    </button>
+                  )
+                })}
               </div>
               <div className="mt-3 space-y-2">
                 {activeParticipants.map((participant) => (
@@ -2379,53 +2395,67 @@ return (
           </div>
         </div>
 
-        {/* 未回答者へのリマインド */}
-        <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-          <div className="flex items-center gap-1.5">
-            <MessageSquareQuote size={11} className="text-stone-400" strokeWidth={2.5} />
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">未回答者へのリマインド</p>
-          </div>
-          <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-3">
-            {urlOnlyReminder ? (
-              <p className="text-sm text-stone-700">{shareUrl}</p>
-            ) : (
-              <textarea
-                value={editableReminderText}
-                onChange={(e) => setEditableReminderText(e.target.value)}
-                rows={4}
-                className="w-full resize-none bg-transparent text-base leading-6 text-stone-700 outline-none"
-              />
-            )}
-          </div>
-          <label className="mt-3 flex cursor-pointer items-center gap-2 self-start">
-            <input
-              type="checkbox"
-              checked={urlOnlyReminder}
-              onChange={(e) => setUrlOnlyReminder(e.target.checked)}
-              className="h-4 w-4 rounded accent-stone-900"
-            />
-            <span className="text-xs font-bold text-stone-500">URLのみ</span>
-          </label>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={async () => {
-                await navigator.clipboard.writeText(urlOnlyReminder ? shareUrl : editableReminderText)
-                setReminderCopied(true)
-                setTimeout(() => setReminderCopied(false), 1600)
-              }}
-              className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
-            >
-              {reminderCopied ? 'コピーしました' : 'コピー'}
-            </button>
-            <button
-              type="button"
-              onClick={() => openLineShare(urlOnlyReminder ? shareUrl : editableReminderText)}
-              className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-[0.98]"
-            >
-              LINEで送る
-            </button>
-          </div>
+        {/* 未回答者へのリマインド（折りたたみ） */}
+        <div className="rounded-3xl bg-white shadow-sm ring-1 ring-stone-100 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowReminderPanel((v) => !v)}
+            className="flex w-full items-center justify-between px-5 py-4"
+          >
+            <div className="flex items-center gap-1.5">
+              <MessageSquareQuote size={11} className="text-stone-400" strokeWidth={2.5} />
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">未回答者へのリマインド</p>
+            </div>
+            {showReminderPanel
+              ? <ChevronLeft size={14} className="rotate-90 text-stone-400" />
+              : <ChevronRight size={14} className="-rotate-90 text-stone-400" />
+            }
+          </button>
+          {showReminderPanel && (
+            <div className="border-t border-stone-100 px-5 pb-5 pt-4 space-y-3">
+              <div className="rounded-2xl bg-stone-50 px-4 py-3">
+                {urlOnlyReminder ? (
+                  <p className="text-sm text-stone-700">{shareUrl}</p>
+                ) : (
+                  <textarea
+                    value={editableReminderText}
+                    onChange={(e) => setEditableReminderText(e.target.value)}
+                    rows={4}
+                    className="w-full resize-none bg-transparent text-base leading-6 text-stone-700 outline-none"
+                  />
+                )}
+              </div>
+              <label className="flex cursor-pointer items-center gap-2 self-start">
+                <input
+                  type="checkbox"
+                  checked={urlOnlyReminder}
+                  onChange={(e) => setUrlOnlyReminder(e.target.checked)}
+                  className="h-4 w-4 rounded accent-stone-900"
+                />
+                <span className="text-xs font-bold text-stone-500">URLのみ</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(urlOnlyReminder ? shareUrl : editableReminderText)
+                    setReminderCopied(true)
+                    setTimeout(() => setReminderCopied(false), 1600)
+                  }}
+                  className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
+                >
+                  {reminderCopied ? 'コピーしました' : 'コピー'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openLineShare(urlOnlyReminder ? shareUrl : editableReminderText)}
+                  className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 active:scale-[0.98]"
+                >
+                  LINEで送る
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* この日で決定 CTA — sticky bottom */}
@@ -2975,7 +3005,7 @@ return (
                     className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3.5 text-sm font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
                   >
                     <ExternalLink size={14} strokeWidth={2.5} />
-                    ホットペッパーで予約を確認する
+                    ホットペッパーから予約する
                   </a>
                 </div>
               )}
@@ -3208,7 +3238,7 @@ return (
                     className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
                   >
                     <ExternalLink size={13} strokeWidth={2.5} />
-                    ホットペッパーで予約を確認する
+                    ホットペッパーから予約する
                   </a>
                 )}
                 <button
@@ -3262,6 +3292,11 @@ const finalShareText =
 日程：${finalSelectedDate?.label ?? heroDate?.label ?? '未定'}
 お店：${finalStore?.name ?? '未定'}
 ${finalStore?.link ?? ''}`
+
+      // 初回表示時だけ editableFinalShareText を初期化
+      if (!editableFinalShareText) {
+        setTimeout(() => setEditableFinalShareText(finalShareText), 0)
+      }
 
       return (
         <div className="space-y-4">
@@ -3376,16 +3411,17 @@ ${finalStore?.link ?? ''}`
             <div className="mb-3">
               <p className="text-sm font-bold text-stone-900">共有文</p>
             </div>
-            <div className="rounded-2xl bg-stone-50 p-4">
-              <p className="whitespace-pre-line text-sm leading-6 text-stone-700">
-                {urlOnly ? (finalStore?.link ?? '') : finalShareText}
-              </p>
-            </div>
+            <textarea
+              value={editableFinalShareText || finalShareText}
+              onChange={(e) => setEditableFinalShareText(e.target.value)}
+              rows={6}
+              className="w-full resize-none rounded-2xl bg-stone-50 px-4 py-3 text-base leading-6 text-stone-700 outline-none transition focus:bg-white focus:ring-1 focus:ring-stone-300"
+            />
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={async () => {
-                  await navigator.clipboard.writeText(urlOnly ? (finalStore?.link ?? '') : finalShareText)
+                  await navigator.clipboard.writeText(editableFinalShareText || finalShareText)
                   setCopied(true)
                   setTimeout(() => setCopied(false), 1600)
                 }}
@@ -3395,7 +3431,7 @@ ${finalStore?.link ?? ''}`
               </button>
               <button
                 type="button"
-                onClick={() => openLineShare(urlOnly ? (finalStore?.link ?? '') : finalShareText)}
+                onClick={() => openLineShare(editableFinalShareText || finalShareText)}
                 className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
               >
                 LINEで送る
@@ -3493,17 +3529,69 @@ ${finalStore?.link ?? ''}`
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'settlementConfirm' &&
           settlementConfig &&
-          settlementResult && (
-            <SettlementSummaryTable
-              result={settlementResult}
-              config={settlementConfig}
-              message={settlementMessage}
-              organizerSettings={organizerSettings}
-              onBack={() => setStep('settlement')}
-              onShare={() => openLineShare(settlementMessage)}
-              onDone={() => setStep('home')}
-            />
-          )}
+          settlementResult && (() => {
+            // store 情報
+            const settlementStore = isManualStore
+              ? (manualStoreName ? { id: 'manual', name: manualStoreName, link: manualStoreUrl, area: '' as string, genre: '' } : null)
+              : (selectedStore || recommendedStores?.[0] || null)
+            // 日付
+            const settlementDate =
+              finalDates.length > 0 && finalDecision?.selected_date_id
+                ? finalDates.find((d: any) => d.id === finalDecision.selected_date_id)?.label ?? ''
+                : heroDate?.label ?? ''
+
+            const handleComplete = (data: CompletionData) => {
+              const now = new Date().toISOString()
+              const newRecord = {
+                id: crypto.randomUUID(),
+                title: eventName || '名称未設定',
+                eventDate: settlementDate,
+                storeName: settlementStore?.name ?? '',
+                memo: data.memo,
+                hasPhoto: data.hasPhoto,
+                createdAt: now,
+              }
+              const updatedSettings = {
+                ...userSettings,
+                pastEventRecords: [newRecord, ...userSettings.pastEventRecords],
+                ...(data.isFavorite && settlementStore ? {
+                  favoriteStores: [
+                    {
+                      id: settlementStore.id,
+                      name: settlementStore.name,
+                      area: settlementStore.area ?? '',
+                      genre: settlementStore.genre ?? '',
+                      link: settlementStore.link ?? '',
+                      savedAt: now,
+                    },
+                    ...userSettings.favoriteStores.filter(s => s.id !== settlementStore.id),
+                  ],
+                } : {}),
+              }
+              saveUserSettings(updatedSettings)
+              setUserSettings(updatedSettings)
+              setStep('home')
+            }
+
+            return (
+              <SettlementSummaryTable
+                result={settlementResult}
+                config={settlementConfig}
+                message={settlementMessage}
+                organizerSettings={organizerSettings}
+                storeName={settlementStore?.name}
+                storeId={settlementStore?.id}
+                storeLink={settlementStore?.link}
+                storeArea={settlementStore?.area}
+                storeGenre={settlementStore?.genre}
+                eventName={eventName}
+                eventDate={settlementDate}
+                onBack={() => setStep('settlement')}
+                onShare={(text) => openLineShare(text)}
+                onComplete={handleComplete}
+              />
+            )
+          })()}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑩ 共有

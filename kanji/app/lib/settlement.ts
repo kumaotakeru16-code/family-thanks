@@ -216,10 +216,14 @@ export function generateSettlementMessage(
 
   const activeParties = result.partyResults.filter((pr) => pr.totalAmount > 0)
 
+  const multiParty = activeParties.length > 1
+
   for (let i = 0; i < result.partyResults.length; i++) {
     const pr = result.partyResults[i]
     if (pr.totalAmount <= 0) continue
-    lines.push(`【${partyIds[i] ?? pr.id}】`)
+    // 1次会のみなら「合計」、複数次会なら元のラベルを使う
+    const label = multiParty ? (partyIds[i] ?? pr.id) : '合計'
+    lines.push(`【${label}】`)
     for (const pp of pr.perPerson) {
       const person = result.personResults.find((p) => p.participantId === pp.participantId)
       if (!person) continue
@@ -229,7 +233,7 @@ export function generateSettlementMessage(
   }
 
   // 複数次会がある場合のみ合計欄を出す
-  if (activeParties.length > 1) {
+  if (multiParty) {
     lines.push('【合計】')
     for (const person of result.personResults) {
       if (person.total > 0) {
