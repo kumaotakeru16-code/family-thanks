@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,7 +28,23 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        {/*
+          ValueCommerce LinkSwitch
+          - NEXT_PUBLIC_VC_LINKSWITCH_ID が設定されているときだけ挿入する
+          - 未設定のままでも通常の Hot Pepper リンクとして正常動作する
+          - 挿入後は <a href="https://www.hotpepper.jp/..."> が自動的にアフィリエイトURLへ変換される
+          - 動作確認: LinkSwitch タグ設置後、予約ボタンをホバーしてブラウザのステータスバーを確認
+        */}
+        {process.env.NEXT_PUBLIC_VC_LINKSWITCH_ID && (
+          <Script
+            src="//js.vc-mp.com/ls/linkswitch.js"
+            data-vc-tag={process.env.NEXT_PUBLIC_VC_LINKSWITCH_ID}
+            strategy="afterInteractive"
+          />
+        )}
+      </body>
     </html>
   );
 }

@@ -39,6 +39,10 @@ export type PastEventRecord = {
   title: string         // 会の名前
   eventDate: string     // YYYY-MM-DD
   storeName: string
+  storeId?: string      // お気に入り登録に使う
+  storeLink?: string
+  storeArea?: string
+  storeGenre?: string
   memo: string
   hasPhoto: boolean
   photoDataUrl?: string // base64 data URL（端末ローカル保存）

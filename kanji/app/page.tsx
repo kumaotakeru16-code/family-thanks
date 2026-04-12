@@ -39,6 +39,7 @@ import { StationInput } from '@/app/components/StationInput'
 import { SettlementStep, type SettlementDraft } from '@/app/components/SettlementStep'
 import { SettlementSummaryTable, type CompletionData } from '@/app/components/SettlementSummaryTable'
 import { SettingsScreen } from '@/app/components/SettingsScreen'
+import { StoreExternalLink, AffiliateNote } from '@/app/components/StoreExternalLink'
 import {
   type SettlementConfig,
   type SettlementResult,
@@ -1979,18 +1980,63 @@ return (
                       <p className="mt-0.5 text-sm font-bold text-stone-800">{completedEventDetail.eventDate || '—'}</p>
                     </div>
                   </div>
-                  {/* お店 */}
-                  {completedEventDetail.storeName && (
-                    <div className="flex gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-stone-50 ring-1 ring-stone-100">
-                        <UtensilsCrossed size={14} className="text-stone-400" />
+                  {/* お店 + お気に入りトグル */}
+                  {completedEventDetail.storeName && (() => {
+                    const isFav = userSettings.favoriteStores.some(
+                      f => f.id === (completedEventDetail.storeId ?? completedEventDetail.storeName)
+                    )
+                    const toggleFav = () => {
+                      const now = new Date().toISOString()
+                      const storeKey = completedEventDetail.storeId ?? completedEventDetail.storeName
+                      const next = isFav
+                        ? { ...userSettings, favoriteStores: userSettings.favoriteStores.filter(f => f.id !== storeKey) }
+                        : {
+                            ...userSettings,
+                            favoriteStores: [
+                              {
+                                id: storeKey,
+                                name: completedEventDetail.storeName,
+                                area: completedEventDetail.storeArea ?? '',
+                                genre: completedEventDetail.storeGenre ?? '',
+                                link: completedEventDetail.storeLink ?? '',
+                                savedAt: now,
+                              },
+                              ...userSettings.favoriteStores.filter(f => f.id !== storeKey),
+                            ],
+                          }
+                      saveUserSettings(next)
+                      setUserSettings(next)
+                    }
+                    return (
+                      <div className="flex items-center justify-between gap-3 rounded-2xl bg-stone-50 px-4 py-3.5 ring-1 ring-stone-100">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-stone-100">
+                            <UtensilsCrossed size={14} className="text-stone-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">お店</p>
+                            <p className="mt-0.5 truncate text-sm font-bold text-stone-800">{completedEventDetail.storeName}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={toggleFav}
+                          className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold transition active:scale-95 ${
+                            isFav
+                              ? 'bg-rose-100 text-rose-600 ring-1 ring-rose-200'
+                              : 'bg-white text-stone-500 ring-1 ring-stone-200'
+                          }`}
+                        >
+                          <Heart
+                            size={11}
+                            strokeWidth={2.5}
+                            className={isFav ? 'fill-rose-500 text-rose-500' : ''}
+                          />
+                          {isFav ? 'お気に入り済み' : 'お気に入り'}
+                        </button>
                       </div>
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">お店</p>
-                        <p className="mt-0.5 text-sm font-bold text-stone-800">{completedEventDetail.storeName}</p>
-                      </div>
-                    </div>
-                  )}
+                    )
+                  })()}
                   {/* 参加者（展開式） */}
                   {completedEventDetail.participants && completedEventDetail.participants.length > 0 && (
                     <div className="overflow-hidden rounded-2xl bg-stone-50 ring-1 ring-stone-100">
@@ -3195,18 +3241,17 @@ return (
                 </div>
               )}
 
-              {/* 予約リンク */}
+              {/* 予約リンク — LinkSwitch により自動アフィリエイト変換される */}
               {primaryStore.link && (
-                <div className="px-5 pb-5">
-                  <a
+                <div className="px-5 pb-5 space-y-1.5">
+                  <StoreExternalLink
                     href={primaryStore.link}
-                    target="_blank"
-                    rel="noreferrer"
                     className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3.5 text-sm font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
                   >
                     <ExternalLink size={14} strokeWidth={2.5} />
                     ホットペッパーから予約する
-                  </a>
+                  </StoreExternalLink>
+                  <AffiliateNote />
                 </div>
               )}
             </motion.div>
@@ -3258,17 +3303,15 @@ return (
                       <p className="mt-0.5 text-xs text-stone-400 line-clamp-1">{store.reason}</p>
                     )}
                   </div>
-                  {/* 詳細リンク */}
+                  {/* 詳細リンク — LinkSwitch により自動アフィリエイト変換される */}
                   {store.link && (
-                    <a
+                    <StoreExternalLink
                       href={store.link}
-                      target="_blank"
-                      rel="noreferrer"
-                      onClick={(e) => e.stopPropagation()}
+                      stopPropagation
                       className="shrink-0 rounded-xl bg-stone-50 px-3 py-1.5 text-xs font-bold text-stone-500 ring-1 ring-stone-200 transition hover:bg-stone-100 active:scale-95"
                     >
                       詳細
-                    </a>
+                    </StoreExternalLink>
                   )}
                 </motion.button>
               ))}
@@ -3498,16 +3541,18 @@ return (
             {/* CTA — sticky bottom */}
             <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4">
               <div className="mx-auto max-w-xl space-y-2">
+                {/* Hot Pepper URL のときだけ表示 — LinkSwitch により自動アフィリエイト変換される */}
                 {manualStoreUrl && /hotpepper\.jp/i.test(manualStoreUrl) && (
-                  <a
-                    href={manualStoreUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
-                  >
-                    <ExternalLink size={13} strokeWidth={2.5} />
-                    ホットペッパーから予約する
-                  </a>
+                  <>
+                    <StoreExternalLink
+                      href={manualStoreUrl}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
+                    >
+                      <ExternalLink size={13} strokeWidth={2.5} />
+                      ホットペッパーから予約する
+                    </StoreExternalLink>
+                    <AffiliateNote />
+                  </>
                 )}
                 <button
                   type="button"
@@ -3707,15 +3752,17 @@ ${finalStore?.link ?? ''}`
             </div>
           </div>
 
+          {/* お店リンク — LinkSwitch により自動アフィリエイト変換される */}
           {finalStore?.link && (
-            <a
-              href={finalStore.link}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex w-full items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 py-4 text-sm font-bold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98]"
-            >
-              お店ページを開く →
-            </a>
+            <div className="space-y-1.5">
+              <StoreExternalLink
+                href={finalStore.link}
+                className="inline-flex w-full items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 py-4 text-sm font-bold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98]"
+              >
+                お店ページを開く →
+              </StoreExternalLink>
+              <AffiliateNote />
+            </div>
           )}
 
           {/* 清算へ進む — sticky bottom */}
@@ -3811,13 +3858,17 @@ ${finalStore?.link ?? ''}`
             const handleComplete = (data: CompletionData) => {
               const now = new Date().toISOString()
 
-              // 1. 完了済みレコード生成（参加者名も含める）
+              // 1. 完了済みレコード生成（参加者名・店舗情報も含める）
               const participants = settlementResult.personResults.map(p => p.name)
               const newRecord = {
                 id: crypto.randomUUID(),
                 title: eventName || '名称未設定',
                 eventDate: settlementDate,
                 storeName: settlementStore?.name ?? '',
+                storeId: settlementStore?.id ?? undefined,
+                storeLink: settlementStore?.link ?? undefined,
+                storeArea: settlementStore?.area ?? undefined,
+                storeGenre: settlementStore?.genre ?? undefined,
                 memo: data.memo,
                 hasPhoto: data.hasPhoto,
                 photoDataUrl: data.photoDataUrl,
