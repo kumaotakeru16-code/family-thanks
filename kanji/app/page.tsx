@@ -37,7 +37,7 @@ import { saveDecision } from '@/lib/kanji-db'
 import { loadDecision } from '@/lib/kanji-db'
 import { StationInput } from '@/app/components/StationInput'
 import { SettlementStep, type SettlementDraft } from '@/app/components/SettlementStep'
-import { SettlementSummaryTable, type CompletionData } from '@/app/components/SettlementSummaryTable'
+import { SettlementSummaryTable, type CompletionData, type CompleteResult } from '@/app/components/SettlementSummaryTable'
 import { SettingsScreen } from '@/app/components/SettingsScreen'
 import { StoreExternalLink, AffiliateNote } from '@/app/components/StoreExternalLink'
 import {
@@ -1891,48 +1891,60 @@ return (
             </section>
 
             {/* ── 完了済みの会 ─────────────────────────────────── */}
-            {mounted && userSettings.pastEventRecords.length > 0 && (
+            {mounted && (
               <section className="mt-6">
                 <div className="mb-3 flex items-center gap-2">
                   <CheckCircle2 size={12} className="text-stone-300" strokeWidth={2.5} />
                   <p className="text-[11px] font-black tracking-[0.2em] text-stone-300 uppercase">完了済みの会</p>
                 </div>
-                <div className="space-y-2">
-                  {userSettings.pastEventRecords.slice(0, 5).map((record, idx) => (
-                    <motion.button
-                      type="button"
-                      key={record.id}
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.18, delay: idx * 0.04 }}
-                      whileTap={{ scale: 0.984 }}
-                      onClick={() => { setCompletedEventDetail(record); setShowDetailParticipants(false) }}
-                      className="flex w-full items-center justify-between rounded-2xl bg-stone-50 px-4 py-3.5 text-left ring-1 ring-stone-100 transition hover:bg-white hover:shadow-sm"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-stone-100">
-                          <CheckCircle2 size={13} className="text-stone-300" strokeWidth={2} />
+                {userSettings.pastEventRecords.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-stone-200/70 px-6 py-8 text-center">
+                    <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-stone-100/80">
+                      <CheckCircle2 size={17} className="text-stone-300" strokeWidth={1.8} />
+                    </div>
+                    <p className="text-sm font-bold text-stone-400">まだ完了済みの会はありません</p>
+                    <p className="mt-1.5 text-xs leading-5 text-stone-400">
+                      精算後に会を完了すると、ここに記録が残ります
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {userSettings.pastEventRecords.slice(0, 5).map((record, idx) => (
+                      <motion.button
+                        type="button"
+                        key={record.id}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.18, delay: idx * 0.04 }}
+                        whileTap={{ scale: 0.984 }}
+                        onClick={() => { setCompletedEventDetail(record); setShowDetailParticipants(false) }}
+                        className="flex w-full items-center justify-between rounded-2xl bg-stone-50 px-4 py-3.5 text-left ring-1 ring-stone-100 transition hover:bg-white hover:shadow-sm"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-stone-100">
+                            <CheckCircle2 size={13} className="text-stone-300" strokeWidth={2} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] font-bold text-stone-600">{record.title}</p>
+                            <p className="text-[11px] text-stone-400">
+                              {record.eventDate}
+                              {record.storeName ? `　${record.storeName}` : ''}
+                            </p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="truncate text-[13px] font-bold text-stone-600">{record.title}</p>
-                          <p className="text-[11px] text-stone-400">
-                            {record.eventDate}
-                            {record.storeName ? `　${record.storeName}` : ''}
-                          </p>
+                        <div className="ml-2 flex shrink-0 items-center gap-1.5">
+                          {record.memo && (
+                            <span className="rounded-full bg-stone-200/80 px-2 py-0.5 text-[9px] font-bold text-stone-500">メモ</span>
+                          )}
+                          {record.hasPhoto && (
+                            <span className="rounded-full bg-stone-200/80 px-2 py-0.5 text-[9px] font-bold text-stone-500">写真</span>
+                          )}
+                          <ChevronRight size={12} className="text-stone-300" />
                         </div>
-                      </div>
-                      <div className="ml-2 flex shrink-0 items-center gap-1.5">
-                        {record.memo && (
-                          <span className="rounded-full bg-stone-200/80 px-2 py-0.5 text-[9px] font-bold text-stone-500">メモ</span>
-                        )}
-                        {record.hasPhoto && (
-                          <span className="rounded-full bg-stone-200/80 px-2 py-0.5 text-[9px] font-bold text-stone-500">写真</span>
-                        )}
-                        <ChevronRight size={12} className="text-stone-300" />
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
+                      </motion.button>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
           </motion.div>
@@ -3855,7 +3867,8 @@ ${finalStore?.link ?? ''}`
                 ? finalDates.find((d: any) => d.id === finalDecision.selected_date_id)?.label ?? ''
                 : heroDate?.label ?? ''
 
-            const handleComplete = (data: CompletionData) => {
+            // onComplete: 保存を試みて結果を返す。ナビゲーションは onCompleted に委譲。
+            const handleComplete = (data: CompletionData): CompleteResult => {
               const now = new Date().toISOString()
 
               // 1. 完了済みレコード生成（参加者名・店舗情報も含める）
@@ -3895,15 +3908,26 @@ ${finalStore?.link ?? ''}`
                 } : {}),
               }
 
-              // 3. 先に localStorage へ書き込む（リロード対策）
-              saveUserSettings(updatedSettings)
-              setUserSettings(updatedSettings)
+              // 3. localStorage へ書き込む（戻り値で成否を確認）
+              const saveResult = saveUserSettings(updatedSettings)
 
-              // 4. 進行中一覧から除外（kanji_events も同時更新）
+              if (!saveResult.ok) {
+                // 完全失敗 — 保存できていないのでナビゲーションしない
+                return 'error'
+              }
+
+              // 4. 保存成功（写真ありまたはなし）— state 更新
+              setUserSettings(saveResult.photoStripped
+                // 写真が除かれた版を state にも反映
+                ? { ...updatedSettings, pastEventRecords: updatedSettings.pastEventRecords.map(r => ({ ...r, photoDataUrl: undefined })) }
+                : updatedSettings
+              )
+
+              // 5. 進行中一覧から除外（kanji_events も同時更新）
               if (createdEventId) removeSavedEventById(createdEventId)
 
-              // 5. ホームへ
-              setStep('home')
+              return saveResult.photoStripped ? 'photo_failed' : 'ok'
+              // ナビゲーション（setStep('home')）は onCompleted に委譲
             }
 
             return (
@@ -3922,6 +3946,7 @@ ${finalStore?.link ?? ''}`
                 onBack={() => setStep('settlement')}
                 onShare={(text) => openLineShare(text)}
                 onComplete={handleComplete}
+                onCompleted={() => setStep('home')}
               />
             )
           })()}

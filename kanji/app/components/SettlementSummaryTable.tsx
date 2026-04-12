@@ -5,10 +5,11 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Copy, Check, Smartphone, Landmark,
   Sparkles, Heart, ChevronDown, ChevronUp,
-  ImagePlus, X,
+  ImagePlus, X, AlertCircle,
 } from 'lucide-react'
 import { type SettlementResult, type SettlementConfig, formatYen } from '@/app/lib/settlement'
 import { type OrganizerSettings, hasPaymentInfo, hasBankInfo } from '@/app/lib/organizer-settings'
+import { compressImageToDataUrl } from '@/app/lib/image'
 
 export type CompletionData = {
   memo: string
@@ -16,6 +17,9 @@ export type CompletionData = {
   hasPhoto: boolean
   photoDataUrl?: string
 }
+
+/** 保存結果を呼び出し側から受け取る */
+export type CompleteResult = 'ok' | 'photo_failed' | 'error'
 
 type Props = {
   result: SettlementResult
@@ -33,7 +37,15 @@ type Props = {
   eventDate?: string
   onBack: () => void
   onShare: (text: string) => void
-  onComplete: (data: CompletionData) => void
+  /**
+   * 完了データを渡し、保存を試みる。
+   * 'ok'           → 完全保存成功
+   * 'photo_failed' → 写真除きで保存成功（容量超過）
+   * 'error'        → 保存失敗
+   */
+  onComplete: (data: CompletionData) => CompleteResult
+  /** 労いアニメーション終了後に呼ばれるナビゲーション */
+  onCompleted: () => void
 }
 
 const ROLE_BADGE: Record<string, string> = {
@@ -47,7 +59,7 @@ export function SettlementSummaryTable({
   result, config, message, organizerSettings,
   storeName, storeId, storeLink, storeArea, storeGenre,
   eventName, eventDate,
-  onBack, onShare, onComplete,
+  onBack, onShare, onComplete, onCompleted,
 }: Props) {
   const [editableMessage, setEditableMessage] = useState(message)
   const [copied, setCopied] = useState(false)
@@ -55,7 +67,9 @@ export function SettlementSummaryTable({
   const [memoText, setMemoText] = useState('')
   const [isFavorite, setIsFavorite] = useState(false)
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null)
+  const [photoLoading, setPhotoLoading] = useState(false)
   const [showCongrats, setShowCongrats] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const hasMultiParty =
@@ -71,19 +85,45 @@ export function SettlementSummaryTable({
     }
   }
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  /** 画像選択 → 圧縮 → プレビュー（保存は完了ボタン押下時） */
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => setPhotoDataUrl(ev.target?.result as string)
-    reader.readAsDataURL(file)
+    setSaveError(null)
+    setPhotoLoading(true)
+    try {
+      const compressed = await compressImageToDataUrl(file)
+      setPhotoDataUrl(compressed)
+    } catch {
+      setSaveError('画像の読み込みに失敗しました。別の画像をお試しください。')
+    } finally {
+      setPhotoLoading(false)
+      // same file を再選択できるようリセット
+      e.target.value = ''
+    }
   }
 
   const handleComplete = () => {
+    setSaveError(null)
+
+    const result = onComplete({
+      memo: memoText,
+      isFavorite,
+      hasPhoto: !!photoDataUrl,
+      photoDataUrl: photoDataUrl ?? undefined,
+    })
+
+    if (result === 'error') {
+      setSaveError(
+        'この端末の保存容量に達しているため、記録を保存できませんでした。' +
+        '写真を外してもう一度お試しください。'
+      )
+      return
+    }
+
+    // 'ok' または 'photo_failed' — レコードは保存済み
     setShowCongrats(true)
-    setTimeout(() => {
-      onComplete({ memo: memoText, isFavorite, hasPhoto: !!photoDataUrl, photoDataUrl: photoDataUrl ?? undefined })
-    }, 1400)
+    setTimeout(() => onCompleted(), 1400)
   }
 
   return (
@@ -288,7 +328,7 @@ export function SettlementSummaryTable({
         </div>
 
         {/* ── メモパネル ─────────────────────────────────────────────────────── */}
-        <div className="rounded-2xl bg-white shadow-sm ring-1 ring-stone-100 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-stone-100">
           <button
             type="button"
             onClick={() => setShowMemo((v) => !v)}
@@ -353,12 +393,16 @@ export function SettlementSummaryTable({
                     </div>
                   )}
 
-                  {/* 写真1枚 */}
+                  {/* 写真1枚（圧縮して保存） */}
                   <div>
                     <label className="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-stone-400">
                       写真
                     </label>
-                    {photoDataUrl ? (
+                    {photoLoading ? (
+                      <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-dashed border-stone-300 bg-stone-50">
+                        <span className="text-[10px] text-stone-400">処理中…</span>
+                      </div>
+                    ) : photoDataUrl ? (
                       <div className="relative inline-block">
                         <img
                           src={photoDataUrl}
@@ -367,7 +411,7 @@ export function SettlementSummaryTable({
                         />
                         <button
                           type="button"
-                          onClick={() => setPhotoDataUrl(null)}
+                          onClick={() => { setPhotoDataUrl(null); setSaveError(null) }}
                           className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-stone-700 text-white transition hover:bg-stone-900"
                         >
                           <X size={10} strokeWidth={3} />
@@ -399,6 +443,17 @@ export function SettlementSummaryTable({
 
         {/* 完了CTA */}
         <div className="space-y-2.5 pb-8">
+          {/* エラーメッセージ */}
+          {saveError && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-start gap-2.5 rounded-2xl bg-red-50 px-4 py-3.5 ring-1 ring-red-100"
+            >
+              <AlertCircle size={14} className="mt-0.5 shrink-0 text-red-400" strokeWidth={2} />
+              <p className="text-[12px] leading-5 text-red-700">{saveError}</p>
+            </motion.div>
+          )}
           <button
             type="button"
             onClick={handleComplete}

@@ -89,8 +89,21 @@ export function loadUserSettings(): UserSettings {
   }
 }
 
-export function saveUserSettings(settings: UserSettings): void {
-  if (typeof window === 'undefined') return
+export type SaveResult =
+  | { ok: true; photoStripped: false }   // 完全成功
+  | { ok: true; photoStripped: true }    // 写真だけ除いて保存成功
+  | { ok: false; photoStripped: false }  // 保存失敗
+
+/**
+ * UserSettings を localStorage へ書き込む。
+ * 戻り値で成否と写真ストリップの有無が分かる。
+ *
+ * ok: true, photoStripped: false → 完全成功
+ * ok: true, photoStripped: true  → 容量超過のため写真なしで保存（詳細画面で「写真（データなし）」表示）
+ * ok: false                      → 保存失敗（容量が深刻に不足）
+ */
+export function saveUserSettings(settings: UserSettings): SaveResult {
+  if (typeof window === 'undefined') return { ok: false, photoStripped: false }
 
   const tryWrite = (data: UserSettings): boolean => {
     try {
@@ -102,7 +115,7 @@ export function saveUserSettings(settings: UserSettings): void {
   }
 
   // まず全データで保存を試みる
-  if (tryWrite(settings)) return
+  if (tryWrite(settings)) return { ok: true, photoStripped: false }
 
   // QuotaExceededError の可能性 — photoDataUrl だけ除いて再試行
   // hasPhoto: true は残すので、詳細画面で「写真（データなし）」として表示される
@@ -110,7 +123,9 @@ export function saveUserSettings(settings: UserSettings): void {
     ...settings,
     pastEventRecords: settings.pastEventRecords.map(r => ({ ...r, photoDataUrl: undefined })),
   }
-  tryWrite(stripped)
+  if (tryWrite(stripped)) return { ok: true, photoStripped: true }
+
+  return { ok: false, photoStripped: false }
 }
 
 export function clearUserSettings(): void {
