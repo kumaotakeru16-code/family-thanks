@@ -87,9 +87,26 @@ export function loadUserSettings(): UserSettings {
 
 export function saveUserSettings(settings: UserSettings): void {
   if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
-  } catch {}
+
+  const tryWrite = (data: UserSettings): boolean => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // まず全データで保存を試みる
+  if (tryWrite(settings)) return
+
+  // QuotaExceededError の可能性 — photoDataUrl だけ除いて再試行
+  // hasPhoto: true は残すので、詳細画面で「写真（データなし）」として表示される
+  const stripped: UserSettings = {
+    ...settings,
+    pastEventRecords: settings.pastEventRecords.map(r => ({ ...r, photoDataUrl: undefined })),
+  }
+  tryWrite(stripped)
 }
 
 export function clearUserSettings(): void {
