@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
 import { CalendarDays } from 'lucide-react'
 
@@ -32,9 +32,64 @@ const PARTICIPANT_GENRE_OPTIONS: ParticipantGenre[] = [
   '中華',
 ]
 
+// ── 回答保持 ──────────────────────────────────────────────────────────────────
+//
+// 同じ端末・同じブラウザで同じイベント URL を開いたとき、前回の回答を復元する。
+//
+// 保存キー:
+//   通常:   kanji_participant_response_{eventId}
+//   デバッグ: ?debug_multi=1 付きで開いた場合は保存を無効化する
+//            → 同じ端末で複数参加者のテストができる
+//
+// 保存内容:
+//   participantName, answers, prefGenre, responseId（DB 行 ID、UPDATE 用）
+
+type SavedResponse = {
+  participantName: string
+  answers: Record<string, AvailabilityValue>
+  prefGenre: ParticipantGenre | null
+  /** 初回送信で取得した DB 行の id。再送信時に UPDATE するために使う */
+  responseId?: string
+}
+
+function responseStorageKey(eventId: string): string {
+  return `kanji_participant_response_${eventId}`
+}
+
+function loadSavedResponse(eventId: string): SavedResponse | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(responseStorageKey(eventId))
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as unknown
+    // 最低限の型ガード
+    if (
+      typeof parsed !== 'object' || parsed === null ||
+      typeof (parsed as Record<string, unknown>).participantName !== 'string'
+    ) return null
+    return parsed as SavedResponse
+  } catch {
+    return null
+  }
+}
+
+function saveResponseLocally(eventId: string, data: SavedResponse): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(responseStorageKey(eventId), JSON.stringify(data))
+  } catch {
+    // QuotaExceededError など — 無視してよい（保存できなくても送信は成功している）
+  }
+}
+
 export default function EventParticipantPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const eventId = params?.eventId as string
+
+  // ?debug_multi=1 があるときは localStorage 保存・復元を完全に無効化する
+  // 開発・検証時に同じ端末で複数参加者を試すための逃げ道
+  const isDebugMulti = searchParams?.get('debug_multi') === '1'
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -49,6 +104,12 @@ export default function EventParticipantPage() {
   const [answers, setAnswers] = useState<Record<string, AvailabilityValue | undefined>>({})
   const [prefGenre, setPrefGenre] = useState<ParticipantGenre | null>(null)
 
+  // 保存済み回答があるか（ボタン文言・復元バナーの表示判定に使う）
+  const [hasSavedResponse, setHasSavedResponse] = useState(false)
+  // DB 更新用: 初回送信で取得した responses 行の id
+  const [savedResponseId, setSavedResponseId] = useState<string | undefined>(undefined)
+
+  // ── イベントデータ取得 ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!eventId) return
 
@@ -96,6 +157,26 @@ export default function EventParticipantPage() {
     fetchPageData()
   }, [eventId])
 
+  // ── 保存済み回答の復元 ──────────────────────────────────────────────────────
+  // イベントデータのロード完了後（dates が確定してから）復元する。
+  // dates が空のうちに answers を入れても、allAnswered の判定が狂わないよう
+  // loading: false になってから実行する。
+  useEffect(() => {
+    if (loading) return
+    if (!eventId) return
+    if (isDebugMulti) return // デバッグモードでは復元しない
+
+    const saved = loadSavedResponse(eventId)
+    if (!saved) return
+
+    setParticipantName(saved.participantName)
+    setAnswers(saved.answers as Record<string, AvailabilityValue | undefined>)
+    if (saved.prefGenre) setPrefGenre(saved.prefGenre)
+    if (saved.responseId) setSavedResponseId(saved.responseId)
+    setHasSavedResponse(true)
+  }, [loading, eventId, isDebugMulti])
+
+  // ── 回答チェック ────────────────────────────────────────────────────────────
   const allAnswered = useMemo(() => {
     if (dates.length === 0) return false
     return dates.every((d) => !!answers[d.id])
@@ -108,6 +189,7 @@ export default function EventParticipantPage() {
     }))
   }
 
+  // ── 送信処理 ────────────────────────────────────────────────────────────────
   const submitResponse = async () => {
     if (!participantName.trim()) {
       setErrorMessage('名前を入力してください')
@@ -123,33 +205,75 @@ export default function EventParticipantPage() {
     setErrorMessage('')
 
     const dateAnswers: Record<string, string> = {}
-
     dates.forEach((d, index) => {
       const key = `date${index + 1}`
       dateAnswers[key] = answers[d.id] || 'maybe'
     })
-
     const genres = prefGenre ? [prefGenre] : []
 
-    const { error } = await supabase
-      .from('responses')
-      .insert({
-        event_id: eventId,
-        participant_name: participantName.trim(),
-        date_answers: dateAnswers,
-        genres,
-        areas: [],
-      })
+    // 再送信（savedResponseId あり）は UPDATE、初回は INSERT
+    if (savedResponseId) {
+      const { error } = await supabase
+        .from('responses')
+        .update({
+          participant_name: participantName.trim(),
+          date_answers: dateAnswers,
+          genres,
+        })
+        .eq('id', savedResponseId)
 
-    if (error) {
-      setErrorMessage(`回答送信エラー: ${error.message}`)
-      setSubmitting(false)
-      return
+      if (error) {
+        setErrorMessage(`回答の更新エラー: ${error.message}`)
+        setSubmitting(false)
+        return
+      }
+
+      // ローカル保存を更新
+      if (!isDebugMulti) {
+        saveResponseLocally(eventId, {
+          participantName: participantName.trim(),
+          answers: answers as Record<string, AvailabilityValue>,
+          prefGenre,
+          responseId: savedResponseId,
+        })
+      }
+    } else {
+      const { data, error } = await supabase
+        .from('responses')
+        .insert({
+          event_id: eventId,
+          participant_name: participantName.trim(),
+          date_answers: dateAnswers,
+          genres,
+          areas: [],
+        })
+        .select('id')
+        .single()
+
+      if (error) {
+        setErrorMessage(`回答送信エラー: ${error.message}`)
+        setSubmitting(false)
+        return
+      }
+
+      // 初回送信: 取得した行 ID とともにローカルへ保存
+      if (!isDebugMulti && data?.id) {
+        const responseId = data.id as string
+        setSavedResponseId(responseId)
+        saveResponseLocally(eventId, {
+          participantName: participantName.trim(),
+          answers: answers as Record<string, AvailabilityValue>,
+          prefGenre,
+          responseId,
+        })
+      }
     }
 
     setSubmitting(false)
     setSubmitted(true)
   }
+
+  // ── レンダリング ────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -181,6 +305,9 @@ export default function EventParticipantPage() {
             </h1>
             <p className="mt-3 text-sm leading-6 text-stone-600">
               幹事がみんなの回答を見て、日程を調整します。
+            </p>
+            <p className="mt-3 text-xs leading-5 text-stone-400">
+              予定が変わっても大丈夫です。同じ端末・同じブラウザでこのページを開けば、回答をあとから修正できます。
             </p>
           </div>
 
@@ -215,7 +342,7 @@ export default function EventParticipantPage() {
   }
 
   return (
-    <div className="mx-auto min-h-screen w-full max-w-2xl px-4 pb-28 pt-8 sm:px-6">
+    <div className="mx-auto min-h-screen w-full max-w-2xl px-4 pb-32 pt-8 sm:px-6">
       <div className="space-y-6">
         <div className="px-1">
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
@@ -226,6 +353,15 @@ export default function EventParticipantPage() {
           </h1>
           <p className="mt-1 text-sm text-stone-400">{eventType}</p>
         </div>
+
+        {/* 前回回答済みバナー */}
+        {hasSavedResponse && (
+          <div className="rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
+            <p className="text-xs leading-5 text-stone-500">
+              前回の回答を読み込みました。内容を変更して再送信できます。
+            </p>
+          </div>
+        )}
 
         <div className="rounded-3xl bg-white px-4 py-4 shadow-sm ring-1 ring-black/5">
           <p className="text-sm font-bold text-stone-900">お名前</p>
@@ -333,14 +469,18 @@ export default function EventParticipantPage() {
 
       {/* Sticky CTA */}
       <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-white via-white/95 to-transparent px-4 pb-6 pt-4">
-        <div className="mx-auto max-w-2xl">
+        <div className="mx-auto max-w-2xl space-y-2">
+          {/* 補足文: 送信前の不安を消す */}
+          <p className="text-center text-[11px] leading-5 text-stone-400">
+            あとで予定が変わっても大丈夫です。同じ端末・同じブラウザで開けば修正できます。
+          </p>
           <button
             type="button"
             onClick={submitResponse}
             disabled={submitting}
             className="w-full rounded-2xl bg-stone-900 px-4 py-4 text-base font-black text-white shadow-lg transition hover:bg-stone-800 active:scale-[0.98] disabled:opacity-40"
           >
-            {submitting ? '送信中…' : '回答を送信'}
+            {submitting ? '送信中…' : hasSavedResponse ? '回答を更新' : '回答を送信'}
           </button>
         </div>
       </div>

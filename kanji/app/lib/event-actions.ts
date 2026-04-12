@@ -5,14 +5,15 @@
  *
  * 設計方針:
  *   - UI（page.tsx）側は buildPastEventRecord でレコードを組み立て、
- *     saveUserSettings で保存するだけの状態に寄せる
- *   - 将来クラウド保存へ移行するときは、saveUserSettings の実装を
- *     Supabase INSERT に差し替えるだけで完了できる構造を保つ
+ *     saveCompletionData で保存するだけの状態に寄せる
+ *   - Supabase の知識はこのファイルに持ち込まない
+ *     （クラウド操作は user-settings.ts → supabase-user-store.ts に委譲）
  *
- * CLOUD-MIGRATION:
- *   - photoDataUrl（base64） → Supabase Storage にアップロードして URL で持つ
- *   - buildPastEventRecord の戻り値に photoUrl フィールドを追加し
- *     photoDataUrl と置き換える想定
+ * 写真保存の二層構造（saveCompletionData 参照）:
+ *   ローカル: localStorage に photoDataUrl（base64）を保存。容量超過時は自動除去。
+ *   クラウド: Supabase Storage に PUT → path → past_events.photo_url に保存。
+ *             アップロード失敗時も会の記録は保存される。
+ *             詳細: supabase-user-store.ts の insertPastEventCloud 参照。
  */
 
 import type { PastEventRecord, UserSettings, FavoriteStore } from './user-settings'
@@ -36,7 +37,16 @@ export type BuildPastEventRecordParams = {
   storeGenre?: string
   memo: string
   hasPhoto: boolean
-  /** base64 JPEG（圧縮済み）。将来は Storage URL に置き換え予定 */
+  /**
+   * base64 JPEG（compressImageToDataUrl で圧縮済み）。
+   *
+   * 役割:
+   *   - UI プレビュー表示
+   *   - localStorage フォールバック保存（photoDataUrl として記録に含める）
+   *   - Supabase Storage アップロードの元データ（insertPastEventCloud が内部で使う）
+   *
+   * 長期保存前提にしない。クラウド側は Storage path（PastEventRecord.photoUrl）を使う。
+   */
   photoDataUrl?: string
   participants: string[]
 }
@@ -44,11 +54,9 @@ export type BuildPastEventRecordParams = {
 /**
  * 清算完了データから PastEventRecord を生成する。
  *
- * 何が保存されるか:
- *   - 会名・日程・店舗情報（名前/ID/リンク/エリア/ジャンル）
- *   - 参加者名一覧
- *   - メモ
- *   - 写真（base64、容量超過時は SettlementSummaryTable 側で除去済み）
+ * 生成されるレコードの photoDataUrl は「ローカル保存・プレビュー用」の一時データ。
+ * クラウド保存時（insertPastEventCloud）は photoDataUrl を Storage に PUT し、
+ * 取得した path を past_events.photo_url に書く（PastEventRecord.photoUrl は未設定のまま）。
  */
 export function buildPastEventRecord(params: BuildPastEventRecordParams): PastEventRecord {
   return {
@@ -154,13 +162,17 @@ export function toggleFavoriteStore(
  *   3. removeSavedEvent で進行中一覧から削除（event-store.ts）
  *   4. setUserSettings で React state を更新（page.tsx）
  *
- * 保存される情報:
- *   - 会名 / 日程 / 店舗（名前・ID・リンク・エリア・ジャンル）
- *   - 参加者名一覧 / メモ / 写真（base64、容量超過時は除去）
- *   - お気に入り登録（favoriteStore が渡された場合）
+ * ローカル保存（localStorage）:
+ *   - 会名 / 日程 / 店舗 / 参加者 / メモ / 写真（base64 = photoDataUrl）
+ *   - 容量超過時は photoDataUrl だけ除去して再保存（SaveResult.photoStripped = true）
+ *   - 保存失敗時は SaveResult.ok = false
  *
- * localStorage 保存後、クラウドへも fire-and-forget で同期する。
- * @returns SaveResult と更新後の UserSettings
+ * クラウド保存（Supabase / fire-and-forget）:
+ *   - 写真は DB に base64 を持たず、Storage に PUT して path を past_events.photo_url へ
+ *   - Storage アップロード失敗時は photo_url = null で記録だけ保存
+ *   - クラウド保存の成否はローカル保存の CompleteResult に影響しない
+ *
+ * @returns SaveResult（ローカル保存の結果）と更新後の UserSettings
  */
 export function saveCompletionData(
   current: UserSettings,

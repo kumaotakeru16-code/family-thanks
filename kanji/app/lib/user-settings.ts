@@ -32,6 +32,7 @@ import {
   upsertFavoriteStoreCloud,
   deleteFavoriteStoreCloud,
   insertPastEventCloud,
+  getPastEventPhotoSignedUrl,
 } from './supabase-user-store'
 
 // ── 保存モード ─────────────────────────────────────────────────────────────────
@@ -59,8 +60,17 @@ export type FavoriteStore = {
 // 清算完了時に event-actions.ts の buildPastEventRecord で生成し、
 // saveCompletionData で pastEventRecords の先頭に追加する。
 //
-// CLOUD-MIGRATION: Supabase past_events テーブルへ移行予定
-//   photoDataUrl (base64) → Supabase Storage の URL に置き換える
+// 写真保存の二層構造:
+//   photoDataUrl : base64（ローカル表示用・localStorage フォールバック）
+//                  localStorage 容量超過時は saveUserSettings が自動除去する
+//   photoUrl     : Supabase Storage path（長期保存用）
+//                  クラウドからロードしたレコードはここに path が入る
+//                  表示時は getPhotoSignedUrl(photoUrl) で signed URL を生成する
+//
+// 両フィールドの使い分け:
+//   localStorage  → photoDataUrl を使って <img src> に直接渡せる
+//   Supabase 側   → photoUrl (Storage path) から signed URL を生成して表示する
+//   どちらもない   → hasPhoto: true でも写真は表示できない（容量超過 or 未同期）
 
 export type PastEventRecord = {
   id: string
@@ -73,8 +83,12 @@ export type PastEventRecord = {
   storeGenre?: string
   memo: string
   hasPhoto: boolean
-  photoDataUrl?: string   // base64 data URL（端末ローカル保存）
-                          // CLOUD-MIGRATION: Supabase Storage URL に置き換える
+  /** base64 JPEG（端末ローカル保存・一時的な表示用）。長期保存前提にしない。 */
+  photoDataUrl?: string
+  /** Supabase Storage の path（past-event-photos バケット内）。
+   *  表示時は getPhotoSignedUrl() で signed URL に変換する。
+   *  CLOUD-MIGRATION: Auth 導入後もパス規則以外は変わらない。 */
+  photoUrl?: string
   participants?: string[] // 参加者名一覧
   createdAt: string
 }
@@ -199,10 +213,28 @@ export async function removeFavoriteStoreCloud(storeId: string): Promise<void> {
 /**
  * 完了済みの会の記録をクラウドに保存する。
  * fire-and-forget で呼ぶ（void）。
- * photoDataUrl（base64）はクラウドに保存しない。
+ *
+ * 写真がある場合（record.photoDataUrl）は Storage にアップロードし、
+ * past_events.photo_url に Storage path を保存する。
+ * アップロード失敗時は photo_url = null で記録だけ保存する。
+ * base64（photoDataUrl）は DB に保存しない。
  */
 export async function savePastEventCloud(record: PastEventRecord): Promise<void> {
   await insertPastEventCloud(record)
+}
+
+/**
+ * Supabase Storage path から期限付き signed URL を生成する。
+ *
+ * 用途: 完了済み会の詳細・一覧画面で写真を表示するときに呼ぶ。
+ *   - private bucket のため photo_url (path) をそのまま <img src> に使えない
+ *   - page.tsx / components は Storage を直接触らず、この関数経由で使う
+ *
+ * @param storagePath PastEventRecord.photoUrl（Storage path）
+ * @returns signed URL（失敗時は null）
+ */
+export async function getPhotoSignedUrl(storagePath: string): Promise<string | null> {
+  return getPastEventPhotoSignedUrl(storagePath)
 }
 
 // ── ヘルパー ──────────────────────────────────────────────────────────────────
