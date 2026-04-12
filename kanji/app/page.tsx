@@ -610,7 +610,9 @@ export default function Page() {
 
   // ── スプラッシュ ─────────────────────────────────────────────────────────────
   const [showSplash, setShowSplash] = useState(true)
+  const [mounted, setMounted] = useState(false)
   useEffect(() => {
+    setMounted(true)
     const t = setTimeout(() => setShowSplash(false), 1800)
     return () => clearTimeout(t)
   }, [])
@@ -1878,7 +1880,7 @@ return (
             </section>
 
             {/* ── 完了済みの会 ─────────────────────────────────── */}
-            {userSettings.pastEventRecords.length > 0 && (
+            {mounted && userSettings.pastEventRecords.length > 0 && (
               <section className="mt-6">
                 <div className="mb-3 flex items-center gap-2">
                   <CheckCircle2 size={12} className="text-stone-300" strokeWidth={2.5} />
