@@ -42,6 +42,7 @@ export type PastEventRecord = {
   memo: string
   hasPhoto: boolean
   photoDataUrl?: string // base64 data URL（端末ローカル保存）
+  participants?: string[] // 参加者名一覧
   createdAt: string
 }
 

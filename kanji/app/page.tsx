@@ -613,6 +613,7 @@ export default function Page() {
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
     setMounted(true)
+    setUserSettings(loadUserSettings())
     const t = setTimeout(() => setShowSplash(false), 1800)
     return () => clearTimeout(t)
   }, [])
@@ -1945,7 +1946,7 @@ return (
               />
               {/* シート */}
               <motion.div
-                className="absolute bottom-0 left-0 right-0 max-h-[80vh] overflow-y-auto rounded-t-3xl bg-white px-5 pb-10 pt-6 shadow-2xl"
+                className="absolute bottom-0 left-0 right-0 max-h-[80vh] overflow-y-auto rounded-t-3xl bg-white px-5 pb-10 pt-6 shadow-2xl max-w-xl mx-auto"
                 initial={{ y: '100%' }}
                 animate={{ y: 0 }}
                 exit={{ y: '100%' }}
@@ -1992,8 +1993,7 @@ return (
                         <img
                           src={completedEventDetail.photoDataUrl}
                           alt="会の写真"
-                          className="w-full rounded-2xl object-cover ring-1 ring-stone-100"
-                          style={{ maxHeight: 240 }}
+                          className="w-full max-h-60 rounded-2xl object-contain ring-1 ring-stone-100"
                         />
                       </div>
                     ) : (
