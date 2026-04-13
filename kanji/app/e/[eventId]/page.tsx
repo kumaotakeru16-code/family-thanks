@@ -109,7 +109,7 @@ export default function EventParticipantPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const [activeTab, setActiveTab] = useState<ActiveTab>('answer')
+
   const [showResponseTable, setShowResponseTable] = useState(false)
 
 
