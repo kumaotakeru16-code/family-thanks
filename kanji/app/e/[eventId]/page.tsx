@@ -213,7 +213,7 @@ export default function EventParticipantPage() {
 
     // 再送信（savedResponseId あり）は UPDATE、初回は INSERT
     if (savedResponseId) {
-      const { error } = await supabase
+      const { error, count } = await supabase
         .from('responses')
         .update({
           participant_name: participantName.trim(),
@@ -222,22 +222,36 @@ export default function EventParticipantPage() {
         })
         .eq('id', savedResponseId)
 
-      if (error) {
-        setErrorMessage(`回答の更新エラー: ${error.message}`)
+      // UPDATE 成功（対象行が存在した）
+      if (!error && count !== 0) {
+        if (!isDebugMulti) {
+          saveResponseLocally(eventId, {
+            participantName: participantName.trim(),
+            answers: answers as Record<string, AvailabilityValue>,
+            prefGenre,
+            responseId: savedResponseId,
+          })
+        }
         setSubmitting(false)
+        setSubmitted(true)
         return
       }
 
-      // ローカル保存を更新
+      // UPDATE 失敗 or 対象行なし（responseId が無効 / 削除済み）
+      // → ローカルの古い responseId を破棄して INSERT にフォールバックする
+      setSavedResponseId(undefined)
+      setHasSavedResponse(false)
       if (!isDebugMulti) {
-        saveResponseLocally(eventId, {
-          participantName: participantName.trim(),
-          answers: answers as Record<string, AvailabilityValue>,
-          prefGenre,
-          responseId: savedResponseId,
-        })
+        try { localStorage.removeItem(responseStorageKey(eventId)) } catch { /* ignore */ }
       }
-    } else {
+      // error があった場合はログだけ残してフォールバックを続行
+      if (error) {
+        console.warn('[kanji] response UPDATE 失敗。INSERT にフォールバックします:', error.message)
+      }
+    }
+
+    // INSERT（初回 or UPDATE フォールバック）
+    {
       const { data, error } = await supabase
         .from('responses')
         .insert({
