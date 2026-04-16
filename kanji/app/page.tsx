@@ -82,6 +82,7 @@ type Step =
   | 'dateConfirmed'
   | 'organizerConditions'
   | 'storeSuggestion'
+  | 'storeOnlyResult'
   | 'manualStore'
   | 'finalConfirm'
   | 'settlement'
@@ -89,6 +90,8 @@ type Step =
   | 'shared'
   | 'pastStores'
   | 'storeDetail'
+
+type AppMode = 'full' | 'store_only'
 
 type EventType = '歓迎会' | '送別会' | '普通の飲み会' | '少人数ごはん' | '会食'
 type Availability = 'yes' | 'maybe' | 'no'
@@ -540,6 +543,7 @@ function generateWeekdays(from: Date, to: Date): DateOption[] {
 // --- Main Component ---
 export default function Page() {
   const [step, setStep] = useState<Step>('home')
+  const [appMode, setAppMode] = useState<AppMode>('full')
   const [eventType, setEventType] = useState<EventType>('歓迎会')
   const [eventName, setEventName] = useState('')
 
@@ -1247,7 +1251,19 @@ function startStoreSuggestion() {
  */
 function navigateHome() {
   resetFlowStateAfterCompletion()
+  setAppMode('full')
   setStep('home')
+}
+
+/**
+ * store_only フローを開始する（ホームの「お店の候補を見てみる」から呼ぶ）。
+ * 会の作成なしで条件入力 → 店提案 → お気に入り登録のみを行う。
+ */
+function startStoreOnlyFlow() {
+  setAppMode('store_only')
+  setOrgPrefs({ priceRange: '指定なし', genres: [], privateRoom: '', areas: [] })
+  orgPrefsInitRef.current = true // 参加者なしなので自動入力を抑制
+  setStep('organizerConditions')
 }
 
 /**
@@ -1433,7 +1449,7 @@ function restorePreviousStores() {
 
 // excludeIds: 再取得時に除外したい店のID一覧（「候補を入れ替える」用）
 async function fetchRecommendedStores(excludeIds: string[] = []) {
-  if (!heroDate) {
+  if (appMode === 'full' && !heroDate) {
     alert('先に日程を確定してください')
     return
   }
@@ -1774,6 +1790,8 @@ const backStep: Step | null = (() => {
   if (step === 'settings') return 'home'
   if (step === 'manualStore') return 'organizerConditions'
   if (step === 'finalConfirm') return isManualStore ? 'manualStore' : 'storeSuggestion'
+  if (step === 'storeOnlyResult') return 'storeSuggestion'
+  if (step === 'organizerConditions' && appMode === 'store_only') return 'home'
   return getPreviousStep(step)
 })()
 
@@ -1826,7 +1844,12 @@ return (
             {backStep ? (
               <button
                 type="button"
-                onClick={() => setStep(backStep)}
+                onClick={() => {
+                  if (backStep === 'home') {
+                    setAppMode('full')
+                  }
+                  setStep(backStep)
+                }}
                 className="-ml-2 flex h-8 w-8 items-center justify-center rounded-xl text-stone-400 transition hover:text-stone-700 active:scale-95"
                 aria-label="戻る"
               >
@@ -1936,6 +1959,26 @@ return (
                 ))}
               </motion.div>
             </motion.div>
+
+            {/* ── store_only CTA ────────────────────────────────── */}
+            <motion.button
+              type="button"
+              onClick={startStoreOnlyFlow}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.28, delay: 0.18, ease: 'easeOut' }}
+              whileTap={{ scale: 0.982 }}
+              className="group flex w-full items-center gap-4 rounded-2xl bg-white px-4 py-4 text-left shadow-sm ring-1 ring-stone-100/80 transition-shadow hover:shadow-md"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-900">
+                <UtensilsCrossed size={16} className="text-white" strokeWidth={2.2} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-black tracking-tight text-stone-900">お店の候補を見てみる</p>
+                <p className="mt-0.5 text-[11px] leading-4 text-stone-400">会なしでも、AIがお店を提案してお気に入り保存できます</p>
+              </div>
+              <ChevronRight size={14} className="shrink-0 text-stone-300 transition-transform group-hover:translate-x-0.5" />
+            </motion.button>
 
             {/* ── 進行中の会 ─────────────────────────────────────── */}
             <section>
@@ -3089,20 +3132,37 @@ return (
                   <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
                     <UtensilsCrossed size={13} className="text-white" strokeWidth={2.5} />
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 5</p>
+                  {appMode === 'store_only' ? (
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">お店探し</p>
+                  ) : (
+                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 5</p>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={enterManualStoreStep}
-                  className="rounded-full border border-stone-200 bg-white px-3.5 py-1 text-[11px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-95"
-                >
-                  お店を自分で決める
-                </button>
+                {appMode !== 'store_only' && (
+                  <button
+                    type="button"
+                    onClick={enterManualStoreStep}
+                    className="rounded-full border border-stone-200 bg-white px-3.5 py-1 text-[11px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-95"
+                  >
+                    お店を自分で決める
+                  </button>
+                )}
               </div>
-              <h2 className="text-[22px] font-black tracking-tight text-stone-900">お店の条件</h2>
-              <p className="mt-1 text-[13px] text-stone-400 leading-relaxed">
-                条件は4つだけ。あとはAIが選びます。
-              </p>
+              {appMode === 'store_only' ? (
+                <>
+                  <h2 className="text-[22px] font-black tracking-tight text-stone-900">どんなお店を探す？</h2>
+                  <p className="mt-1 text-[13px] text-stone-400 leading-relaxed">
+                    条件を選ぶと、AIが候補を提案します。
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-[22px] font-black tracking-tight text-stone-900">お店の条件</h2>
+                  <p className="mt-1 text-[13px] text-stone-400 leading-relaxed">
+                    条件は4つだけ。あとはAIが選びます。
+                  </p>
+                </>
+              )}
             </div>
 
             {/* 参加者希望タグ（補助情報） */}
@@ -3219,7 +3279,7 @@ return (
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑨ 店提案（決断UI）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-{step === 'storeSuggestion' && heroDate && (
+{step === 'storeSuggestion' && (appMode === 'store_only' || heroDate) && (
   <div className="space-y-5">
     {/* 「候補を入れ替える」再取得中も同じローディングUIを使う */}
     {isLoadingStores && <StoreLoadingOverlay />}
@@ -3235,18 +3295,26 @@ return (
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
             <UtensilsCrossed size={13} className="text-white" strokeWidth={2.5} />
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 6</p>
+          {appMode === 'store_only' ? (
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">お店候補</p>
+          ) : (
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 6</p>
+          )}
         </div>
-        <button
-          type="button"
-          onClick={enterManualStoreStep}
-          className="rounded-full border border-stone-200 bg-white px-3.5 py-1 text-[11px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-95"
-        >
-          お店を自分で決める
-        </button>
+        {appMode !== 'store_only' && (
+          <button
+            type="button"
+            onClick={enterManualStoreStep}
+            className="rounded-full border border-stone-200 bg-white px-3.5 py-1 text-[11px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-95"
+          >
+            お店を自分で決める
+          </button>
+        )}
       </div>
       <h2 className="text-[22px] font-black tracking-tight text-stone-900">お店を選ぶ</h2>
-      <p className="mt-1 text-[13px] leading-relaxed text-stone-400">候補を比べて、最適なお店を決めましょう。</p>
+      <p className="mt-1 text-[13px] leading-relaxed text-stone-400">
+        {appMode === 'store_only' ? '気になるお店をお気に入りに追加できます。' : '候補を比べて、最適なお店を決めましょう。'}
+      </p>
     </motion.div>
 
     {storePool.length === 0 ? (
@@ -3474,14 +3542,158 @@ return (
           animate={{ opacity: 1 }}
           transition={{ delay: 0.25, duration: 0.3 }}
         >
-          <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
-            この候補で進む
-          </PrimaryBtn>
+          {appMode === 'store_only' ? (
+            <PrimaryBtn size="large" onClick={() => setStep('storeOnlyResult')}>
+              このお店を詳しく見る
+            </PrimaryBtn>
+          ) : (
+            <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
+              この候補で進む
+            </PrimaryBtn>
+          )}
         </motion.div>
       </>
     )}
   </div>
 )}
+
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            ⑨-b store_only 結果
+            store_only モードで selectedStore を決めた後の保存 / 詳細確認画面
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        {step === 'storeOnlyResult' && primaryStore && (
+          <motion.div
+            className="space-y-5 pb-28"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            {/* ヘッダー */}
+            <div className="px-0.5">
+              <div className="mb-2 flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
+                  <UtensilsCrossed size={13} className="text-white" strokeWidth={2.5} />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">気になるお店</p>
+              </div>
+              <h2 className="text-[22px] font-black tracking-tight text-stone-900">このお店はいかがですか？</h2>
+              <p className="mt-1 text-[13px] text-stone-400 leading-relaxed">
+                お気に入りに保存して、会の企画に使えます。
+              </p>
+            </div>
+
+            {/* 店舗カード */}
+            <div className="overflow-hidden rounded-3xl bg-stone-900 shadow-lg shadow-stone-900/20">
+              {primaryStore.image && (
+                <div className="relative h-52 overflow-hidden sm:h-60">
+                  <img
+                    src={primaryStore.image}
+                    alt={primaryStore.name}
+                    className="h-full w-full object-cover object-center"
+                    style={{ filter: 'brightness(0.55)' }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-stone-900/80 via-stone-900/10 to-transparent" />
+                  {primaryStore.googleRating && (
+                    <div className="absolute bottom-3 right-4 flex items-center gap-1 rounded-full bg-black/40 px-2.5 py-1 backdrop-blur-sm">
+                      <Star size={10} className="fill-amber-400 text-amber-400" />
+                      <span className="text-[11px] font-bold text-white">
+                        {primaryStore.googleRating.toFixed(1)}
+                        {primaryStore.googleRatingCount
+                          ? <span className="ml-0.5 font-normal text-white/60">（{primaryStore.googleRatingCount.toLocaleString()}件）</span>
+                          : null}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="px-5 pt-5 pb-4">
+                <h3 className="text-xl font-black tracking-tight text-white leading-snug">{primaryStore.name}</h3>
+                {primaryStore.access && (
+                  <div className="mt-2 flex items-start gap-1.5">
+                    <Train size={11} className="mt-0.5 shrink-0 text-white/35" />
+                    <p className="text-xs leading-5 text-white/45">{primaryStore.access}</p>
+                  </div>
+                )}
+                {primaryStore.area && (
+                  <div className="mt-1 flex items-start gap-1.5">
+                    <MapPin size={11} className="mt-0.5 shrink-0 text-white/35" />
+                    <p className="text-xs leading-5 text-white/45">{primaryStore.area}</p>
+                  </div>
+                )}
+              </div>
+              {primaryStore.tags && primaryStore.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 px-5 pb-4">
+                  {primaryStore.tags.slice(0, 4).map(tag => tag ? (
+                    <span key={tag} className="rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-white/55">
+                      {tag}
+                    </span>
+                  ) : null)}
+                </div>
+              )}
+            </div>
+
+            {/* CTA エリア */}
+            <div className="sticky bottom-0 -mx-4 space-y-2.5 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+              {/* プライマリ: お気に入り登録 */}
+              {(() => {
+                const storeKey = primaryStore.id
+                const isFav = userSettings.favoriteStores.some(f => f.id === storeKey)
+                return (
+                  <PrimaryBtn
+                    size="large"
+                    onClick={() => {
+                      const { next } = toggleFavoriteStore(
+                        userSettings,
+                        {
+                          id: storeKey,
+                          name: primaryStore.name,
+                          area: primaryStore.area ?? '',
+                          genre: primaryStore.genre ?? '',
+                          link: primaryStore.link,
+                          imageUrl: primaryStore.image,
+                          station: primaryStore.access,
+                          priceRange: orgPrefs.priceRange !== '指定なし' ? orgPrefs.priceRange : undefined,
+                        },
+                        isFav,
+                      )
+                      setUserSettings(next)
+                    }}
+                  >
+                    <Heart
+                      size={15}
+                      strokeWidth={isFav ? 0 : 2}
+                      className={isFav ? 'fill-current' : ''}
+                    />
+                    {isFav ? 'お気に入りから外す' : 'このお店をお気に入りに登録する'}
+                  </PrimaryBtn>
+                )
+              })()}
+
+              {/* セカンダリ: Hot Pepper リンク */}
+              {primaryStore.link && (
+                <StoreExternalLink
+                  href={primaryStore.link}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-bold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98]"
+                >
+                  <ExternalLink size={13} strokeWidth={2.5} />
+                  お店の詳細を確認する
+                </StoreExternalLink>
+              )}
+
+              {/* ターシャリ: 会の企画へ */}
+              <button
+                type="button"
+                onClick={() => {
+                  setAppMode('full')
+                  setStep('create')
+                }}
+                className="w-full py-2 text-center text-[12px] text-stone-400 transition hover:text-stone-600"
+              >
+                この店を軸に会を企画する →
+              </button>
+            </div>
+          </motion.div>
+        )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑨-c 手動店舗入力
