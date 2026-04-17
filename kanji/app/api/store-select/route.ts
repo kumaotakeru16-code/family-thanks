@@ -24,7 +24,6 @@ type SelectionConditions = {
   budgetLabel?: string
   priceRange?: string
   genre?: string
-  subGenres?: string[]
   peopleCount?: number
   eventType?: string
   broadAreaMode?: boolean
@@ -364,11 +363,6 @@ function scoreGenreFit(store: StoreInput, cond: SelectionConditions): number {
     if (/中華|四川|上海|広東|餃子|小籠包|火鍋/.test(text)) score = 12
   }
 
-  // 詳細ジャンルの軽いブースト（+4: エリア・価格帯より低い優先度）
-  if (cond.subGenres && cond.subGenres.length > 0 && cond.subGenres.some((sub) => text.includes(sub))) {
-    score += 4
-  }
-
   return score
 }
 
@@ -410,20 +404,12 @@ function formatReasonFromStore(store: StoreInput, cond?: SelectionConditions): s
     parts.push(`${cond.genre}系統に近い候補`)
   }
 
-  // 詳細ジャンルが一致する場合は理由に反映（2文目まで）
-  if (parts.length < 2 && cond?.subGenres && cond.subGenres.length > 0) {
-    const text = `${store.genre ?? ''} ${(store.tags ?? []).join(' ')} ${store.name ?? ''}`
-    const matchedSub = cond.subGenres.find((sub) => text.includes(sub))
-    if (matchedSub) parts.push(`${matchedSub}系`)
-  }
-
   return parts.slice(0, 2).join('・') || '条件に近い候補です'
 }
 
 function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
   const budgetStr = cond.priceRange || cond.budgetLabel || cond.budgetCode || '指定なし'
   const genreStr = cond.genre || '指定なし'
-  const subGenresStr = (cond.subGenres && cond.subGenres.length > 0) ? cond.subGenres.join('・') : ''
   const peopleStr = cond.peopleCount ? `${cond.peopleCount}人` : '不明'
   const isLargeGroup = (cond.peopleCount ?? 0) >= 10
   const eventStr = cond.eventType ?? '飲み会'
@@ -464,7 +450,7 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
 - 広域モード: ${cond.broadAreaMode ? 'ON' : 'OFF'}
 - 許容別名: ${aliases.join(' / ') || stationCtx.canonical}
 - 価格帯: ${budgetStr}
-- 希望系統: ${genreStr}${subGenresStr ? `\n- 詳細ジャンル（ソフト希望）: ${subGenresStr}` : ''}
+- 希望系統: ${genreStr}
 
 ## 選定優先順位
 1. 開催駅/エリア一致
@@ -477,7 +463,7 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
 - 希望系統は「${genreStr}」
 - 和風・居酒屋: 居酒屋、和食、海鮮、魚、寿司、刺身、炉端、おでん、鍋、鶏料理、串焼き、焼き鳥寄りの店を優先
 - 洋食: イタリアン、フレンチ、ビストロ、バル、スペイン、パエリア、ピザ、パスタ寄りの店を優先
-- 中華: 中華、四川、上海、広東、餃子、小籠包、火鍋寄りの店を優先${subGenresStr ? `\n- 詳細ジャンル「${subGenresStr}」に近い店はやや優先してよいが、エリア・価格帯よりは低い優先度で扱うこと` : ''}
+- 中華: 中華、四川、上海、広東、餃子、小籠包、火鍋寄りの店を優先
 
 3. 価格帯（重要）
 - budget_average を最優先で見て、指定価格帯（${budgetStr}）に近い店を優先
@@ -494,7 +480,7 @@ ${isLargeGroup ? '- 大人数なので、個室やまとまりやすさに言及
 - 開催駅/エリアとの近さ
 - budget_average ベースの価格説明
 - 系統の近さ
-- 個室${subGenresStr ? `\n- 詳細ジャンル（${subGenresStr}）が当てはまる場合は一言触れてよい（例: 「焼き鳥が充実」など）` : ''}
+- 個室
 
 ## fallbackNotes ルール
 - 原則は []
@@ -518,9 +504,14 @@ ${storeList}
 function buildFallbackSelection(stores: StoreInput[], cond?: SelectionConditions): GeminiSelection {
   const safeCond = cond ?? { targetStation: '' }
 
-  const ranked = [...stores]
-    .sort((a, b) => scoreStoreForFallback(b, safeCond) - scoreStoreForFallback(a, safeCond))
+  // Step 1: 各店のスコアを算出
+  const scored = stores.map((s) => ({ store: s, score: scoreStoreForFallback(s, safeCond) }))
+
+  // Step 2: ソート
+  const ranked = scored
+    .sort((a, b) => b.score - a.score)
     .slice(0, GEMINI_RANK_LIMIT)
+    .map(({ store }) => store)
 
   const reasons = ranked.map((s) => ({
     storeId: s.id,

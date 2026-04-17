@@ -126,7 +126,7 @@ export function saveFavoriteStore(
  */
 export function toggleFavoriteStore(
   current: UserSettings,
-  store: Pick<FavoriteStore, 'id' | 'name' | 'area' | 'genre' | 'link'> & Partial<Pick<FavoriteStore, 'imageUrl' | 'station' | 'priceRange' | 'subGenres'>>,
+  store: Pick<FavoriteStore, 'id' | 'name' | 'area' | 'genre' | 'link'> & Partial<Pick<FavoriteStore, 'imageUrl' | 'station' | 'priceRange'>>,
   isFavorite: boolean,
 ): { next: UserSettings } {
   const storeKey = store.id

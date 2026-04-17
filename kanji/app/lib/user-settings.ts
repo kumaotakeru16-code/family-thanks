@@ -58,7 +58,6 @@ export type FavoriteStore = {
   imageUrl?: string    // Hot Pepper 店舗画像 URL
   station?: string     // 最寄り駅（access 文字列をそのまま）
   priceRange?: string  // 価格帯ラベル（例: "4,001〜5,000円"）
-  subGenres?: string[] // 詳細ジャンル（Phase2 追加）
 }
 
 // ── 完了済みの会の記録 ─────────────────────────────────────────────────────────
