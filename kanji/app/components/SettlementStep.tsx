@@ -653,8 +653,7 @@ export function SettlementStep({
           </div>
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Settlement</p>
         </div>
-        <h2 className="text-[22px] font-black tracking-tight text-stone-900">清算をまとめる</h2>
-        <p className="mt-1 text-[13px] leading-relaxed text-stone-400">会計を入れて、幹事の仕事を終わらせましょう。</p>
+        <h2 className="text-[22px] font-black tracking-tight text-stone-900">会計計算</h2>
       </div>
 
       {/* 幹事設定 */}

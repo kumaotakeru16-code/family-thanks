@@ -174,8 +174,7 @@ export function SettlementSummaryTable({
           <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">
             Confirm &amp; Share
           </p>
-          <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">清算の確認と共有</h2>
-          <p className="mt-1 text-sm text-stone-400">内容を確認して、共有文を送りましょう。</p>
+          <h2 className="mt-1 text-2xl font-black tracking-tight text-stone-900">会計共有</h2>
         </div>
 
         {/* 明細テーブル */}

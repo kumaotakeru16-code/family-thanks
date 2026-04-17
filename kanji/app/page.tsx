@@ -30,6 +30,7 @@ import {
   Settings,
   ImagePlus,
   Heart,
+  Plus,
 } from 'lucide-react'
 
 import { createEvent, loadEventData } from '@/lib/kanji-db'
@@ -145,7 +146,7 @@ const EVENT_TYPES: EventType[] = ['歓迎会', '送別会', '普通の飲み会'
 const AREA_OPTIONS = ['渋谷', '新宿', '池袋', '東京', '品川', '横浜']
 
 // Hot Pepper ジャンル準拠のラベル（UI表示用）
-const HP_GENRE_OPTIONS = ['和食', '洋食', '中華', 'その他'] as const
+const HP_GENRE_OPTIONS = ['和食', '洋食', '中華'] as const
 
 // UIラベル → Hot Pepper 予算コードの変換マップ（Gemini 選定ルールに渡すため）
 const BUDGET_CODE_MAP: Record<string, string> = {
@@ -327,7 +328,7 @@ function ratingStyle(r: '◎' | '○' | '△') {
   return 'bg-amber-50 text-amber-600 ring-amber-200'
 }
 
-function generateShareText(eventType: string, store: StoreCandidate, conditions: string[]): string {
+function generateShareText(eventType: string, store: StoreCandidate, conditions: string[], name?: string): string {
   const hasPrivateRoom = conditions.includes('個室あり')
   if (eventType === '会食') {
     return `今回の会場が決まりました。\n${store.name}\n${store.link}\n\nご都合の良い日にお越しください。よろしくお願いします。`
@@ -338,7 +339,8 @@ function generateShareText(eventType: string, store: StoreCandidate, conditions:
   const closer = hasPrivateRoom
     ? 'アクセスしやすく、個室もあるのでゆっくり話せます！'
     : '雰囲気も合いそうなお店にしました！'
-  return `今回ここにしました👇\n${store.name}\n${store.link}\n\nみんなの希望を見て選びました。${closer}`
+  const header = name ? `${name}はここにしました👇` : '今回ここにしました👇'
+  return `${header}\n${store.name}\n${store.link}\n\nみんなの希望を見て選びました。${closer}`
 }
 
 function uniqueCount(values: string[]) {
@@ -602,6 +604,7 @@ export default function Page() {
   const [placesFallback, setPlacesFallback] = useState(false)
   const [eventDetail, setEventDetail] = useState<any>(null)
   const [copied, setCopied] = useState(false)
+  const [showStartSheet, setShowStartSheet] = useState(false)
 
   // ── 清算 state ──────────────────────────────────────────────────────────────
   const [settlementDraft, setSettlementDraft] = useState<SettlementDraft | null>(null)
@@ -1019,7 +1022,7 @@ const alternativeStores =
 
   const shareText =
   selectedStore
-    ? generateShareText(eventType, selectedStore, organizerConditions)
+    ? generateShareText(eventType, selectedStore, organizerConditions, eventName || undefined)
     : ''
 
 const availableCount = recommendedDate?.availableCount ?? 0
@@ -1941,63 +1944,19 @@ return (
 
               {/* キャッチコピー */}
               <h1 className="text-[28px] font-black leading-[1.2] tracking-tight text-stone-900">
-                幹事の仕事を<br />最初から最後まで。
+                幹事、これ1つで終わる。
               </h1>
               <p className="mt-2.5 text-sm leading-6 text-stone-500">
                 日程調整・お店決め・会計共有まで、<br className="sm:hidden" />
                 ひとつのアプリで完結します。
               </p>
-
-              {/* 3機能チップ */}
-              <motion.div
-                className="mt-5 flex gap-2.5"
-                initial="hidden"
-                animate="visible"
-                variants={{ visible: { transition: { staggerChildren: 0.07, delayChildren: 0.15 } } }}
-              >
-                {[
-                  { icon: CalendarDays, label: '日程調整' },
-                  { icon: UtensilsCrossed, label: 'お店決め' },
-                  { icon: Receipt, label: '清算共有' },
-                ].map(({ icon: Icon, label }) => (
-                  <motion.span
-                    key={label}
-                    variants={{ hidden: { opacity: 0, y: 6 }, visible: { opacity: 1, y: 0 } }}
-                    transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-stone-100 px-3 py-1.5 text-[11px] font-bold text-stone-500 ring-1 ring-stone-200/60"
-                  >
-                    <Icon size={11} strokeWidth={2} />
-                    {label}
-                  </motion.span>
-                ))}
-              </motion.div>
             </motion.div>
-
-            {/* ── store_only CTA ────────────────────────────────── */}
-            <motion.button
-              type="button"
-              onClick={startStoreOnlyFlow}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.28, delay: 0.18, ease: 'easeOut' }}
-              whileTap={{ scale: 0.982 }}
-              className="group flex w-full items-center gap-4 rounded-2xl bg-white px-4 py-4 text-left shadow-sm ring-1 ring-stone-100/80 transition-shadow hover:shadow-md"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-stone-900">
-                <UtensilsCrossed size={16} className="text-white" strokeWidth={2.2} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-black tracking-tight text-stone-900">お店の候補を見てみる</p>
-                <p className="mt-0.5 text-[11px] leading-4 text-stone-400">会なしでも、AIがお店を提案してお気に入り保存できます</p>
-              </div>
-              <ChevronRight size={14} className="shrink-0 text-stone-300 transition-transform group-hover:translate-x-0.5" />
-            </motion.button>
 
             {/* ── 進行中の会 ─────────────────────────────────────── */}
             <section>
               <div className="mb-3 flex items-center gap-2">
                 <CircleDashed size={12} className="text-stone-400" strokeWidth={2.5} />
-                <p className="text-[11px] font-black tracking-[0.2em] text-stone-400 uppercase">進行中の会</p>
+                <p className="text-[11px] font-black tracking-[0.2em] text-stone-400 uppercase">進行中</p>
               </div>
               {savedEvents.length > 0 ? (
                 <div className="space-y-2.5">
@@ -2007,8 +1966,8 @@ return (
                       s === 'store_confirmed'
                         ? { label: 'お店決定済み', cls: 'bg-emerald-100 text-emerald-700 ring-emerald-300', Icon: CheckCircle2 }
                         : s === 'store_pending'
-                        ? { label: 'お店未確定', cls: 'bg-stone-100 text-stone-500 ring-stone-300', Icon: CircleDashed }
-                        : { label: '回答収集中', cls: 'bg-orange-50 text-orange-700 ring-orange-200', Icon: Clock }
+                        ? { label: '次：お店を決める', cls: 'bg-stone-100 text-stone-500 ring-stone-300', Icon: CircleDashed }
+                        : { label: '次：日程を決める', cls: 'bg-orange-50 text-orange-700 ring-orange-200', Icon: Clock }
                     const { Icon: StatusIcon } = statusCfg
                     return (
                       <motion.button
@@ -2051,9 +2010,6 @@ return (
                     <CalendarPlus size={20} className="text-stone-400" strokeWidth={1.8} />
                   </div>
                   <p className="text-sm font-bold text-stone-500">まだ進行中の会はありません</p>
-                  <p className="mt-1.5 text-xs leading-5 text-stone-400">
-                    右下のボタンから、新しい会を作れます
-                  </p>
                 </motion.div>
               )}
             </section>
@@ -2067,7 +2023,7 @@ return (
                     CLOUD-MIGRATION: Supabase past_events テーブルから SELECT に差し替え予定 */}
                 <div className="mb-3 flex items-center gap-2">
                   <CheckCircle2 size={12} className="text-stone-300" strokeWidth={2.5} />
-                  <p className="text-[11px] font-black tracking-[0.2em] text-stone-300 uppercase">完了済みの会</p>
+                  <p className="text-[11px] font-black tracking-[0.2em] text-stone-300 uppercase">完了済み</p>
                 </div>
                 {userSettings.pastEventRecords.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-stone-200/70 px-6 py-8 text-center">
@@ -2352,8 +2308,7 @@ return (
               </div>
               <p className="text-[10px] font-black tracking-[0.22em] text-stone-400 uppercase">Step 1</p>
             </div>
-            <h2 className="text-[22px] font-black tracking-tight text-stone-900">会を作る</h2>
-            <p className="mt-1 text-[13px] leading-relaxed text-stone-400">イベント名と候補日を設定してください。</p>
+            <h2 className="text-[22px] font-black tracking-tight text-stone-900">候補日を選ぶ</h2>
           </div>
           <Card>
 
@@ -2369,8 +2324,6 @@ return (
 
             {/* 候補日選択 */}
             <div className="mt-6 border-t border-stone-100 pt-5">
-              <FieldLabel>候補日を選ぶ</FieldLabel>
-
               <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
                 <p className="text-xs font-bold text-stone-600">開始時間</p>
                 <div className="mt-3 grid grid-cols-2 gap-3">
@@ -2396,8 +2349,7 @@ return (
               </div>
 
               <div className="mt-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-stone-500">カレンダーから候補日を選ぶ</p>
+                <div className="flex items-center justify-end">
                   <button type="button" onClick={() => setSelectedDateIds([])}
                     className="text-xs font-bold text-stone-500 underline underline-offset-2">
                     すべて外す
@@ -2504,8 +2456,7 @@ return (
       </div>
       <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 2</p>
     </div>
-    <h2 className="text-[22px] font-black tracking-tight text-stone-900">参加者に送る</h2>
-    <p className="mt-1 text-[13px] leading-relaxed text-stone-400">リンクを送って回答を集めましょう。</p>
+    <h2 className="text-[22px] font-black tracking-tight text-stone-900">日程調整を送る</h2>
   </div>
   <Card>
 
@@ -2607,7 +2558,6 @@ return (
         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 3</p>
       </div>
       <h2 className="text-[22px] font-black tracking-tight text-stone-900">日程を決める</h2>
-      <p className="mt-1 text-[13px] leading-relaxed text-stone-400">回答状況を確認して、最適な日程を決めましょう。</p>
     </div>
 
     {totalCount === 0 || !heroDate ? (
@@ -2852,7 +2802,7 @@ return (
           >
             <div className="flex items-center gap-1.5">
               <MessageSquareQuote size={11} className="text-stone-400" strokeWidth={2.5} />
-              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">未回答者へのリマインド</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">リマインド</p>
             </div>
             {showReminderPanel
               ? <ChevronLeft size={14} className="rotate-90 text-stone-400" />
@@ -2943,7 +2893,6 @@ return (
         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 4</p>
       </div>
       <h2 className="text-[22px] font-black tracking-tight text-stone-900">日程確定</h2>
-      <p className="mt-1 text-[13px] leading-relaxed text-stone-400">参加者に日程を知らせましょう。</p>
     </div>
 
     {/* 確定日程 ヒーロー */}
@@ -3157,31 +3106,8 @@ return (
                     <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 5</p>
                   )}
                 </div>
-                {appMode !== 'store_only' && (
-                  <button
-                    type="button"
-                    onClick={enterManualStoreStep}
-                    className="rounded-full border border-stone-200 bg-white px-3.5 py-1 text-[11px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-95"
-                  >
-                    お店を自分で決める
-                  </button>
-                )}
               </div>
-              {appMode === 'store_only' ? (
-                <>
-                  <h2 className="text-[22px] font-black tracking-tight text-stone-900">どんなお店を探す？</h2>
-                  <p className="mt-1 text-[13px] text-stone-400 leading-relaxed">
-                    条件を選ぶと、AIが候補を提案します。
-                  </p>
-                </>
-              ) : (
-                <>
-                  <h2 className="text-[22px] font-black tracking-tight text-stone-900">お店の条件</h2>
-                  <p className="mt-1 text-[13px] text-stone-400 leading-relaxed">
-                    条件は4つだけ。あとはAIが選びます。
-                  </p>
-                </>
-              )}
+              <h2 className="text-[22px] font-black tracking-tight text-stone-900">お店の条件</h2>
             </div>
 
             {/* store_only から引き継がれた軸候補 — 条件選びの前提として表示 */}
@@ -3338,10 +3264,19 @@ return (
             </div>
 
             {/* CTA — sticky bottom */}
-            <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+            <div className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
               <PrimaryBtn size="large" onClick={startStoreSuggestion}>
                 {isLoadingStores ? '候補を探しています…' : 'この条件でお店を提案してもらう'}
               </PrimaryBtn>
+              {appMode !== 'store_only' && (
+                <button
+                  type="button"
+                  onClick={enterManualStoreStep}
+                  className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-[13px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-[0.98]"
+                >
+                  自分でお店を探す
+                </button>
+              )}
             </div>
           </motion.div>
         )}
@@ -3373,26 +3308,10 @@ return (
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 6</p>
           )}
         </div>
-        {appMode !== 'store_only' && !(skipStoreCondition && prefilledStore) && (
-          <button
-            type="button"
-            onClick={enterManualStoreStep}
-            className="rounded-full border border-stone-200 bg-white px-3.5 py-1 text-[11px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-95"
-          >
-            お店を自分で決める
-          </button>
-        )}
       </div>
       <h2 className="text-[22px] font-black tracking-tight text-stone-900">
         {(skipStoreCondition && prefilledStore) ? 'この店で始めますか？' : 'お店を選ぶ'}
       </h2>
-      <p className="mt-1 text-[13px] leading-relaxed text-stone-400">
-        {appMode === 'store_only'
-          ? '気になるお店をお気に入りに追加できます。'
-          : (skipStoreCondition && prefilledStore)
-          ? '以前探していたお店を引き継ぎました。このまま進めるか、他の候補を探すこともできます。'
-          : '候補を比べて、最適なお店を決めましょう。'}
-      </p>
     </motion.div>
 
     {(skipStoreCondition && prefilledStore) ? (
@@ -3762,9 +3681,18 @@ return (
               </button>
             </>
           ) : (
-            <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
-              この候補で進む
-            </PrimaryBtn>
+            <>
+              <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
+                この候補で進む
+              </PrimaryBtn>
+              <button
+                type="button"
+                onClick={enterManualStoreStep}
+                className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-[13px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-[0.98]"
+              >
+                自分でお店を探す
+              </button>
+            </>
           )}
         </motion.div>
       </>
@@ -3806,9 +3734,6 @@ return (
                 </button>
               </div>
               <h2 className="text-[22px] font-black tracking-tight text-stone-900">お店を登録する</h2>
-              <p className="mt-1 text-[13px] leading-relaxed text-stone-400">
-                店名で候補を検索して選ぶか、直接入力して進めることもできます。
-              </p>
             </div>
 
             {/* お気に入りピッカー */}
@@ -4027,8 +3952,7 @@ return (
         </div>
         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 7</p>
       </div>
-      <h2 className="text-[22px] font-black tracking-tight text-stone-900">確定情報の共有</h2>
-      <p className="mt-1 text-[13px] leading-relaxed text-stone-400">決まった内容をみんなに伝えましょう。</p>
+      <h2 className="text-[22px] font-black tracking-tight text-stone-900">共有</h2>
     </div>
 
     {(() => {
@@ -4398,7 +4322,6 @@ ${finalStore?.link ?? ''}`
                 
               </div>
               <h2 className="text-[22px] font-black tracking-tight text-stone-900">みんなに伝えよう</h2>
-              <p className="mt-1 text-[13px] leading-relaxed text-stone-400">共有文をそのまま送れます。</p>
             </div>
 
             <div className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-stone-100">
@@ -4564,23 +4487,75 @@ ${finalStore?.link ?? ''}`
 
       </div>
 
-      {/* FAB — 新規作成ボタン（ホームのみ表示） */}
+      {/* FAB — 幹事を始める（ホームのみ表示） */}
       <AnimatePresence>
         {step === 'home' && (
           <motion.button
             type="button"
-            onClick={() => { setEventName(''); setStep('create') }}
-            aria-label="新しい会を作る"
-            initial={{ opacity: 0, scale: 0.7, y: 20 }}
+            onClick={() => setShowStartSheet(true)}
+            aria-label="幹事を始める"
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.7, y: 20 }}
+            exit={{ opacity: 0, scale: 0.8, y: 20 }}
             transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-            whileHover={{ scale: 1.07 }}
-            whileTap={{ scale: 0.93 }}
-            className="fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-stone-900 text-white shadow-xl"
+            whileHover={{ scale: 1.04 }}
+            whileTap={{ scale: 0.95 }}
+            className="fixed bottom-6 right-5 z-50 flex items-center gap-2 rounded-full bg-stone-900 px-5 py-4 text-white shadow-xl"
           >
-            <CalendarPlus size={22} strokeWidth={2.2} />
+            <Plus size={18} strokeWidth={2.5} />
+            <span className="text-[14px] font-black tracking-tight">幹事を始める</span>
           </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* ボトムシート — 開始方法の選択 */}
+      <AnimatePresence>
+        {showStartSheet && (
+          <>
+            {/* 背景オーバーレイ */}
+            <motion.div
+              className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setShowStartSheet(false)}
+            />
+            {/* シート本体 */}
+            <motion.div
+              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl bg-white px-5 pb-10 pt-4 shadow-2xl"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 420, damping: 40 }}
+            >
+              {/* ハンドル */}
+              <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-stone-200" />
+              <p className="mb-5 text-center text-[13px] font-bold tracking-wide text-stone-400">どこから始めますか</p>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setShowStartSheet(false); setEventName(''); setStep('create') }}
+                  className="flex flex-col items-center gap-3 rounded-2xl bg-stone-50 px-4 py-7 ring-1 ring-stone-100 transition active:scale-95 hover:bg-stone-100"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-900">
+                    <CalendarDays size={22} className="text-white" strokeWidth={2} />
+                  </div>
+                  <span className="text-[15px] font-black tracking-tight text-stone-900">日程</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowStartSheet(false); startStoreOnlyFlow() }}
+                  className="flex flex-col items-center gap-3 rounded-2xl bg-stone-50 px-4 py-7 ring-1 ring-stone-100 transition active:scale-95 hover:bg-stone-100"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-900">
+                    <UtensilsCrossed size={22} className="text-white" strokeWidth={2} />
+                  </div>
+                  <span className="text-[15px] font-black tracking-tight text-stone-900">お店</span>
+                </button>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </main>
