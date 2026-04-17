@@ -54,10 +54,11 @@ export type FavoriteStore = {
   genre: string
   link: string
   savedAt: string     // ISO 8601
-  // store_only モードで保存される追加情報（任意）
-  imageUrl?: string   // Hot Pepper 店舗画像 URL
-  station?: string    // 最寄り駅（access 文字列をそのまま）
-  priceRange?: string // 価格帯ラベル（例: "4,001〜5,000円"）
+  // store_only / Phase2 ジャンル拡張で保存される追加情報（任意）
+  imageUrl?: string    // Hot Pepper 店舗画像 URL
+  station?: string     // 最寄り駅（access 文字列をそのまま）
+  priceRange?: string  // 価格帯ラベル（例: "4,001〜5,000円"）
+  subGenres?: string[] // 詳細ジャンル（Phase2 追加）
 }
 
 // ── 完了済みの会の記録 ─────────────────────────────────────────────────────────

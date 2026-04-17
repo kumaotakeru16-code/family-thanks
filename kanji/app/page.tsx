@@ -105,6 +105,8 @@ type Participant = {
 type OrganizerPrefs = {
   priceRange: string
   genres: string[]
+  /** 主ジャンル選択後に表示される詳細ジャンル（任意・複数選択可） */
+  subGenres: string[]
   privateRoom: string
   areas: string[]
 }
@@ -145,7 +147,15 @@ const EVENT_TYPES: EventType[] = ['歓迎会', '送別会', '普通の飲み会'
 const AREA_OPTIONS = ['渋谷', '新宿', '池袋', '東京', '品川', '横浜']
 
 // Hot Pepper ジャンル準拠のラベル（UI表示用）
-const HP_GENRE_OPTIONS = ['和食', '洋食', '中華'] as const
+const HP_GENRE_OPTIONS = ['和食', '洋食', '中華', 'その他'] as const
+
+/** 詳細ジャンル — 主ジャンル選択後に展開表示。検索条件には使わない（Phase3で対応）。 */
+const SUB_GENRE_MAP: Record<string, string[]> = {
+  '和食':   ['焼き鳥', '寿司', '鍋', 'お好み焼き', '串揚げ', '沖縄料理', '焼肉'],
+  '洋食':   ['ピザ', 'パスタ', 'ハンバーガー', 'ビストロ', 'バル'],
+  '中華':   ['餃子', '四川', '点心', '火鍋'],
+  'その他': ['韓国料理', 'タイ料理'],
+}
 
 // UIラベル → Hot Pepper 予算コードの変換マップ（Gemini 選定ルールに渡すため）
 const BUDGET_CODE_MAP: Record<string, string> = {
@@ -571,6 +581,7 @@ export default function Page() {
   const [orgPrefs, setOrgPrefs] = useState<OrganizerPrefs>({
     priceRange: '指定なし',
     genres: [],
+    subGenres: [],
     privateRoom: '',
     areas: [],
   })
@@ -1266,7 +1277,7 @@ function navigateHome() {
  */
 function startStoreOnlyFlow() {
   setAppMode('store_only')
-  setOrgPrefs({ priceRange: '指定なし', genres: [], privateRoom: '', areas: [] })
+  setOrgPrefs({ priceRange: '指定なし', genres: [], subGenres: [], privateRoom: '', areas: [] })
   orgPrefsInitRef.current = true // 参加者なしなので自動入力を抑制
   setStep('organizerConditions')
 }
@@ -1547,6 +1558,7 @@ async function fetchRecommendedStores(excludeIds: string[] = []) {
           budgetLabel: orgPrefs.priceRange,
           priceRange: orgPrefs.priceRange,
           genre: orgPrefs.genres[0] ?? '',
+          subGenres: orgPrefs.subGenres.length > 0 ? orgPrefs.subGenres : undefined,
           peopleCount: totalCount,
           eventType,
         }
@@ -3288,14 +3300,70 @@ return (
                   <p className="text-[11px] font-bold tracking-wide text-stone-500 uppercase">ジャンル</p>
                   <span className="text-[10px] text-stone-300">（任意）</span>
                 </div>
+                {/* 主ジャンル */}
                 <div className="flex flex-wrap gap-2">
                   {HP_GENRE_OPTIONS.map(v => (
                     <Chip key={v} active={orgPrefs.genres[0] === v}
-                      onClick={() => setOrgPrefs(p => ({ ...p, genres: p.genres[0] === v ? [] : [v] }))}>
+                      onClick={() => setOrgPrefs(p => ({
+                        ...p,
+                        genres: p.genres[0] === v ? [] : [v],
+                        subGenres: [], // 主ジャンルを変えたら詳細もリセット
+                      }))}>
                       {v}
                     </Chip>
                   ))}
                 </div>
+
+                {/* 詳細ジャンル — 主ジャンル選択時のみ展開 */}
+                <AnimatePresence>
+                  {orgPrefs.genres[0] && SUB_GENRE_MAP[orgPrefs.genres[0]] && (
+                    <motion.div
+                      key={orgPrefs.genres[0]}
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.22, ease: 'easeOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-3 pt-3 border-t border-stone-100">
+                        <p className="mb-2 text-[10px] font-bold tracking-[0.12em] text-stone-400 uppercase">
+                          詳細ジャンル
+                          <span className="ml-1.5 font-normal normal-case text-stone-300">（任意・複数OK）</span>
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {SUB_GENRE_MAP[orgPrefs.genres[0]].map(sub => {
+                            const isActive = orgPrefs.subGenres.includes(sub)
+                            return (
+                              <button
+                                key={sub}
+                                type="button"
+                                onClick={() => setOrgPrefs(p => ({
+                                  ...p,
+                                  subGenres: isActive
+                                    ? p.subGenres.filter(s => s !== sub)
+                                    : [...p.subGenres, sub],
+                                }))}
+                                className={cx(
+                                  'rounded-full px-3 py-1 text-[11px] font-semibold transition active:scale-95',
+                                  isActive
+                                    ? 'bg-stone-800 text-white'
+                                    : 'bg-stone-100 text-stone-500 hover:bg-stone-200'
+                                )}
+                              >
+                                {sub}
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {orgPrefs.subGenres.length > 0 && (
+                          <p className="mt-2 text-[10px] text-stone-400">
+                            {orgPrefs.subGenres.join('・')}系で探します
+                          </p>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* 価格帯 */}
@@ -3726,11 +3794,12 @@ return (
                           id: storeKey,
                           name: primaryStore.name,
                           area: primaryStore.area ?? '',
-                          genre: primaryStore.genre ?? '',
+                          genre: orgPrefs.genres[0] ?? primaryStore.genre ?? '',
                           link: primaryStore.link,
                           imageUrl: primaryStore.image,
                           station: primaryStore.access,
                           priceRange: orgPrefs.priceRange !== '指定なし' ? orgPrefs.priceRange : undefined,
+                          subGenres: orgPrefs.subGenres.length > 0 ? orgPrefs.subGenres : undefined,
                         },
                         isFav,
                       )
