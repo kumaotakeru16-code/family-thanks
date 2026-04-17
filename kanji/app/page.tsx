@@ -82,7 +82,6 @@ type Step =
   | 'dateConfirmed'
   | 'organizerConditions'
   | 'storeSuggestion'
-  | 'storeOnlyResult'
   | 'manualStore'
   | 'finalConfirm'
   | 'settlement'
@@ -591,6 +590,8 @@ export default function Page() {
   const [recommendedStores, setRecommendedStores] = useState<StoreCandidate[]>([])
   /** store_only で選んだ店をフルフローに引き継ぐための一時 state。resetFlowState でクリアする。 */
   const [prefilledStore, setPrefilledStore] = useState<StoreCandidate | null>(null)
+  /** true のとき organizerConditions をスキップして storeSuggestion で軸候補のみ表示する。 */
+  const [skipStoreCondition, setSkipStoreCondition] = useState(false)
   const [previousStores, setPreviousStores] = useState<StoreCandidate[]>([])
   const [previousSelectedStoreId, setPreviousSelectedStoreId] = useState<string>('')
   const [isLoadingStores, setIsLoadingStores] = useState(false)
@@ -1182,6 +1183,7 @@ function resetFlowState() {
   setHeroBestDateId(null)
   setRecommendedStores([])
   setPrefilledStore(null)
+  setSkipStoreCondition(false)
   setFinalDecision(null)
   setMainGuestIds([])
   setShowHeroParticipants(false)
@@ -1801,8 +1803,8 @@ const backStep: Step | null = (() => {
   if (step === 'settings') return 'home'
   if (step === 'manualStore') return 'organizerConditions'
   if (step === 'finalConfirm') return isManualStore ? 'manualStore' : 'storeSuggestion'
-  if (step === 'storeOnlyResult') return 'storeSuggestion'
   if (step === 'organizerConditions' && appMode === 'store_only') return 'home'
+  if (step === 'storeSuggestion' && skipStoreCondition && !!prefilledStore) return 'dateConfirmed'
   return getPreviousStep(step)
 })()
 
@@ -3113,7 +3115,13 @@ return (
     </div>
 
     <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
-      <PrimaryBtn size="large" onClick={() => setStep('organizerConditions')}>
+      <PrimaryBtn size="large" onClick={() => {
+        if (skipStoreCondition && prefilledStore) {
+          setStep('storeSuggestion')
+        } else {
+          setStep('organizerConditions')
+        }
+      }}>
         お店を決める
       </PrimaryBtn>
     </div>
@@ -3337,7 +3345,7 @@ return (
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑨ 店提案（決断UI）
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-{step === 'storeSuggestion' && (appMode === 'store_only' || heroDate) && (
+{step === 'storeSuggestion' && (appMode === 'store_only' || heroDate || (skipStoreCondition && !!prefilledStore)) && (
   <div className="space-y-5">
     {/* 「候補を入れ替える」再取得中も同じローディングUIを使う */}
     {isLoadingStores && <StoreLoadingOverlay />}
@@ -3355,11 +3363,13 @@ return (
           </div>
           {appMode === 'store_only' ? (
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">お店候補</p>
+          ) : (skipStoreCondition && prefilledStore) ? (
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">この会の軸候補</p>
           ) : (
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 6</p>
           )}
         </div>
-        {appMode !== 'store_only' && (
+        {appMode !== 'store_only' && !(skipStoreCondition && prefilledStore) && (
           <button
             type="button"
             onClick={enterManualStoreStep}
@@ -3369,13 +3379,113 @@ return (
           </button>
         )}
       </div>
-      <h2 className="text-[22px] font-black tracking-tight text-stone-900">お店を選ぶ</h2>
+      <h2 className="text-[22px] font-black tracking-tight text-stone-900">
+        {(skipStoreCondition && prefilledStore) ? 'この店で始めますか？' : 'お店を選ぶ'}
+      </h2>
       <p className="mt-1 text-[13px] leading-relaxed text-stone-400">
-        {appMode === 'store_only' ? '気になるお店をお気に入りに追加できます。' : '候補を比べて、最適なお店を決めましょう。'}
+        {appMode === 'store_only'
+          ? '気になるお店をお気に入りに追加できます。'
+          : (skipStoreCondition && prefilledStore)
+          ? '以前探していたお店を引き継ぎました。このまま進めるか、他の候補を探すこともできます。'
+          : '候補を比べて、最適なお店を決めましょう。'}
       </p>
     </motion.div>
 
-    {storePool.length === 0 ? (
+    {(skipStoreCondition && prefilledStore) ? (
+      /* ── 軸候補のみ表示（skip モード） ─────────────────────────── */
+      <>
+        <motion.div
+          key={prefilledStore.id}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
+          className="overflow-hidden rounded-3xl bg-stone-900 shadow-lg shadow-stone-900/20"
+        >
+          {prefilledStore.image && (
+            <div className="relative h-52 overflow-hidden sm:h-60">
+              <img
+                src={prefilledStore.image}
+                alt={prefilledStore.name}
+                className="h-full w-full object-cover object-center"
+                style={{ filter: 'brightness(0.55)' }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-stone-900/80 via-stone-900/10 to-transparent" />
+              <div className="absolute left-4 top-4">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white backdrop-blur-sm ring-1 ring-white/20">
+                  <Sparkles size={9} strokeWidth={2.5} />
+                  この会の軸候補
+                </span>
+              </div>
+              {prefilledStore.googleRating && (
+                <div className="absolute bottom-3 right-4 flex items-center gap-1 rounded-full bg-black/40 px-2.5 py-1 backdrop-blur-sm">
+                  <Star size={10} className="fill-amber-400 text-amber-400" />
+                  <span className="text-[11px] font-bold text-white">
+                    {prefilledStore.googleRating.toFixed(1)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+          {!prefilledStore.image && (
+            <div className="px-5 pt-5 pb-0">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/60 ring-1 ring-white/10">
+                <Sparkles size={9} strokeWidth={2.5} />
+                この会の軸候補
+              </span>
+            </div>
+          )}
+          <div className="px-5 pt-4 pb-4">
+            <h3 className="text-xl font-black tracking-tight text-white leading-snug">{prefilledStore.name}</h3>
+            {prefilledStore.access && (
+              <div className="mt-2 flex items-start gap-1.5">
+                <Train size={11} className="mt-0.5 shrink-0 text-white/35" />
+                <p className="text-xs leading-5 text-white/45">{prefilledStore.access}</p>
+              </div>
+            )}
+          </div>
+          {prefilledStore.tags && prefilledStore.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 px-5 pb-4">
+              {prefilledStore.tags.slice(0, 4).map(tag => tag ? (
+                <span key={tag} className="rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-white/55">{tag}</span>
+              ) : null)}
+            </div>
+          )}
+          {prefilledStore.link && (
+            <div className="px-5 pb-5">
+              <StoreExternalLink
+                href={prefilledStore.link}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3.5 text-sm font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
+              >
+                <ExternalLink size={14} strokeWidth={2.5} />
+                ホットペッパーで予約を確認する
+              </StoreExternalLink>
+            </div>
+          )}
+        </motion.div>
+
+        {/* 軸候補モード CTA */}
+        <motion.div
+          className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2, duration: 0.3 }}
+        >
+          <PrimaryBtn size="large" onClick={() => loadFinalDecisionView(prefilledStore)}>
+            この候補で進む
+          </PrimaryBtn>
+          <button
+            type="button"
+            onClick={() => {
+              setSkipStoreCondition(false)
+              fetchRecommendedStores()
+            }}
+            className="w-full py-2 text-center text-[12px] text-stone-400 transition hover:text-stone-600"
+          >
+            他の候補も見る →
+          </button>
+        </motion.div>
+      </>
+    ) : storePool.length === 0 ? (
       /* ── 空状態 ─────────────────────────────────────────────── */
       <motion.div
         initial={{ opacity: 0 }}
@@ -3515,7 +3625,7 @@ return (
                 </div>
               )}
 
-              {/* 予約リンク — LinkSwitch により自動アフィリエイト変換される */}
+              {/* リンク — store_only は「詳細確認」、full は「予約」 */}
               {primaryStore.link && (
                 <div className="px-5 pb-5 space-y-1.5">
                   <StoreExternalLink
@@ -3523,7 +3633,7 @@ return (
                     className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3.5 text-sm font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
                   >
                     <ExternalLink size={14} strokeWidth={2.5} />
-                    ホットペッパーから予約する
+                    {appMode === 'store_only' ? 'お店の詳細を確認する' : 'ホットペッパーから予約する'}
                   </StoreExternalLink>
                   <AffiliateNote />
                 </div>
@@ -3601,99 +3711,9 @@ return (
           transition={{ delay: 0.25, duration: 0.3 }}
         >
           {appMode === 'store_only' ? (
-            <PrimaryBtn size="large" onClick={() => setStep('storeOnlyResult')}>
-              このお店を詳しく見る
-            </PrimaryBtn>
-          ) : (
-            <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
-              この候補で進む
-            </PrimaryBtn>
-          )}
-        </motion.div>
-      </>
-    )}
-  </div>
-)}
-
-        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            ⑨-b store_only 結果
-            store_only モードで selectedStore を決めた後の保存 / 詳細確認画面
-        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        {step === 'storeOnlyResult' && primaryStore && (
-          <motion.div
-            className="space-y-5 pb-28"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-          >
-            {/* ヘッダー */}
-            <div className="px-0.5">
-              <div className="mb-2 flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
-                  <UtensilsCrossed size={13} className="text-white" strokeWidth={2.5} />
-                </div>
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">気になるお店</p>
-              </div>
-              <h2 className="text-[22px] font-black tracking-tight text-stone-900">このお店はいかがですか？</h2>
-              <p className="mt-1 text-[13px] text-stone-400 leading-relaxed">
-                お気に入りに保存して、会の企画に使えます。
-              </p>
-            </div>
-
-            {/* 店舗カード */}
-            <div className="overflow-hidden rounded-3xl bg-stone-900 shadow-lg shadow-stone-900/20">
-              {primaryStore.image && (
-                <div className="relative h-52 overflow-hidden sm:h-60">
-                  <img
-                    src={primaryStore.image}
-                    alt={primaryStore.name}
-                    className="h-full w-full object-cover object-center"
-                    style={{ filter: 'brightness(0.55)' }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-stone-900/80 via-stone-900/10 to-transparent" />
-                  {primaryStore.googleRating && (
-                    <div className="absolute bottom-3 right-4 flex items-center gap-1 rounded-full bg-black/40 px-2.5 py-1 backdrop-blur-sm">
-                      <Star size={10} className="fill-amber-400 text-amber-400" />
-                      <span className="text-[11px] font-bold text-white">
-                        {primaryStore.googleRating.toFixed(1)}
-                        {primaryStore.googleRatingCount
-                          ? <span className="ml-0.5 font-normal text-white/60">（{primaryStore.googleRatingCount.toLocaleString()}件）</span>
-                          : null}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-              <div className="px-5 pt-5 pb-4">
-                <h3 className="text-xl font-black tracking-tight text-white leading-snug">{primaryStore.name}</h3>
-                {primaryStore.access && (
-                  <div className="mt-2 flex items-start gap-1.5">
-                    <Train size={11} className="mt-0.5 shrink-0 text-white/35" />
-                    <p className="text-xs leading-5 text-white/45">{primaryStore.access}</p>
-                  </div>
-                )}
-                {primaryStore.area && (
-                  <div className="mt-1 flex items-start gap-1.5">
-                    <MapPin size={11} className="mt-0.5 shrink-0 text-white/35" />
-                    <p className="text-xs leading-5 text-white/45">{primaryStore.area}</p>
-                  </div>
-                )}
-              </div>
-              {primaryStore.tags && primaryStore.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 px-5 pb-4">
-                  {primaryStore.tags.slice(0, 4).map(tag => tag ? (
-                    <span key={tag} className="rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-white/55">
-                      {tag}
-                    </span>
-                  ) : null)}
-                </div>
-              )}
-            </div>
-
-            {/* CTA エリア */}
-            <div className="sticky bottom-0 -mx-4 space-y-2.5 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
-              {/* プライマリ: お気に入り登録 */}
-              {(() => {
+            /* store_only CTA: お気に入り + 軸に会作成 + 詳細 */
+            <>
+              {primaryStore && (() => {
                 const storeKey = primaryStore.id
                 const isFav = userSettings.favoriteStores.some(f => f.id === storeKey)
                 return (
@@ -3717,45 +3737,36 @@ return (
                       setUserSettings(next)
                     }}
                   >
-                    <Heart
-                      size={15}
-                      strokeWidth={isFav ? 0 : 2}
-                      className={isFav ? 'fill-current' : ''}
-                    />
-                    {isFav ? 'お気に入りから外す' : 'このお店をお気に入りに登録する'}
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <Heart size={15} strokeWidth={isFav ? 0 : 2} className={isFav ? 'fill-current' : ''} />
+                      {isFav ? 'お気に入りから外す' : 'お気に入りに登録する'}
+                    </span>
                   </PrimaryBtn>
                 )
               })()}
-
-              {/* セカンダリ: Hot Pepper リンク */}
-              {primaryStore.link && (
-                <StoreExternalLink
-                  href={primaryStore.link}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-bold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98]"
-                >
-                  <ExternalLink size={13} strokeWidth={2.5} />
-                  お店の詳細を確認する
-                </StoreExternalLink>
-              )}
-
-              {/* ターシャリ: 会の企画へ */}
               <button
                 type="button"
                 onClick={() => {
-                  // この店をフルフローに引き継ぐ
                   setPrefilledStore(primaryStore)
-                  // store_only の検索条件（駅・ジャンル・価格帯）もそのまま引き継ぐ
-                  // orgPrefs はすでに state に入っているのでリセット不要
                   setAppMode('full')
+                  setSkipStoreCondition(true)
                   setStep('create')
                 }}
-                className="w-full py-2 text-center text-[12px] text-stone-400 transition hover:text-stone-600"
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-bold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98]"
               >
-                この店を軸に会を企画する →
+                このお店を軸に会を作成する
               </button>
-            </div>
-          </motion.div>
-        )}
+            </>
+          ) : (
+            <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
+              この候補で進む
+            </PrimaryBtn>
+          )}
+        </motion.div>
+      </>
+    )}
+  </div>
+)}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ⑨-c 手動店舗入力
