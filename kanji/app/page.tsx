@@ -589,6 +589,8 @@ export default function Page() {
   const [finalEvent, setFinalEvent] = useState<any | null>(null)
   const [finalDates, setFinalDates] = useState<any[]>([])
   const [recommendedStores, setRecommendedStores] = useState<StoreCandidate[]>([])
+  /** store_only で選んだ店をフルフローに引き継ぐための一時 state。resetFlowState でクリアする。 */
+  const [prefilledStore, setPrefilledStore] = useState<StoreCandidate | null>(null)
   const [previousStores, setPreviousStores] = useState<StoreCandidate[]>([])
   const [previousSelectedStoreId, setPreviousSelectedStoreId] = useState<string>('')
   const [isLoadingStores, setIsLoadingStores] = useState(false)
@@ -1179,6 +1181,7 @@ function resetManualStoreState() {
 function resetFlowState() {
   setHeroBestDateId(null)
   setRecommendedStores([])
+  setPrefilledStore(null)
   setFinalDecision(null)
   setMainGuestIds([])
   setShowHeroParticipants(false)
@@ -1696,7 +1699,11 @@ async function fetchRecommendedStores(excludeIds: string[] = []) {
 }
 
 
-async function loadFinalDecisionView() {
+/**
+ * @param storeOverride  prefilledStore など、state 外から直接渡したい店。
+ *                       省略時は selectedStore（通常フロー）を使う。
+ */
+async function loadFinalDecisionView(storeOverride?: StoreCandidate) {
   const currentEventId = createdEventId || finalEvent?.id
   if (!currentEventId) {
     alert('event_id が見つかりません')
@@ -1712,11 +1719,15 @@ async function loadFinalDecisionView() {
     setFinalDates(result.dates ?? [])
     setFinalDecision(decisionResult?.decision ?? decisionResult ?? null)
 
+    // prefilledStore が採用されたタイミングでクリア
+    setPrefilledStore(null)
+
     setStep('finalConfirm')
     // Persist status + store info so openSavedEvent can resume at finalConfirm next time
-    const storeInfo: Pick<SavedEvent, 'isManualStore' | 'storeName' | 'storeUrl' | 'storeMemo' | 'storeId' | 'storeArea'> = isManualStore
+    const resolvedStore = storeOverride ?? selectedStore
+    const storeInfo: Pick<SavedEvent, 'isManualStore' | 'storeName' | 'storeUrl' | 'storeMemo' | 'storeId' | 'storeArea'> = isManualStore && !storeOverride
       ? { isManualStore: true, storeName: manualStoreName, storeUrl: manualStoreUrl, storeMemo: manualStoreMemo }
-      : { isManualStore: false, storeId: selectedStoreId, storeName: selectedStore?.name ?? '', storeUrl: selectedStore?.link ?? '', storeArea: selectedStore?.area ?? '' }
+      : { isManualStore: false, storeId: storeOverride?.id ?? selectedStoreId, storeName: resolvedStore?.name ?? '', storeUrl: resolvedStore?.link ?? '', storeArea: resolvedStore?.area ?? '' }
     updateEventStatus(currentEventId, 'store_confirmed', undefined, storeInfo)
   } catch (e: any) {
     alert(`最終確認データの取得に失敗しました: ${e?.message ?? 'unknown error'}`)
@@ -3165,6 +3176,53 @@ return (
               )}
             </div>
 
+            {/* store_only から引き継がれた軸候補 — 条件選びの前提として表示 */}
+            {prefilledStore && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+                className="rounded-2xl bg-amber-50 px-4 py-3.5 ring-1 ring-amber-200"
+              >
+                <div className="mb-2.5 flex items-center justify-between gap-2">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-amber-700">
+                    <Sparkles size={9} strokeWidth={2.5} />
+                    この会の軸候補
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPrefilledStore(null)}
+                    className="text-[10px] text-stone-400 transition hover:text-stone-600"
+                  >
+                    外す
+                  </button>
+                </div>
+                <div className="flex items-center gap-3">
+                  {prefilledStore.image ? (
+                    <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl">
+                      <img src={prefilledStore.image} alt={prefilledStore.name} className="h-full w-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100">
+                      <UtensilsCrossed size={16} className="text-amber-500" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-black tracking-tight text-stone-900">{prefilledStore.name}</p>
+                    {prefilledStore.access && (
+                      <p className="mt-0.5 flex items-center gap-1 text-[11px] text-stone-500">
+                        <Train size={9} className="shrink-0" />
+                        <span className="line-clamp-1">{prefilledStore.access}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <p className="mt-2.5 text-[11px] leading-5 text-amber-700/70">
+                  この店を前提に駅・ジャンル・価格帯を調整してください。
+                </p>
+              </motion.div>
+            )}
+
             {/* 参加者希望タグ（補助情報） */}
             {genreRanking.length > 0 && (
               <motion.div
@@ -3684,6 +3742,10 @@ return (
               <button
                 type="button"
                 onClick={() => {
+                  // この店をフルフローに引き継ぐ
+                  setPrefilledStore(primaryStore)
+                  // store_only の検索条件（駅・ジャンル・価格帯）もそのまま引き継ぐ
+                  // orgPrefs はすでに state に入っているのでリセット不要
                   setAppMode('full')
                   setStep('create')
                 }}
