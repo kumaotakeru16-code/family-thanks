@@ -51,6 +51,15 @@ const TRACKED_EVENTS: AnalyticsEventName[] = [
   'complete_settlement',
 ]
 
+// ── 除外対象 user_id ──────────────────────────────────────────────────────────
+// 運営の複数端末（PC / スマホ / 別ブラウザ）の anon_user_id をここに列挙する。
+// loadDashboard に渡す myUserId（現在の端末）とまとめて除外される。
+// 追加: localStorage の kanji_anon_id の値をここにコピーする。
+export const EXCLUDED_USER_IDS: string[] = [
+  // 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', // PC Chrome
+  // 'yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy', // iPhone Safari
+]
+
 // ── 書き込み ──────────────────────────────────────────────────────────────────
 
 /**
@@ -127,32 +136,41 @@ function processRows(rows: RawRow[] | null): AnalyticsSlice {
 }
 
 /**
- * 自分を除いたユーザー数をダッシュボード用に集計して返す。
- * クエリ 2 本（全期間 + 直近7日）を並列実行。
- * 設定画面から呼ぶ。SSR では null を返す。
+ * 自分（複数端末含む）を除いたユーザー数をダッシュボード用に集計して返す。
+ * クエリ 2 本（全期間 + 直近7日）を並列実行し、JS 側で除外フィルターを適用する。
+ * SSR では null を返す。
+ *
+ * 除外対象: EXCLUDED_USER_IDS（定数）＋ myUserId（現在の端末の anon_id）
  */
 export async function loadDashboard(myUserId: string): Promise<AnalyticsDashboard | null> {
   if (typeof window === 'undefined') return null
 
+  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
   const [allRes, weekRes] = await Promise.all([
     supabase
       .from('analytics_events')
       .select('user_id, event_name')
-      .neq('user_id', myUserId)
       .in('event_name', TRACKED_EVENTS),
     supabase
       .from('analytics_events')
       .select('user_id, event_name')
-      .neq('user_id', myUserId)
       .in('event_name', TRACKED_EVENTS)
       .gt('created_at', sevenDaysAgo),
   ])
 
+  const applyExclusion = (rows: RawRow[] | null): RawRow[] => {
+    const raw = rows ?? []
+    const filtered = raw.filter((r) => !excludedSet.has(r.user_id))
+    console.log('[analytics] excluded ids:', excludedSet.size)
+    console.log('[analytics] raw rows:', raw.length, '→ filtered:', filtered.length)
+    return filtered
+  }
+
   return {
-    all: processRows(allRes.data),
-    week: processRows(weekRes.data),
+    all: processRows(applyExclusion(allRes.data)),
+    week: processRows(applyExclusion(weekRes.data)),
   }
 }
 

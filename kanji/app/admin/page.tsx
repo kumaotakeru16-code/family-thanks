@@ -17,12 +17,14 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [weekMode, setWeekMode] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [myId, setMyId] = useState('')
+  const [copied, setCopied] = useState(false)
 
   async function fetch() {
     setLoading(true)
     try {
-      const myId = getAnonId()
-      const data = await loadDashboard(myId)
+      const id = getAnonId()
+      const data = await loadDashboard(id)
       setDashboard(data)
       setLastUpdated(new Date())
     } catch {
@@ -32,7 +34,10 @@ export default function AdminPage() {
     }
   }
 
-  useEffect(() => { void fetch() }, [])
+  useEffect(() => {
+    setMyId(getAnonId())
+    void fetch()
+  }, [])
 
   return (
     <div className="min-h-screen bg-[#F5F3EF] px-4 pb-16 pt-10">
@@ -91,6 +96,27 @@ export default function AdminPage() {
           </div>
         ) : (
           <DashboardView slice={weekMode ? dashboard.week : dashboard.all} />
+        )}
+
+        {/* この端末の anon_id */}
+        {myId && (
+          <div className="flex items-start gap-2 rounded-xl bg-stone-100/60 px-3 py-2.5">
+            <p className="min-w-0 flex-1 break-all font-mono text-[10px] leading-5 text-stone-400">
+              <span className="mr-1.5 font-sans font-bold text-stone-400">my id:</span>
+              {myId}
+            </p>
+            <button
+              type="button"
+              onClick={async () => {
+                await navigator.clipboard.writeText(myId)
+                setCopied(true)
+                setTimeout(() => setCopied(false), 1500)
+              }}
+              className="shrink-0 rounded-lg bg-white px-2 py-1 text-[10px] font-bold text-stone-500 shadow-sm ring-1 ring-stone-200 transition hover:bg-stone-50"
+            >
+              {copied ? '✓' : 'コピー'}
+            </button>
+          </div>
         )}
 
         <p className="text-center text-[10px] text-stone-400">
