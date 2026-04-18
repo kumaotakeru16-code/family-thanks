@@ -565,6 +565,7 @@ export default function Page() {
   const [participants] = useState<Participant[]>(MOCK_PARTICIPANTS)
   const [mainGuestIds, setMainGuestIds] = useState<string[]>([])
   const [showHeroParticipants, setShowHeroParticipants] = useState(false)
+  const [showPrioritySheet, setShowPrioritySheet] = useState(false)
   const [showFinalParticipants, setShowFinalParticipants] = useState(false)
 
 
@@ -994,6 +995,7 @@ const heroDateReason = (() => {
   return `参加予定 ${yesCount}人・最多の候補日です`
 })()
 
+
 const confirmedYesParticipants = heroDate
   ? activeParticipants.filter((p) => p.availability?.[heroDate.id] === 'yes')
   : []
@@ -1005,6 +1007,7 @@ const maybeParticipants = heroDate
 const yesCount = confirmedYesParticipants.length
 const maybeCount = maybeParticipants.length
 const maybeNames = maybeParticipants.map((p) => p.name)
+
 
 const altDates = useMemo(
   () => activeDates.filter(d => d.id !== heroDate?.id),
@@ -2648,14 +2651,33 @@ return (
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.25, ease: 'easeOut' }}
   >
-    <div className="px-0.5">
-      <div className="mb-2 flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
-          <CalendarDays size={13} className="text-white" strokeWidth={2.5} />
+    <div className="flex items-start justify-between px-0.5">
+      <div>
+        <div className="mb-2 flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
+            <CalendarDays size={13} className="text-white" strokeWidth={2.5} />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 3</p>
         </div>
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 3</p>
+        <h2 className="text-[22px] font-black tracking-tight text-stone-900">日程を決める</h2>
       </div>
-      <h2 className="text-[22px] font-black tracking-tight text-stone-900">日程を決める</h2>
+      <button
+        type="button"
+        onClick={() => setShowPrioritySheet(true)}
+        className={`mt-1 flex items-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-bold ring-1 transition active:scale-95 ${
+          mainGuestIds.length > 0
+            ? 'bg-stone-900 text-white ring-stone-900'
+            : 'bg-white text-stone-500 ring-stone-200 hover:bg-stone-50'
+        }`}
+      >
+        <Users size={11} strokeWidth={2.5} />
+        優先
+        {mainGuestIds.length > 0 && (
+          <span className="ml-0.5 rounded-full bg-white/20 px-1.5 text-[10px] font-black">
+            {mainGuestIds.length}
+          </span>
+        )}
+      </button>
     </div>
 
     {totalCount === 0 || !heroDate ? (
@@ -2700,6 +2722,20 @@ return (
                 </span>
               )}
             </div>
+            {mainGuestIds.length > 0 && (() => {
+              const firstName = activeParticipants.find(p => p.id === mainGuestIds[0])?.name ?? ''
+              const extra = mainGuestIds.length - 1
+              return (
+                <button
+                  type="button"
+                  onClick={() => setShowPrioritySheet(true)}
+                  className="mt-3 flex items-center gap-1 text-[11px] font-bold text-white/40 transition hover:text-white/60"
+                >
+                  <Users size={10} strokeWidth={2.5} />
+                  優先：{firstName}{extra > 0 ? ` +${extra}` : ''}
+                </button>
+              )
+            })()}
             <button
               type="button"
               onClick={() => setShowHeroParticipants((v) => !v)}
@@ -2743,39 +2779,6 @@ return (
                 </div>
               </div>
             )}
-          </div>
-        </div>
-
-        {/* 優先したい人 — ヒーロー直下の軽量フィルター */}
-        <div className="space-y-1.5 px-1">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">優先したい人</span>
-            <span className="text-[10px] text-stone-300">この人が参加できる日を優先します</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {activeParticipants.map((participant) => {
-              const selected = mainGuestIds.includes(participant.id)
-              return (
-                <button
-                  key={participant.id}
-                  type="button"
-                  onClick={() =>
-                    setMainGuestIds((prev) =>
-                      prev.includes(participant.id)
-                        ? prev.filter((id) => id !== participant.id)
-                        : [...prev, participant.id]
-                    )
-                  }
-                  className={`rounded-full px-3 py-1 text-xs font-bold ring-1 transition active:scale-95 ${
-                    selected
-                      ? 'bg-stone-800 text-white ring-stone-800'
-                      : 'bg-white text-stone-500 ring-stone-200 hover:bg-stone-50'
-                  }`}
-                >
-                  {participant.name}
-                </button>
-              )
-            })}
           </div>
         </div>
 
@@ -2895,7 +2898,7 @@ return (
         </div>
 
         {/* 未回答者へのリマインド（折りたたみ） */}
-        <div className="rounded-3xl bg-white shadow-sm ring-1 ring-stone-100 overflow-hidden">
+        <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-stone-100">
           <button
             type="button"
             onClick={() => setShowReminderPanel((v) => !v)}
@@ -2911,7 +2914,7 @@ return (
             }
           </button>
           {showReminderPanel && (
-            <div className="border-t border-stone-100 px-5 pb-5 pt-4 space-y-3">
+            <div className="space-y-3 border-t border-stone-100 px-5 pb-5 pt-4">
               <div className="rounded-2xl bg-stone-50 px-4 py-3">
                 {urlOnlyReminder ? (
                   <p className="text-sm text-stone-700">{shareUrl}</p>
@@ -2963,8 +2966,8 @@ return (
             この日で決定 →
           </PrimaryBtn>
         </div>
-</>
-)}
+      </>
+    )}
   </motion.div>
 )}
 
@@ -4659,6 +4662,78 @@ ${finalStore?.link ?? ''}`
                   <span className="text-[15px] font-black tracking-tight text-stone-900">お店</span>
                 </button>
               </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* 優先したい人 ボトムシート */}
+      <AnimatePresence>
+        {showPrioritySheet && (
+          <>
+            <motion.div
+              className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowPrioritySheet(false)}
+            />
+            <motion.div
+              className="fixed bottom-0 left-0 right-0 z-[60] rounded-t-3xl bg-white px-5 pb-10 pt-5 shadow-2xl"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+            >
+              {/* ハンドル */}
+              <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-stone-200" />
+
+              <p className="mb-1 text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">優先したい人</p>
+              <p className="mb-4 text-[12px] text-stone-400">この人が参加できる日を優先して推薦します</p>
+
+              <div className="flex flex-wrap gap-2">
+                {activeParticipants.map((participant) => {
+                  const selected = mainGuestIds.includes(participant.id)
+                  return (
+                    <button
+                      key={participant.id}
+                      type="button"
+                      onClick={() =>
+                        setMainGuestIds((prev) =>
+                          prev.includes(participant.id)
+                            ? prev.filter((id) => id !== participant.id)
+                            : [...prev, participant.id]
+                        )
+                      }
+                      className={`rounded-full px-4 py-2 text-sm font-bold ring-1 transition active:scale-95 ${
+                        selected
+                          ? 'bg-stone-900 text-white ring-stone-900'
+                          : 'bg-stone-50 text-stone-600 ring-stone-200 hover:bg-stone-100'
+                      }`}
+                    >
+                      {participant.name}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {mainGuestIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setMainGuestIds([])}
+                  className="mt-4 text-[12px] font-bold text-stone-400 underline"
+                >
+                  選択をリセット
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShowPrioritySheet(false)}
+                className="mt-5 w-full rounded-2xl bg-stone-900 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+              >
+                完了
+              </button>
             </motion.div>
           </>
         )}
