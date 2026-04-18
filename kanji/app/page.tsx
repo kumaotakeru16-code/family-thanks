@@ -71,6 +71,7 @@ import {
   saveCompletionData,
   toggleFavoriteStore,
 } from '@/app/lib/event-actions'
+import { trackEvent } from '@/app/lib/analytics'
 
 // --- Types ---
 type Step =
@@ -632,6 +633,7 @@ export default function Page() {
         pastEventRecords: cloud.pastEventRecords.length > 0 ? cloud.pastEventRecords : prev.pastEventRecords,
       }))
     })
+    void trackEvent('app_open')
     const t = setTimeout(() => setShowSplash(false), 1800)
     return () => clearTimeout(t)
   }, [])
@@ -1768,6 +1770,7 @@ async function fetchRecommendedStores(excludeIds: string[] = []) {
       setStoreFetchError('')
     }
 
+    void trackEvent('view_store_suggestion')
     setStep('storeSuggestion')
   } catch (e: any) {
     console.error(e)
@@ -1805,6 +1808,7 @@ async function loadFinalDecisionView(storeOverride?: StoreCandidate) {
     // prefilledStore が採用されたタイミングでクリア
     setPrefilledStore(null)
 
+    void trackEvent('confirm_store')
     setStep('finalConfirm')
     // Persist status + store info so openSavedEvent can resume at finalConfirm next time
     const resolvedStore = storeOverride ?? selectedStore
@@ -2512,6 +2516,7 @@ return (
                 )
                 setCreatedEventId(eventId)
                 saveCurrentEventProgress(eventId, eventName, eventType)
+                void trackEvent('create_event')
 
                 // 演出を短時間見せてから遷移
                 setTimeout(() => {
@@ -4376,6 +4381,7 @@ ${finalStore?.link ?? ''}`
 
               // 5. 進行中一覧から除外（event-store.ts 経由で kanji_events も更新）
               if (createdEventId) removeCurrentSavedEvent(createdEventId)
+              void trackEvent('complete_settlement')
 
               return saveResult.photoStripped ? 'photo_failed' : 'ok'
               // ナビゲーション（setStep('home')）は onCompleted に委譲
@@ -4634,7 +4640,7 @@ ${finalStore?.link ?? ''}`
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => { setShowStartSheet(false); setEventName(''); setStep('create') }}
+                  onClick={() => { setShowStartSheet(false); setEventName(''); void trackEvent('start_from_dates'); setStep('create') }}
                   className="flex flex-col items-center gap-3 rounded-2xl bg-stone-50 px-4 py-7 ring-1 ring-stone-100 transition active:scale-95 hover:bg-stone-100"
                 >
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-900">
@@ -4644,7 +4650,7 @@ ${finalStore?.link ?? ''}`
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setShowStartSheet(false); startStoreOnlyFlow() }}
+                  onClick={() => { setShowStartSheet(false); void trackEvent('start_from_store'); startStoreOnlyFlow() }}
                   className="flex flex-col items-center gap-3 rounded-2xl bg-stone-50 px-4 py-7 ring-1 ring-stone-100 transition active:scale-95 hover:bg-stone-100"
                 >
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-900">

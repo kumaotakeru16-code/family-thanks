@@ -337,3 +337,4 @@ export function SettingsScreen({ settings, onSettingsChange, organizerName, onOr
     </motion.div>
   )
 }
+
