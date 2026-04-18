@@ -211,7 +211,6 @@ export function generateSettlementMessage(
   payment?: PaymentInfo
 ): string {
   const lines: string[] = ['会計まとめです。ご確認ください。']
-  if (storeName) lines.push(`【${storeName}】`)
   lines.push('')
 
   const activeParties = result.partyResults.filter((pr) => pr.totalAmount > 0)

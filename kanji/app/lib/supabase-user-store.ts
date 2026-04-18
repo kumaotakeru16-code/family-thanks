@@ -235,6 +235,20 @@ export async function insertPastEventCloud(record: PastEventRecord): Promise<voi
   }
 }
 
+/**
+ * 完了済みの会の記録をクラウドから削除する。
+ */
+export async function deletePastEventCloud(eventId: string): Promise<void> {
+  const anonId = getAnonId()
+  if (!anonId) return
+
+  await supabase
+    .from('past_events')
+    .delete()
+    .eq('anon_user_id', anonId)
+    .eq('event_id', eventId)
+}
+
 // ── 写真 Storage ──────────────────────────────────────────────────────────────
 
 const PHOTO_BUCKET = 'past-event-photos'

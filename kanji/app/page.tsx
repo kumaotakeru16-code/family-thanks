@@ -57,6 +57,7 @@ import {
   loadUserSettings,
   saveUserSettings,
   loadUserSettingsCloud,
+  removePastEventCloud,
 } from '@/app/lib/user-settings'
 import {
   type SavedEvent,
@@ -677,6 +678,16 @@ export default function Page() {
   const [maybeCopied, setMaybeCopied] = useState(false)
   const [heroBestDateId, setHeroBestDateId] = useState<string | null>(null)
 
+  // ── 長押し削除 state ────────────────────────────────────────────────────────
+  const [deleteTarget, setDeleteTarget] = useState<
+    { type: 'ongoing'; id: string; name: string } |
+    { type: 'completed'; id: string; title: string } |
+    null
+  >(null)
+  const [toastVisible, setToastVisible] = useState(false)
+  const longPressFiredRef = useRef(false)
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // ── 編集可能メッセージ state ────────────────────────────────────────────────
   const [editableShareMessage, setEditableShareMessage] = useState('')
   const [editableReminderText, setEditableReminderText] = useState('')
@@ -692,6 +703,62 @@ function getPreviousStep(currentStep: Step): Step | null {
   const currentIndex = FLOW_STEPS.indexOf(currentStep)
   if (currentIndex <= 0) return null
   return FLOW_STEPS[currentIndex - 1] ?? null
+}
+
+// ── 長押し削除 ────────────────────────────────────────────────────────────────
+
+const LONG_PRESS_MS = 500
+
+/** 長押しイベントハンドラーを生成する。スクロール検知でキャンセル。 */
+function makeLongPressHandlers(onLongPress: () => void) {
+  return {
+    onTouchStart: () => {
+      longPressFiredRef.current = false
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = setTimeout(() => {
+        longPressFiredRef.current = true
+        onLongPress()
+      }, LONG_PRESS_MS)
+    },
+    onTouchMove: () => {
+      if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
+    },
+    onTouchEnd: () => {
+      if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
+    },
+    onMouseDown: () => {
+      longPressFiredRef.current = false
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = setTimeout(() => {
+        longPressFiredRef.current = true
+        onLongPress()
+      }, LONG_PRESS_MS)
+    },
+    onMouseMove: () => {
+      if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
+    },
+    onMouseUp: () => {
+      if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
+    },
+    onMouseLeave: () => {
+      if (longPressTimerRef.current) { clearTimeout(longPressTimerRef.current); longPressTimerRef.current = null }
+    },
+  }
+}
+
+/** 削除後トーストを 1.8 秒表示する */
+function triggerDeleteToast() {
+  setToastVisible(true)
+  setTimeout(() => setToastVisible(false), 1800)
+}
+
+/** 完了済みレコードをローカル + クラウドから削除する */
+function deletePastRecord(id: string) {
+  applyUserSettings({
+    ...userSettings,
+    pastEventRecords: userSettings.pastEventRecords.filter((r) => r.id !== id),
+  })
+  void removePastEventCloud(id)
 }
   
 
@@ -913,6 +980,17 @@ const heroMaybeParticipants = heroDate
 const heroMaybeCount = heroDate
   ? activeParticipants.filter(p => p.availability?.[heroDate.id] === 'maybe').length
   : 0
+
+const heroDateReason = (() => {
+  if (!heroDate) return ''
+  const total = activeParticipants.length
+  if (total === 0) return ''
+  const yesCount = activeParticipants.filter(p => p.availability?.[heroDate.id] === 'yes').length
+  if (yesCount === total) return '全員が参加予定です'
+  const mga = recommendedDate?.mainGuestAvailability
+  if (mainGuestIds.length > 0 && mga === 'yes') return `重要ゲストを含む ${yesCount}人が参加予定の最多日です`
+  return `参加予定 ${yesCount}人・最多の候補日です`
+})()
 
 const confirmedYesParticipants = heroDate
   ? activeParticipants.filter((p) => p.availability?.[heroDate.id] === 'yes')
@@ -1779,7 +1857,7 @@ ${shareUrl}`
 
 const dateConfirmedShareText =
   heroDate
-    ? `${eventName || 'この会'}の日程はこちらで決まりました！\n詳細はまた連絡します🙏\n\n日程：${heroDate.label}`
+    ? `${eventName || 'この会'}の日程が決まりました👇\n\n日程：${heroDate.label}`
     : ''
 
 const maybeConfirmText =
@@ -1946,9 +2024,9 @@ return (
               <h1 className="text-[28px] font-black leading-[1.2] tracking-tight text-stone-900">
                 幹事、これ1つで終わる。
               </h1>
-              <p className="mt-2.5 text-sm leading-6 text-stone-500">
-                日程調整・お店決め・会計共有まで、<br className="sm:hidden" />
-                ひとつのアプリで完結します。
+              <p className="mt-2.5 text-sm leading-6 text-stone-700">
+                日程調整・お店決め・会計共有までまとめて。<br className="sm:hidden" />
+              
               </p>
             </motion.div>
 
@@ -1977,7 +2055,11 @@ return (
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.2, delay: idx * 0.05, ease: 'easeOut' }}
                         whileTap={{ scale: 0.982 }}
-                        onClick={() => openSavedEvent(ev.id, ev.name, ev.eventType)}
+                        {...makeLongPressHandlers(() => setDeleteTarget({ type: 'ongoing', id: ev.id, name: ev.name }))}
+                        onClick={() => {
+                          if (longPressFiredRef.current) { longPressFiredRef.current = false; return }
+                          openSavedEvent(ev.id, ev.name, ev.eventType)
+                        }}
                         className="group flex w-full items-center justify-between rounded-2xl bg-white px-4 py-4 text-left shadow-sm ring-1 ring-stone-100/80 transition-shadow hover:shadow-md"
                       >
                         <div className="flex items-center gap-3 min-w-0">
@@ -2045,7 +2127,11 @@ return (
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.18, delay: idx * 0.04 }}
                         whileTap={{ scale: 0.984 }}
-                        onClick={() => { setCompletedEventDetail(record); setShowDetailParticipants(false) }}
+                        {...makeLongPressHandlers(() => setDeleteTarget({ type: 'completed', id: record.id, title: record.title }))}
+                        onClick={() => {
+                          if (longPressFiredRef.current) { longPressFiredRef.current = false; return }
+                          setCompletedEventDetail(record); setShowDetailParticipants(false)
+                        }}
                         className="flex w-full items-center justify-between rounded-2xl bg-stone-50 px-4 py-3.5 text-left ring-1 ring-stone-100 transition hover:bg-white hover:shadow-sm"
                       >
                         <div className="flex items-center gap-3 min-w-0">
@@ -2133,7 +2219,7 @@ return (
                 <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-stone-200" />
                 <div className="mb-1 flex items-center gap-1.5">
                   <CheckCircle2 size={11} className="text-stone-300" strokeWidth={2.5} />
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">完了済みの会</p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">完了済み</p>
                 </div>
                 <h3 className="text-xl font-black tracking-tight text-stone-900">{completedEventDetail.title}</h3>
                 <div className="mt-5 space-y-4">
@@ -2396,9 +2482,12 @@ return (
             {!eventName.trim() && (
               <p className="mb-2 text-center text-[11px] text-stone-400">会の名前を入力してください</p>
             )}
+            {eventName.trim() && selectedDateIds.length === 1 && (
+              <p className="mb-2 text-center text-[11px] text-stone-400">候補日は2日以上選んでください</p>
+            )}
             <PrimaryBtn
               size="large"
-              disabled={!eventName.trim() || selectedDateIds.length === 0}
+              disabled={!eventName.trim() || selectedDateIds.length < 2}
               onClick={async () => {
                 const selectedDates = generatedDates
                   .filter((d) => selectedDateIds.includes(d.id))
@@ -2431,7 +2520,11 @@ return (
                 }, 200)
               }}
             >
-              {selectedDateIds.length === 0 ? '候補日を選んでください' : `この${selectedDateIds.length}件で作成`}
+              {selectedDateIds.length === 0
+                ? '候補日を選んでください'
+                : selectedDateIds.length === 1
+                  ? 'もう1日以上選んでください'
+                  : `この${selectedDateIds.length}件で作成`}
             </PrimaryBtn>
           </div>
         )}
@@ -2481,10 +2574,10 @@ return (
             <p className="text-sm text-stone-700">{shareUrl}</p>
           ) : (
             <textarea
+              ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' } }}
               value={editableShareMessage}
-              onChange={(e) => setEditableShareMessage(e.target.value)}
-              rows={5}
-              className="w-full resize-none text-base leading-6 text-stone-700 outline-none"
+              onChange={(e) => { setEditableShareMessage(e.target.value); e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px' }}
+              className="w-full resize-none overflow-hidden text-base leading-6 text-stone-700 outline-none"
             />
           )}
         </div>
@@ -2583,6 +2676,9 @@ return (
             <p className="mt-1 text-3xl font-black text-white">
               {heroDate?.label}
             </p>
+            {heroDateReason && (
+              <p className="mt-1.5 text-sm font-bold text-white/55">{heroDateReason}</p>
+            )}
             <p className="mt-2 text-sm font-bold text-white/70">
               最大参加人数 {yesCount + maybeCount}人
             </p>
@@ -2816,10 +2912,10 @@ return (
                   <p className="text-sm text-stone-700">{shareUrl}</p>
                 ) : (
                   <textarea
+                    ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' } }}
                     value={editableReminderText}
-                    onChange={(e) => setEditableReminderText(e.target.value)}
-                    rows={4}
-                    className="w-full resize-none bg-transparent text-base leading-6 text-stone-700 outline-none"
+                    onChange={(e) => { setEditableReminderText(e.target.value); e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px' }}
+                    className="w-full resize-none overflow-hidden bg-transparent text-base leading-6 text-stone-700 outline-none"
                   />
                 )}
               </div>
@@ -2892,7 +2988,7 @@ return (
         </div>
         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 4</p>
       </div>
-      <h2 className="text-[22px] font-black tracking-tight text-stone-900">日程確定</h2>
+      <h2 className="text-[22px] font-black tracking-tight text-stone-900">日程共有</h2>
     </div>
 
     {/* 確定日程 ヒーロー */}
@@ -3527,6 +3623,9 @@ return (
                 <h3 className="text-xl font-black tracking-tight text-white leading-snug">
                   {primaryStore.name}
                 </h3>
+                {primaryStore.reason && (
+                  <p className="mt-2 text-sm font-bold leading-snug text-white/55">{primaryStore.reason}</p>
+                )}
 
                 {/* アクセス + エリア情報 */}
                 {primaryStore.access && (
@@ -4556,6 +4655,76 @@ ${finalStore?.link ?? ''}`
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* 長押し削除アクションシート */}
+      <AnimatePresence>
+        {deleteTarget && (
+          <>
+            <motion.div
+              className="fixed inset-0 z-[60] bg-black/30 backdrop-blur-[2px]"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onClick={() => setDeleteTarget(null)}
+            />
+            <motion.div
+              className="fixed bottom-0 left-0 right-0 z-[60] rounded-t-3xl bg-white px-5 pb-10 pt-4 shadow-2xl"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 420, damping: 40 }}
+            >
+              <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-stone-200" />
+              <p className="mb-1 text-center text-[15px] font-black tracking-tight text-stone-900">
+                {deleteTarget.type === 'ongoing' ? '進行中の会を削除しますか？' : '記録を削除しますか？'}
+              </p>
+              <p className="mb-6 text-center text-[12px] text-stone-400">
+                {deleteTarget.type === 'ongoing' ? deleteTarget.name : deleteTarget.title}
+              </p>
+              <div className="space-y-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (deleteTarget.type === 'ongoing') {
+                      removeCurrentSavedEvent(deleteTarget.id)
+                    } else {
+                      deletePastRecord(deleteTarget.id)
+                    }
+                    setDeleteTarget(null)
+                    triggerDeleteToast()
+                  }}
+                  className="w-full rounded-2xl bg-red-500 px-4 py-4 text-[15px] font-black text-white transition active:scale-[0.98] hover:bg-red-600"
+                >
+                  削除する
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(null)}
+                  className="w-full rounded-2xl bg-stone-100 px-4 py-4 text-[15px] font-bold text-stone-600 transition active:scale-[0.98] hover:bg-stone-200"
+                >
+                  キャンセル
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* 削除トースト */}
+      <AnimatePresence>
+        {toastVisible && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 16 }}
+            transition={{ duration: 0.18 }}
+            className="fixed bottom-24 left-1/2 z-[9999] -translate-x-1/2 rounded-full bg-stone-900 px-5 py-2.5 text-[13px] font-bold text-white shadow-lg"
+          >
+            削除しました
+          </motion.div>
         )}
       </AnimatePresence>
     </main>

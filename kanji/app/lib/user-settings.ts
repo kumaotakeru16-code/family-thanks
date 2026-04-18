@@ -32,6 +32,7 @@ import {
   upsertFavoriteStoreCloud,
   deleteFavoriteStoreCloud,
   insertPastEventCloud,
+  deletePastEventCloud,
   getPastEventPhotoSignedUrl,
 } from './supabase-user-store'
 
@@ -225,6 +226,14 @@ export async function removeFavoriteStoreCloud(storeId: string): Promise<void> {
  */
 export async function savePastEventCloud(record: PastEventRecord): Promise<void> {
   await insertPastEventCloud(record)
+}
+
+/**
+ * 完了済みの会の記録をクラウドから削除する。
+ * fire-and-forget で呼ぶ（void）。
+ */
+export async function removePastEventCloud(eventId: string): Promise<void> {
+  await deletePastEventCloud(eventId)
 }
 
 /**
