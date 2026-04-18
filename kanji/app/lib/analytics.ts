@@ -56,8 +56,15 @@ const TRACKED_EVENTS: AnalyticsEventName[] = [
 // loadDashboard に渡す myUserId（現在の端末）とまとめて除外される。
 // 追加: localStorage の kanji_anon_id の値をここにコピーする。
 export const EXCLUDED_USER_IDS: string[] = [
-  // 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', // PC Chrome
-  // 'yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy', // iPhone Safari
+  // Android
+  'cb11867f-c3a8-4b62-a810-a761a553c6a8', // Chrome
+  '255d84c4-d6bf-459d-9d06-153d791391b7', // Chrome secret
+  '0d803784-6b85-4303-a290-0381eb554af4', // Edge
+  '2a6e09a4-6b31-4071-a837-c364b335475e', // LINE
+  'e130402a-f4a1-4070-862c-e64ed20c284a', // Brave
+
+  // PC
+  '19de35cc-fcf3-476c-9cbf-5895a479754e', // Chrome
 ]
 
 // ── 書き込み ──────────────────────────────────────────────────────────────────
