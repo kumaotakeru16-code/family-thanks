@@ -380,39 +380,65 @@ function getTopAreas(participants: Participant[]) {
 }
 
 function buildDateReason(params: {
-  mainGuestAvailability?: Availability
+  mainGuestAvailability?: Availability | null
   availableCount: number
+  maybeCount?: number
   totalCount: number
-  eventType: EventType
+  eventType: EventType | string
+  isBest?: boolean
 }) {
-  const { mainGuestAvailability, availableCount, totalCount, eventType } = params
+  const {
+    mainGuestAvailability,
+    availableCount,
+    maybeCount = 0,
+    totalCount,
+    eventType,
+    isBest = true,
+  } = params
 
-  if (totalCount === 0 || availableCount === 0) {
-    return 'まだ十分な回答が集まっていないため、日程理由は表示していません。'
-  }
+  if (totalCount === 0) return ''
 
-  if (availableCount === 1) {
+  if (isBest) {
+    // ── BEST候補：決定を後押しする強いトーン ──────────────────────────────────
+    if (availableCount === 0) {
+      return 'まだ十分な回答が集まっていないため、日程理由は表示していません。'
+    }
+    if (availableCount === totalCount) {
+      return `全員（${totalCount}人）が参加できます。この日程で確定しましょう。`
+    }
     if (mainGuestAvailability === 'yes') {
-      return '現時点では主賓が参加可能で、この候補が最も通しやすい日程です。'
+      if (eventType === '歓迎会' || eventType === '送別会') {
+        return `主賓が無理なく参加でき、参加人数も ${availableCount}/${totalCount} 人と確保できるため、この日程が最も自然です。`
+      }
+      return `主賓を含む${availableCount}人が参加可能。今回の候補でいちばんまとまりやすいです。`
     }
-    return '現時点では1名が参加可能で、この候補が最も通しやすい日程です。'
-  }
-
-  // 主賓OKパターン
-  if (mainGuestAvailability === 'yes') {
-    if (eventType === '歓迎会' || eventType === '送別会') {
-      return `主賓が無理なく参加でき、参加人数も ${availableCount}/${totalCount} 人と確保できるため、この日程が最も自然です。`
+    if (availableCount >= Math.ceil(totalCount * 0.6)) {
+      return `${availableCount}/${totalCount}人が参加できる最多候補。この日が一番決めやすいです。`
     }
-    return `主賓が参加でき、参加人数も ${availableCount}/${totalCount} 人と多いため、この日程が最もバランスの良い選択です。`
-  }
+    return `全体の予定を考慮すると、この日程が最も現実的な選択です。`
 
-  // バランス型
-  if (availableCount >= Math.ceil(totalCount * 0.6)) {
-    return `主賓優先ではないものの、参加できる人が ${availableCount}/${totalCount} 人と多く、全体として最も無理の少ない日程です。`
+  } else {
+    // ── BEST以外：代替案として控えめなトーン ─────────────────────────────────
+    if (availableCount === totalCount) {
+      return `全員参加できる日程ですが、他の条件を考慮してメイン候補外になっています。`
+    }
+    if (mainGuestAvailability === 'no') {
+      return `主賓の参加が難しい候補です。日程優先ならこの候補も選べます。`
+    }
+    if (mainGuestAvailability === 'yes') {
+      return `主賓は参加可能ですが、参加人数でメイン候補に次ぐ日程です。`
+    }
+    if (availableCount > 0 && maybeCount > 0) {
+      return `参加予定${availableCount}人・調整中${maybeCount}人います。調整次第で開催できます。`
+    }
+    if (maybeCount > 0) {
+      return `調整中が${maybeCount}人います。開催候補として成立しますが、調整が必要です。`
+    }
+    if (availableCount > 0) {
+      return `参加人数はやや少なめですが、日程優先ならこの候補も選べます。`
+    }
+    return `一部調整は必要ですが、開催候補としては成立しています。`
   }
-
-  // 消去法型
-  return `全体の予定の重なりを考慮すると、この日程が最も現実的な選択です。`
 }
 
 function buildStoreReason(params: {
@@ -435,56 +461,56 @@ function buildStoreReason(params: {
   const isFormal = eventType && formalTypes.includes(eventType)
   const hasVip = mainGuestCount > 0
 
-  // Natural sentence templates — most specific first
+  // 判断理由テンプレート — 「なぜこの店か」を幹事が他人に説明できる言葉で
   if (hasVip && hasPrivateRoom && area) {
-    return `${area}周辺にあり、個室で主賓を囲んでゆっくり話しやすい候補です`
+    return `主賓を個室で囲める${area}周辺の候補。今回の会に一番合っています。`
   }
   if (hasVip && area && genre) {
-    return `${area}周辺の${genre}で、主賓の都合を優先して選んだ候補です`
+    return `主賓優先で選んだ${area}周辺の${genre}。集まりやすさと条件のバランスが最良です。`
   }
   if (hasVip && area) {
-    return `${area}周辺で集まりやすく、主賓の都合を考慮した候補です`
+    return `${area}周辺で主賓が来やすく、今回の条件に最も合う候補です。`
   }
   if (hasPrivateRoom && hasFreeDrink && area) {
-    return `${area}周辺で、個室ありかつ飲み放題で過ごしやすい候補です`
+    return `個室あり・飲み放題で${area}周辺。今回の人数で会費もまとめやすい候補です。`
   }
   if (hasPrivateRoom && area && genre) {
-    return `${area}周辺の${genre}で、個室ありで落ち着いて話せる候補です`
+    return `個室あり・${area}周辺の${genre}。落ち着いて話せ、今回の会に使いやすい候補です。`
   }
   if (hasPrivateRoom && area) {
-    return `${area}周辺にあり、個室でゆっくり過ごしやすい候補です`
+    return `個室あり・${area}周辺。今回の人数で落ち着いて話せる、最有力の候補です。`
   }
   if (hasFreeDrink && area && genre) {
-    return `${area}周辺の${genre}で、飲み放題ありで会費もまとめやすい候補です`
+    return `${area}周辺の${genre}で飲み放題あり。今回の会費をまとめやすい候補です。`
   }
   if (hasFreeDrink && area) {
-    return `${area}周辺にあり、飲み放題ありで会費を合わせやすい候補です`
+    return `飲み放題あり・${area}周辺。会費が計算しやすく、今回に決めやすい候補です。`
   }
   if (isFormal && hasPrivateRoom) {
-    return `個室ありで、${eventType}の席として落ち着いて使いやすい候補です`
+    return `個室あり。${eventType}として落ち着いて使えます。今回の条件に合っています。`
   }
   if (isFormal && area) {
-    return `${area}周辺にあり、${eventType}の席として使いやすい候補です`
+    return `${area}周辺の${eventType}向け候補。アクセスと雰囲気のバランスが今回の会に合います。`
   }
   if (genre && area && priceRange) {
-    return `${area}周辺の${genre}で、${priceRange}の価格帯にも合わせやすい候補です`
+    return `${area}周辺・${priceRange}の${genre}。今回の条件でいちばん決めやすい候補です。`
   }
   if (genre && area) {
-    return `${area}周辺で${genre}が楽しめる、参加者の希望に寄せた候補です`
+    return `${area}周辺の${genre}。参加者の希望エリアと一致し、今回の候補で最有力です。`
   }
   if (area && priceRange) {
-    return `${area}周辺にあり、${priceRange}の価格帯で会費をまとめやすい候補です`
+    return `${area}周辺・${priceRange}の価格帯。会費もまとめやすく今回に最適な候補です。`
   }
   if (area) {
-    return `${area}周辺で集まりやすく、条件のバランスがよい候補です`
+    return `${area}周辺で集まりやすく、今回の条件でいちばんバランスが取れている候補です。`
   }
   if (genre) {
-    return `参加者希望の${genre}ジャンルに合わせた候補です`
+    return `参加者希望の${genre}ジャンルで、今回の会に最も合う候補です。`
   }
   if (organizerConditions.length > 0) {
-    return `${organizerConditions.slice(0, 2).join('・')}の条件に合う候補です`
+    return `${organizerConditions.slice(0, 2).join('・')}の条件に合い、今回の候補で一番まとめやすいです。`
   }
-  return '条件のバランスがよい候補です'
+  return `今回の参加人数・エリア・条件のバランスがいちばんよい候補です。`
 }
 
 function cx(...c: (string | false | null | undefined)[]) {
@@ -566,6 +592,7 @@ export default function Page() {
   const [mainGuestIds, setMainGuestIds] = useState<string[]>([])
   const [showHeroParticipants, setShowHeroParticipants] = useState(false)
   const [showPrioritySheet, setShowPrioritySheet] = useState(false)
+  const [showResponseTable, setShowResponseTable] = useState(false)
   const [showFinalParticipants, setShowFinalParticipants] = useState(false)
 
 
@@ -984,15 +1011,37 @@ const heroMaybeCount = heroDate
   ? activeParticipants.filter(p => p.availability?.[heroDate.id] === 'maybe').length
   : 0
 
+// 選択中の日程が BEST候補かどうか
+const heroIsBest = heroBestDateId === null || heroDate?.id === recommendedDate?.date?.id
+
 const heroDateReason = (() => {
   if (!heroDate) return ''
   const total = activeParticipants.length
   if (total === 0) return ''
-  const yesCount = activeParticipants.filter(p => p.availability?.[heroDate.id] === 'yes').length
-  if (yesCount === total) return '全員が参加予定です'
-  const mga = recommendedDate?.mainGuestAvailability
-  if (mainGuestIds.length > 0 && mga === 'yes') return `重要ゲストを含む ${yesCount}人が参加予定の最多日です`
-  return `参加予定 ${yesCount}人・最多の候補日です`
+  const hYes = activeParticipants.filter(p => p.availability?.[heroDate.id] === 'yes').length
+  const hMaybe = activeParticipants.filter(p => p.availability?.[heroDate.id] === 'maybe').length
+
+  // 主賓の参加可否を選択中の日程に対して直接計算
+  let heroMga: Availability | null = null
+  if (mainGuestIds.length > 0) {
+    const mgAvails = mainGuestIds
+      .map(id => activeParticipants.find(p => p.id === id)?.availability?.[heroDate.id])
+      .filter((a): a is Availability => a !== undefined)
+    if (mgAvails.length > 0) {
+      if (mgAvails.every(a => a === 'yes')) heroMga = 'yes'
+      else if (mgAvails.some(a => a === 'no')) heroMga = 'no'
+      else heroMga = 'maybe'
+    }
+  }
+
+  return buildDateReason({
+    mainGuestAvailability: heroMga,
+    availableCount: hYes,
+    maybeCount: hMaybe,
+    totalCount: total,
+    eventType,
+    isBest: heroIsBest,
+  })
 })()
 
 
@@ -2049,10 +2098,10 @@ return (
                     const s = ev.status ?? 'date_pending'
                     const statusCfg =
                       s === 'store_confirmed'
-                        ? { label: 'お店決定済み', cls: 'bg-emerald-100 text-emerald-700 ring-emerald-300', Icon: CheckCircle2 }
+                        ? { label: '清算する →', cls: 'bg-orange-50 text-orange-700 ring-orange-200', Icon: Receipt }
                         : s === 'store_pending'
                         ? { label: '次：お店を決める', cls: 'bg-stone-100 text-stone-500 ring-stone-300', Icon: CircleDashed }
-                        : { label: '次：日程を決める', cls: 'bg-orange-50 text-orange-700 ring-orange-200', Icon: Clock }
+                        : { label: '次：日程を決める', cls: 'bg-stone-50 text-stone-500 ring-stone-200', Icon: Clock }
                     const { Icon: StatusIcon } = statusCfg
                     return (
                       <motion.button
@@ -2634,6 +2683,7 @@ return (
 >
   回答状況を見る
 </PrimaryBtn>
+
     </div>
   </Card>
   </motion.div>
@@ -2694,19 +2744,19 @@ return (
       </div>
     ) : (
       <>
-        {/* おすすめ日程ヒーロー */}
+        {/* 決定候補ヒーロー */}
         <div className="overflow-hidden rounded-3xl bg-stone-900">
           <div className="px-6 py-5">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">
-              おすすめ日程
+              {heroIsBest ? '決定候補' : '代替候補'}
             </p>
             <p className="mt-1 text-3xl font-black text-white">
               {heroDate?.label}
             </p>
             {heroDateReason && (
-              <p className="mt-1.5 text-sm font-bold text-white/55">{heroDateReason}</p>
+              <p className="mt-1.5 text-sm font-bold text-white/70">{heroDateReason}</p>
             )}
-            <p className="mt-2 text-sm font-bold text-white/70">
+            <p className="mt-2 text-sm font-bold text-white/50">
               最大参加人数 {yesCount + maybeCount}人
             </p>
             <div className="mt-3 flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
@@ -2782,18 +2832,27 @@ return (
           </div>
         </div>
 
-        {/* ほかの日程 */}
+        {/* ヒーロー直下 決定CTA */}
+        <button
+          type="button"
+          onClick={decideRecommendedDate}
+          className="w-full rounded-2xl bg-stone-900 py-4 text-[15px] font-black text-white shadow-sm transition hover:opacity-90 active:scale-[0.98]"
+        >
+          この日で決定 →
+        </button>
+
+        {/* ほかの日程（例外導線・リンクレベル） */}
         {altDates.length > 0 && (
-          <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+          <div className="text-center">
             <button
               type="button"
               onClick={() => setShowAltDates((v) => !v)}
-              className="w-full text-center text-sm font-bold text-stone-500 underline underline-offset-2 transition hover:text-stone-800"
+              className="text-[12px] text-stone-400 underline underline-offset-2 transition hover:text-stone-600"
             >
-              {showAltDates ? 'ほかの日程を閉じる' : `ほかの日程を見る（${Math.min(altDates.length, 3)}件）`}
+              {showAltDates ? 'ほかの日程を閉じる' : `ほかの日程も見る（${Math.min(altDates.length, 3)}件）`}
             </button>
             {showAltDates && (
-              <div className="mt-4 space-y-2">
+              <div className="mt-3 space-y-2 text-left">
                 {altDates.slice(0, 3).map((d) => {
                   const dYes = activeParticipants.filter((p) => p.availability?.[d.id] === 'yes').length
                   const dMaybe = activeParticipants.filter((p) => p.availability?.[d.id] === 'maybe').length
@@ -2806,18 +2865,12 @@ return (
                         setShowAltDates(false)
                         setShowHeroParticipants(false)
                       }}
-                      className="flex w-full items-center justify-between rounded-2xl bg-stone-50 px-4 py-3 text-left ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-[0.99]"
+                      className="flex w-full items-center justify-between rounded-2xl bg-white px-4 py-3 text-left ring-1 ring-stone-100 transition hover:bg-stone-50 active:scale-[0.99]"
                     >
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-stone-900">{d.label}</p>
-                      </div>
-                      <div className="ml-3 flex shrink-0 items-center gap-2">
-                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-600 ring-1 ring-emerald-100">
-                          {dYes}人
-                        </span>
-                        <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-600 ring-1 ring-amber-100">
-                          {dMaybe}人
-                        </span>
+                      <p className="text-sm font-bold text-stone-700">{d.label}</p>
+                      <div className="ml-3 flex shrink-0 items-center gap-1.5">
+                        <span className="text-xs font-bold text-emerald-600">○{dYes}</span>
+                        <span className="text-xs font-bold text-amber-500">△{dMaybe}</span>
                       </div>
                     </button>
                   )
@@ -2827,77 +2880,84 @@ return (
           </div>
         )}
 
-        {/* 回答テーブル */}
-        <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-          <div className="flex items-center gap-1.5">
-            <Users size={11} className="text-stone-400" strokeWidth={2.5} />
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">回答テーブル</p>
-          </div>
-          <div className="mt-4 overflow-x-auto">
-            <div className="min-w-[760px]">
-              <div
-                className="grid items-center gap-2 text-xs font-bold text-stone-500"
-                style={{ gridTemplateColumns: `92px repeat(${activeDates.length}, minmax(72px, 1fr))` }}
-              >
-                <div>参加者</div>
-                {activeDates.map((date) => {
-                  const isSelected = date.id === heroDate?.id
-                  return (
-                    <button
-                      key={date.id}
-                      type="button"
-                      onClick={() => setHeroBestDateId(date.id)}
-                      className={`rounded-lg px-1 py-1 text-left text-xs font-bold transition active:scale-95 ${
-                        isSelected
-                          ? 'bg-stone-900 text-white'
-                          : 'text-stone-500 hover:bg-stone-100 hover:text-stone-900'
-                      }`}
+        {/* 回答テーブル（デフォルト非表示・詳細確認用） */}
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={() => setShowResponseTable((v) => !v)}
+            className="text-[12px] text-stone-400 underline underline-offset-2 transition hover:text-stone-600"
+          >
+            {showResponseTable ? '回答テーブルを閉じる' : '回答テーブルを見る'}
+          </button>
+        </div>
+        {showResponseTable && (
+          <div className="overflow-hidden rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+            <div className="overflow-x-auto">
+              <div className="min-w-[760px]">
+                <div
+                  className="grid items-center gap-2 text-xs font-bold text-stone-500"
+                  style={{ gridTemplateColumns: `92px repeat(${activeDates.length}, minmax(72px, 1fr))` }}
+                >
+                  <div>参加者</div>
+                  {activeDates.map((date) => {
+                    const isSelected = date.id === heroDate?.id
+                    return (
+                      <button
+                        key={date.id}
+                        type="button"
+                        onClick={() => setHeroBestDateId(date.id)}
+                        className={`rounded-lg px-1 py-1 text-left text-xs font-bold transition active:scale-95 ${
+                          isSelected
+                            ? 'bg-stone-900 text-white'
+                            : 'text-stone-500 hover:bg-stone-100 hover:text-stone-900'
+                        }`}
+                      >
+                        {date.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="mt-3 space-y-2">
+                  {activeParticipants.map((participant) => (
+                    <div
+                      key={participant.id}
+                      className="grid items-center gap-2"
+                      style={{ gridTemplateColumns: `92px repeat(${activeDates.length}, minmax(72px, 1fr))` }}
                     >
-                      {date.label}
-                    </button>
-                  )
-                })}
-              </div>
-              <div className="mt-3 space-y-2">
-                {activeParticipants.map((participant) => (
-                  <div
-                    key={participant.id}
-                    className="grid items-center gap-2"
-                    style={{ gridTemplateColumns: `92px repeat(${activeDates.length}, minmax(72px, 1fr))` }}
-                  >
-                    <div className="truncate text-sm font-bold text-stone-900">
-                      {participant.name}
+                      <div className="truncate text-sm font-bold text-stone-900">
+                        {participant.name}
+                      </div>
+                      {activeDates.map((date) => {
+                        const value = participant.availability?.[date.id]
+                        const isHero = date.id === heroDate.id
+                        return (
+                          <div
+                            key={date.id}
+                            className={`flex h-9 items-center justify-center rounded-xl ring-1 ${
+                              isHero ? 'bg-stone-50 ring-stone-200' : 'bg-white ring-stone-100'
+                            }`}
+                          >
+                            {value === 'yes' ? (
+                              <span className="text-[15px] font-black leading-none text-emerald-500">○</span>
+                            ) : value === 'maybe' ? (
+                              <span className="text-[15px] font-black leading-none text-amber-400">△</span>
+                            ) : value === 'no' ? (
+                              <span className="text-[14px] font-bold leading-none text-stone-300">×</span>
+                            ) : (
+                              <span className="text-[11px] text-stone-300">—</span>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
-                    {activeDates.map((date) => {
-                      const value = participant.availability?.[date.id]
-                      const isHero = date.id === heroDate.id
-                      return (
-                        <div
-                          key={date.id}
-                          className={`flex h-9 items-center justify-center rounded-xl ring-1 ${
-                            isHero ? 'bg-stone-50 ring-stone-200' : 'bg-white ring-stone-100'
-                          }`}
-                        >
-                          {value === 'yes' ? (
-                            <span className="text-[15px] font-black leading-none text-emerald-500">○</span>
-                          ) : value === 'maybe' ? (
-                            <span className="text-[15px] font-black leading-none text-amber-400">△</span>
-                          ) : value === 'no' ? (
-                            <span className="text-[14px] font-bold leading-none text-stone-300">×</span>
-                          ) : (
-                            <span className="text-[11px] text-stone-300">—</span>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* 未回答者へのリマインド（折りたたみ） */}
+        {/* リマインド（折りたたみ） */}
         <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-stone-100">
           <button
             type="button"
@@ -2958,13 +3018,6 @@ return (
               </div>
             </div>
           )}
-        </div>
-
-        {/* この日で決定 CTA — sticky bottom */}
-        <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
-          <PrimaryBtn size="large" onClick={decideRecommendedDate}>
-            この日で決定 →
-          </PrimaryBtn>
         </div>
       </>
     )}
@@ -3672,7 +3725,18 @@ return (
           )}
         </AnimatePresence>
 
-        {/* 2位以下 — 選択可能カード（stagger表示） */}
+        {/* ベスト直下インラインCTA（full モードのみ） */}
+        {appMode !== 'store_only' && primaryStore && (
+          <button
+            type="button"
+            onClick={() => { void loadFinalDecisionView() }}
+            className="w-full rounded-2xl bg-stone-900 py-4 text-[15px] font-black text-white shadow-sm transition hover:opacity-90 active:scale-[0.98]"
+          >
+            この店で決める →
+          </button>
+        )}
+
+        {/* 他の候補（サブ扱い） */}
         {secondaryStores.length > 0 && (
           <div className="space-y-2">
             <div className="px-0.5">
@@ -3713,9 +3777,21 @@ return (
                         <span className="line-clamp-1">{store.access}</span>
                       </p>
                     )}
-                    {store.reason && !store.access && (
-                      <p className="mt-0.5 text-xs text-stone-400 line-clamp-1">{store.reason}</p>
-                    )}
+                    {/* 差分バッジ */}
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {store.hasPrivateRoom && (
+                        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-500">個室</span>
+                      )}
+                      {store.walkMinutes != null && (
+                        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-500">徒歩{store.walkMinutes}分</span>
+                      )}
+                      {store.googleRating && (
+                        <span className="flex items-center gap-0.5 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-600">
+                          <Star size={8} className="fill-amber-400 text-amber-400" />
+                          {store.googleRating.toFixed(1)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {/* 詳細リンク — LinkSwitch により自動アフィリエイト変換される */}
                   {store.link && (
@@ -3790,7 +3866,7 @@ return (
           ) : (
             <>
               <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
-                この候補で進む
+                この店で決める →
               </PrimaryBtn>
               <button
                 type="button"
