@@ -390,138 +390,179 @@ function getTopAreas(participants: Participant[]) {
     .map(([area]) => area)
 }
 
-function buildDateReason(params: {
+/** 箇条書き理由を最大5個生成（意思決定の根拠として機能する順序で） */
+function buildDateReasons(params: {
   mainGuestAvailability?: Availability | null
   availableCount: number
   maybeCount?: number
+  noCount?: number
   totalCount: number
   eventType: EventType | string
   isBest?: boolean
-}) {
+}): string[] {
   const {
     mainGuestAvailability,
     availableCount,
     maybeCount = 0,
+    noCount = 0,
     totalCount,
     eventType,
     isBest = true,
   } = params
 
-  if (totalCount === 0) return ''
+  if (totalCount === 0 || availableCount === 0) return []
+  const reasons: string[] = []
+  const formalTypes = ['歓迎会', '送別会', '会食']
+  const isFormal = formalTypes.includes(eventType as string)
 
-  if (isBest) {
-    // ── BEST候補：決定を後押しする強いトーン ──────────────────────────────────
-    if (availableCount === 0) {
-      return 'まだ十分な回答が集まっていないため、日程理由は表示していません。'
-    }
-    if (availableCount === totalCount) {
-      return `全員（${totalCount}人）が参加できます。この日程で確定しましょう。`
-    }
-    if (mainGuestAvailability === 'yes') {
-      if (eventType === '歓迎会' || eventType === '送別会') {
-        return `主賓が無理なく参加でき、参加人数も ${availableCount}/${totalCount} 人と確保できるため、この日程が最も自然です。`
-      }
-      return `主賓を含む${availableCount}人が参加可能。今回の候補でいちばんまとまりやすいです。`
-    }
-    if (availableCount >= Math.ceil(totalCount * 0.6)) {
-      return `${availableCount}/${totalCount}人が参加できる最多候補。この日が一番決めやすいです。`
-    }
-    return `全体の予定を考慮すると、この日程が最も現実的な選択です。`
-
-  } else {
-    // ── BEST以外：代替案として控えめなトーン ─────────────────────────────────
-    if (availableCount === totalCount) {
-      return `全員参加できますが、他候補の方がより決めやすい日程です`
-    }
-    if (mainGuestAvailability === 'no') {
-      return `主賓の参加が難しい候補です。日程優先ならこの候補も選べます。`
-    }
-    if (mainGuestAvailability === 'yes') {
-      return `主賓は参加可能ですが、参加人数でメイン候補に次ぐ日程です。`
-    }
-    if (availableCount > 0 && maybeCount > 0) {
-      return `参加予定${availableCount}人・調整中${maybeCount}人います。調整次第で開催できます。`
-    }
-    if (maybeCount > 0) {
-      return `調整中が${maybeCount}人います。開催候補として成立しますが、調整が必要です。`
-    }
-    if (availableCount > 0) {
-      return `参加人数はやや少なめですが、日程優先ならこの候補も選べます。`
-    }
-    return `一部調整は必要ですが、開催候補としては成立しています。`
+  // 1. 全員参加
+  if (availableCount === totalCount) {
+    reasons.push(`全員（${totalCount}人）が参加できる`)
+  } else if (isBest && availableCount >= Math.ceil(totalCount * 0.6)) {
+    reasons.push(`参加予定が${availableCount}人で候補中最多`)
   }
+
+  // 2. 主賓参加
+  if (mainGuestAvailability === 'yes') {
+    if (isFormal) {
+      reasons.push(`主賓が参加できる`)
+    } else {
+      reasons.push(`主賓も参加可能`)
+    }
+  } else if (mainGuestAvailability === 'maybe' && isBest) {
+    reasons.push(`主賓は調整中だが参加見込みあり`)
+  }
+
+  // 3. 調整中が少ない
+  if (maybeCount === 0 && availableCount < totalCount) {
+    reasons.push(`調整中ゼロ — 確定度が高い`)
+  } else if (maybeCount === 1) {
+    reasons.push(`調整中が1人のみ`)
+  } else if (maybeCount > 0 && isBest) {
+    reasons.push(`調整中${maybeCount}人が確定すればさらに増える`)
+  }
+
+  // 4. 不参加が少ない
+  if (noCount === 0 && availableCount < totalCount) {
+    reasons.push(`不参加ゼロ`)
+  } else if (noCount === 1) {
+    reasons.push(`不参加は1人のみ`)
+  }
+
+  // 5. bestでない場合の代替理由
+  if (!isBest && mainGuestAvailability === 'no') {
+    reasons.push(`主賓の参加は難しいが日程は成立する`)
+  }
+
+  return reasons.slice(0, 5)
 }
 
-function buildStoreReason(params: {
+/** まとめ文 */
+function buildDateSummary(params: {
+  mainGuestAvailability?: Availability | null
+  availableCount: number
+  totalCount: number
+  isBest?: boolean
+}): string {
+  const { mainGuestAvailability, availableCount, totalCount, isBest = true } = params
+  if (availableCount === totalCount) return 'この日で全員集まれます。安心して決定できます'
+  if (mainGuestAvailability === 'yes' && availableCount >= Math.ceil(totalCount * 0.6)) {
+    return '主賓・多数が参加可能で、最も成立しやすい日程です'
+  }
+  if (isBest && availableCount >= Math.ceil(totalCount * 0.6)) return '最も成立しやすい日程です'
+  if (isBest) return 'この日程での開催が現実的です'
+  return '代替候補として成立します'
+}
+
+/** 箇条書き理由を最大5個生成（意思決定の根拠として機能する順序で） */
+function buildStoreReasons(params: {
   store: StoreCandidate
-  participants: Participant[]
   organizerConditions: string[]
   orgPrefs?: OrganizerPrefs
   eventType?: string
   mainGuestCount?: number
-}) {
-  const { store, organizerConditions, orgPrefs, eventType = '', mainGuestCount = 0 } = params
+}): string[] {
+  const { store, orgPrefs, eventType = '', mainGuestCount = 0 } = params
+  const reasons: string[] = []
 
-  const storeTags = store.tags ?? []
   const area = orgPrefs?.areas[0]
   const genre = orgPrefs?.genres?.find(g => g !== 'なんでもいい')
   const priceRange = orgPrefs?.priceRange && orgPrefs.priceRange !== '指定なし' ? orgPrefs.priceRange : null
-  const hasPrivateRoom = orgPrefs?.privateRoom === '個室あり' && storeTags.includes('個室あり')
-  const hasFreeDrink = false
+  const hasPrivateRoom = store.hasPrivateRoom || (store.tags ?? []).includes('個室あり')
+  const hasVip = mainGuestCount > 0
   const formalTypes = ['会食', '歓迎会', '送別会']
-  const isFormal = eventType && formalTypes.includes(eventType)
+  const isFormal = formalTypes.includes(eventType)
+
+  // 1. 主賓関連（最優先）
+  if (hasVip && hasPrivateRoom) {
+    reasons.push('主賓を個室でお迎えできる')
+  } else if (hasVip) {
+    reasons.push('主賓が参加する会にふさわしい雰囲気')
+  }
+
+  // 2. 参加者希望ジャンル
+  if (genre) {
+    reasons.push(`参加者希望の${genre}ジャンル`)
+  }
+
+  // 3. アクセス
+  if (store.walkMinutes != null && store.walkMinutes <= 10) {
+    const station = area ? `${area}駅` : '最寄り駅'
+    reasons.push(`${station}から徒歩${store.walkMinutes}分でアクセスしやすい`)
+  } else if (store.access) {
+    reasons.push(store.access)
+  }
+
+  // 4. 予算
+  if (priceRange) {
+    reasons.push(`予算${priceRange}で条件内`)
+  }
+
+  // 5. 個室（主賓で既出でない場合のみ）
+  if (hasPrivateRoom && !hasVip) {
+    const context = isFormal ? `${eventType}として落ち着いて使える` : '落ち着いて話せる'
+    reasons.push(`個室ありで${context}`)
+  }
+
+  // 6. Google評価（4.0以上かつ50件以上のみ）
+  if (
+    store.googleRating && store.googleRating >= 4.0 &&
+    store.googleRatingCount && store.googleRatingCount >= 50
+  ) {
+    reasons.push(`評価${store.googleRating.toFixed(1)}（${store.googleRatingCount.toLocaleString()}件）で安心感がある`)
+  }
+
+  return reasons.slice(0, 5)
+}
+
+/** 箇条書き理由の下に1行添えるまとめ文 */
+function buildStoreSummary(params: {
+  store: StoreCandidate
+  orgPrefs?: OrganizerPrefs
+  mainGuestCount?: number
+}): string {
+  const { store, orgPrefs, mainGuestCount = 0 } = params
+  const hasGenrePref = !!orgPrefs?.genres?.find(g => g !== 'なんでもいい')
+  const hasCondPref = !!(orgPrefs?.priceRange && orgPrefs.priceRange !== '指定なし')
+  const hasGoodRating = !!(store.googleRating && store.googleRating >= 4.0 &&
+    store.googleRatingCount && store.googleRatingCount >= 50)
   const hasVip = mainGuestCount > 0
 
-  // 判断理由テンプレート — 「なぜこの店か」を幹事が他人に説明できる言葉で
-  if (hasVip && hasPrivateRoom && area) {
-    return `主賓を個室で囲める${area}周辺の候補。今回の会に一番合っています。`
-  }
-  if (hasVip && area && genre) {
-    return `主賓優先で選んだ${area}周辺の${genre}。集まりやすさと条件のバランスが最良です。`
-  }
-  if (hasVip && area) {
-    return `${area}周辺で主賓が来やすく、今回の条件に最も合う候補です。`
-  }
-  if (hasPrivateRoom && hasFreeDrink && area) {
-    return `個室あり・飲み放題で${area}周辺。今回の人数で会費もまとめやすい候補です。`
-  }
-  if (hasPrivateRoom && area && genre) {
-    return `個室あり・${area}周辺の${genre}。落ち着いて話せ、今回の会に使いやすい候補です。`
-  }
-  if (hasPrivateRoom && area) {
-    return `個室あり・${area}周辺。今回の人数で落ち着いて話せる、最有力の候補です。`
-  }
-  if (hasFreeDrink && area && genre) {
-    return `${area}周辺の${genre}で飲み放題あり。今回の会費をまとめやすい候補です。`
-  }
-  if (hasFreeDrink && area) {
-    return `飲み放題あり・${area}周辺。会費が計算しやすく、今回に決めやすい候補です。`
-  }
-  if (isFormal && hasPrivateRoom) {
-    return `個室あり。${eventType}として落ち着いて使えます。今回の条件に合っています。`
-  }
-  if (isFormal && area) {
-    return `${area}周辺の${eventType}向け候補。アクセスと雰囲気のバランスが今回の会に合います。`
-  }
-  if (genre && area && priceRange) {
-    return `${area}周辺・${priceRange}の${genre}。今回の条件でいちばん決めやすい候補です。`
-  }
-  if (genre && area) {
-    return `${area}周辺の${genre}。参加者の希望エリアと一致し、今回の候補で最有力です。`
-  }
-  if (area && priceRange) {
-    return `${area}周辺・${priceRange}の価格帯。会費もまとめやすく今回に最適な候補です。`
-  }
-  if (area) {
-    return `${area}周辺で集まりやすく、今回の条件でいちばんバランスが取れている候補です。`
-  }
-  if (genre) {
-    return `参加者希望の${genre}ジャンルで、今回の会に最も合う候補です。`
-  }
-  if (organizerConditions.length > 0) {
-    return `${organizerConditions.slice(0, 2).join('・')}の条件に合い、今回の候補で一番まとめやすいです。`
-  }
-  return `今回の参加人数・エリア・条件のバランスがいちばんよい候補です。`
+  const matchScore = [hasGenrePref || hasVip, hasCondPref, hasGoodRating].filter(Boolean).length
+  if (matchScore >= 3) return '条件・参加者希望・評価のバランスが良く、安心して選べます'
+  if (hasVip || hasGenrePref) return '条件と参加者の希望の両方に合っており、納得感があります'
+  return '条件との一致度が高く、安心して選べます'
+}
+
+/** チップは補助情報として最大3個（ジャンル / 価格帯 / 個室あり） */
+function buildStoreChips(store: StoreCandidate, orgPrefs?: OrganizerPrefs): string[] {
+  const chips: string[] = []
+  const genre = store.genre || orgPrefs?.genres?.find(g => g !== 'なんでもいい')
+  if (genre) chips.push(genre)
+  const priceRange = orgPrefs?.priceRange && orgPrefs.priceRange !== '指定なし' ? orgPrefs.priceRange : null
+  if (priceRange) chips.push(priceRange)
+  if (store.hasPrivateRoom || (store.tags ?? []).includes('個室あり')) chips.push('個室あり')
+  return chips.slice(0, 3)
 }
 
 function cx(...c: (string | false | null | undefined)[]) {
@@ -1061,14 +1102,14 @@ const heroMaybeCount = heroDate
 // 選択中の日程が BEST候補かどうか
 const heroIsBest = heroBestDateId === null || heroDate?.id === recommendedDate?.date?.id
 
-const heroDateReason = (() => {
-  if (!heroDate) return ''
+const { heroDateReasons, heroDateSummary } = (() => {
+  if (!heroDate) return { heroDateReasons: [] as string[], heroDateSummary: '' }
   const total = activeParticipants.length
-  if (total === 0) return ''
+  if (total === 0) return { heroDateReasons: [] as string[], heroDateSummary: '' }
   const hYes = activeParticipants.filter(p => p.availability?.[heroDate.id] === 'yes').length
   const hMaybe = activeParticipants.filter(p => p.availability?.[heroDate.id] === 'maybe').length
+  const hNo = activeParticipants.filter(p => p.availability?.[heroDate.id] === 'no').length
 
-  // 主賓の参加可否を選択中の日程に対して直接計算
   let heroMga: Availability | null = null
   if (mainGuestIds.length > 0) {
     const mgAvails = mainGuestIds
@@ -1081,14 +1122,23 @@ const heroDateReason = (() => {
     }
   }
 
-  return buildDateReason({
-    mainGuestAvailability: heroMga,
-    availableCount: hYes,
-    maybeCount: hMaybe,
-    totalCount: total,
-    eventType,
-    isBest: heroIsBest,
-  })
+  return {
+    heroDateReasons: buildDateReasons({
+      mainGuestAvailability: heroMga,
+      availableCount: hYes,
+      maybeCount: hMaybe,
+      noCount: hNo,
+      totalCount: total,
+      eventType,
+      isBest: heroIsBest,
+    }),
+    heroDateSummary: buildDateSummary({
+      mainGuestAvailability: heroMga,
+      availableCount: hYes,
+      totalCount: total,
+      isBest: heroIsBest,
+    }),
+  }
 })()
 
 
@@ -1206,15 +1256,8 @@ const alternativeStores =
 
 const availableCount = recommendedDate?.availableCount ?? 0
   
-const dateReason =
-  recommendedDate && totalCount > 0 && recommendedDate.availableCount > 0
-    ? buildDateReason({
-        mainGuestAvailability: recommendedDate.mainGuestAvailability,
-        availableCount: recommendedDate.availableCount,
-        totalCount,
-        eventType,
-      })
-    : 'まだ十分な回答が集まっていないため、日程理由は表示していません。'
+// dateReason は未使用（heroDateReasons / heroDateSummary に統合済み）
+const _dateReason = ''
 
 
 
@@ -1225,16 +1268,27 @@ const dateSummaryText =
     ? '現時点では1名が参加可能です'
     : `参加できる人 ${availableCount}人 — 現時点で最も集まりやすい候補です`
 
-const storeReason = selectedStore
-  ? buildStoreReason({
+const storeReasons = selectedStore
+  ? buildStoreReasons({
       store: selectedStore,
-      participants: activeParticipants,
       organizerConditions,
       orgPrefs,
       eventType,
       mainGuestCount: mainGuestIds.length,
     })
+  : []
+
+const storeSummary = selectedStore
+  ? buildStoreSummary({
+      store: selectedStore,
+      orgPrefs,
+      mainGuestCount: mainGuestIds.length,
+    })
   : '条件のバランスがよいため優先'
+
+const storeChips = selectedStore
+  ? buildStoreChips(selectedStore, orgPrefs)
+  : []
 
   // Merge store tags + active organizer conditions into display tags (max 4)
 const effectiveTags = useMemo(() => {
@@ -3077,71 +3131,36 @@ return (
             <p className="mt-2 text-[32px] font-black leading-tight tracking-tight" style={{ color: '#d4af3c' }}>
               {heroDate?.label}
             </p>
-            {/* 参加統計 */}
-            <p className="mt-1.5 text-sm font-bold text-white/60">
-              {yesCount}/{activeParticipants.length} confirmed
-              {maybeCount > 0 ? `, ${maybeCount} pending` : ''}
-            </p>
-            {/* 判断理由 */}
-            {heroDateReason && (
-              <p className="mt-2 text-[13px] leading-snug text-white/45">{heroDateReason}</p>
-            )}
-            {/* 参加確定者アバター */}
-            {heroYesParticipants.length > 0 && (
-              <div className="mt-4">
-                <p className="mb-2.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/28">
-                  Confirmed attendees
+            {/* ── 理由セクション ────────────────────────────── */}
+            {heroDateReasons.length > 0 && (
+              <div className="mt-5">
+                <p className="mb-2.5 text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: 'rgba(74,222,128,0.55)' }}>
+                  この日程が最適な理由
                 </p>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {heroYesParticipants.slice(0, 6).map((p, i) => {
-                    const avatarPalette = ['#374151','#1d4e2a','#6b4c11','#4c1d95','#7f1d1d','#0e4e6c']
-                    return (
-                      <div
-                        key={p.id}
-                        title={p.name}
-                        className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-black text-white ring-1 ring-white/15"
-                        style={{ background: avatarPalette[i % avatarPalette.length] }}
-                      >
-                        {p.name.charAt(0)}
-                      </div>
-                    )
-                  })}
-                  {heroYesParticipants.length > 6 && (
-                    <span className="text-xs font-bold text-white/30">+{heroYesParticipants.length - 6}</span>
-                  )}
-                  <span className="ml-1 text-xs text-white/35">
-                    {heroYesParticipants.slice(0, 3).map(p => p.name).join(', ')}
-                    {heroYesParticipants.length > 3 ? '…' : ''}
-                  </span>
-                </div>
+                <ul className="space-y-1.5">
+                  {heroDateReasons.map((r, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/65" />
+                      <span className="text-[13px] leading-[1.45] text-white/72">{r}</span>
+                    </li>
+                  ))}
+                </ul>
+                {heroDateSummary && (
+                  <p className="mt-3.5 text-[13px] font-bold leading-5 text-white/88">{heroDateSummary}</p>
+                )}
               </div>
             )}
-            {/* 優先者表示 */}
-            {mainGuestIds.length > 0 && (() => {
-              const firstName = activeParticipants.find(p => p.id === mainGuestIds[0])?.name ?? ''
-              const extra = mainGuestIds.length - 1
-              return (
-                <button
-                  type="button"
-                  onClick={() => setShowPrioritySheet(true)}
-                  className="mt-3 flex items-center gap-1 text-[11px] font-bold text-white/35 transition hover:text-white/55"
-                >
-                  <Users size={10} strokeWidth={2.5} />
-                  優先：{firstName}{extra > 0 ? ` +${extra}` : ''}
-                </button>
-              )
-            })()}
             {/* 詳細トグル */}
             <button
               type="button"
               onClick={() => setShowHeroParticipants((v) => !v)}
-              className="mt-3 text-[11px] font-bold underline underline-offset-2"
-              style={{ color: 'rgba(214,175,60,0.55)' }}
+              className="mt-4 text-[11px] font-bold underline underline-offset-2"
+              style={{ color: 'rgba(214,175,60,0.45)' }}
             >
               {showHeroParticipants ? '参加者を閉じる' : '参加者を見る'}
             </button>
             {showHeroParticipants && (
-              <div className="mt-4 space-y-2.5">
+              <div className="mt-3 space-y-2.5">
                 <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/8">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400/70">参加予定</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -4032,35 +4051,51 @@ return (
 
               {/* テキスト + 情報 */}
               <div className="px-6 pt-5 pb-4">
-                {/* Best Choice ラベル（THANKSカードと同トーン） */}
+                {/* Best Choice ラベル */}
                 <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(214,175,60,0.65)' }}>
                   <Sparkles size={9} strokeWidth={2.5} />
                   Best Choice
                 </p>
+                {/* 店名 */}
                 <h3 className="mt-2 text-[22px] font-black tracking-tight text-white leading-snug">
                   {primaryStore.name}
                 </h3>
-                {primaryStore.reason && (
-                  <p className="mt-2 text-sm leading-snug text-white/55">{primaryStore.reason}</p>
+                {/* アクセス */}
+                {primaryStore.access && (
+                  <div className="mt-1.5 flex items-start gap-1.5">
+                    <Train size={11} className="mt-0.5 shrink-0 text-white/35" />
+                    <p className="text-xs leading-5 text-white/40">{primaryStore.access}</p>
+                  </div>
                 )}
 
-                {/* アクセス + エリア情報 */}
-                {primaryStore.access && (
-                  <div className="mt-2 flex items-start gap-1.5">
-                    <Train size={11} className="mt-0.5 shrink-0 text-white/35" />
-                    <p className="text-xs leading-5 text-white/45">{primaryStore.access}</p>
+                {/* ── 理由セクション ────────────────────────────── */}
+                {storeReasons.length > 0 && (
+                  <div className="mt-5">
+                    <p className="mb-2.5 text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: 'rgba(74,222,128,0.55)' }}>
+                      この条件に合う理由
+                    </p>
+                    <ul className="space-y-1.5">
+                      {storeReasons.map((r, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/65" />
+                          <span className="text-[13px] leading-[1.45] text-white/72">{r}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {/* まとめ文 */}
+                    <p className="mt-3.5 text-[13px] font-bold leading-5 text-white/88">{storeSummary}</p>
                   </div>
                 )}
               </div>
 
-              {/* タグチップ */}
-              {primaryStore.tags && primaryStore.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 px-6 pb-4">
-                  {primaryStore.tags.slice(0, 4).map(tag => tag ? (
-                    <span key={tag} className="rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-white/55 ring-1 ring-white/8">
-                      {tag}
+              {/* チップ（補助情報・最小限） */}
+              {storeChips.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 px-6 pb-5">
+                  {storeChips.map(chip => (
+                    <span key={chip} className="rounded-full bg-white/8 px-2.5 py-0.5 text-[11px] font-semibold text-white/42 ring-1 ring-white/8">
+                      {chip}
                     </span>
-                  ) : null)}
+                  ))}
                 </div>
               )}
 
