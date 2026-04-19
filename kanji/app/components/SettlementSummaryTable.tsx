@@ -35,6 +35,8 @@ type Props = {
   /** event info for record */
   eventName?: string
   eventDate?: string
+  /** ツールモード（独立会計試算）: メモ/完了ボタンを非表示 */
+  isToolMode?: boolean
   onBack: () => void
   onShare: (text: string) => void
   /**
@@ -57,8 +59,9 @@ const ROLE_BADGE: Record<string, string> = {
 
 export function SettlementSummaryTable({
   result, config, message, organizerSettings,
-  storeName, storeId, storeLink, storeArea, storeGenre,
-  eventName, eventDate,
+  storeName, storeId: _storeId, storeLink: _storeLink, storeArea, storeGenre: _storeGenre,
+  eventName: _eventName, eventDate: _eventDate,
+  isToolMode = false,
   onBack, onShare, onComplete, onCompleted,
 }: Props) {
   const [editableMessage, setEditableMessage] = useState(message)
@@ -331,119 +334,121 @@ export function SettlementSummaryTable({
           </button>
         </div>
 
-        {/* ── メモパネル ─────────────────────────────────────────────────────── */}
-        <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-stone-100">
-          <button
-            type="button"
-            onClick={() => setShowMemo((v) => !v)}
-            className="flex w-full items-center justify-between px-4 py-3.5"
-          >
-            <span className="text-sm font-bold text-stone-700">会のメモを残す</span>
-            {showMemo
-              ? <ChevronUp size={16} className="text-stone-400" />
-              : <ChevronDown size={16} className="text-stone-400" />
-            }
-          </button>
+        {/* ── メモパネル（フルモードのみ）──────────────────────────────────── */}
+        {!isToolMode && (
+          <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-stone-100">
+            <button
+              type="button"
+              onClick={() => setShowMemo((v) => !v)}
+              className="flex w-full items-center justify-between px-4 py-3.5"
+            >
+              <span className="text-sm font-bold text-stone-700">会のメモを残す</span>
+              {showMemo
+                ? <ChevronUp size={16} className="text-stone-400" />
+                : <ChevronDown size={16} className="text-stone-400" />
+              }
+            </button>
 
-          <AnimatePresence>
-            {showMemo && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <div className="space-y-4 border-t border-stone-100 px-4 pb-4 pt-3">
-                  {/* ひとことメモ */}
-                  <div>
-                    <label className="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-stone-400">
-                      ひとことメモ
-                    </label>
-                    <textarea
-                      value={memoText}
-                      onChange={(e) => setMemoText(e.target.value)}
-                      placeholder="よかった点、次回への引き継ぎなど..."
-                      rows={3}
-                      className="w-full resize-none rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-base leading-6 text-stone-900 outline-none transition focus:border-stone-400 focus:bg-white"
-                    />
-                  </div>
-
-                  {/* お気に入り登録 */}
-                  {storeName && (
-                    <div className="flex items-center justify-between rounded-xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
-                      <div>
-                        <p className="text-sm font-bold text-stone-800">{storeName}</p>
-                        {storeArea && (
-                          <p className="text-[11px] text-stone-400">{storeArea}</p>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setIsFavorite((v) => !v)}
-                        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold transition active:scale-95 ${
-                          isFavorite
-                            ? 'bg-rose-100 text-rose-600 ring-1 ring-rose-200'
-                            : 'bg-stone-100 text-stone-500 ring-1 ring-stone-200'
-                        }`}
-                      >
-                        <Heart
-                          size={11}
-                          strokeWidth={2.5}
-                          className={isFavorite ? 'fill-rose-500 text-rose-500' : ''}
-                        />
-                        {isFavorite ? 'お気に入り済み' : 'お気に入り'}
-                      </button>
+            <AnimatePresence>
+              {showMemo && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="space-y-4 border-t border-stone-100 px-4 pb-4 pt-3">
+                    {/* ひとことメモ */}
+                    <div>
+                      <label className="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-stone-400">
+                        ひとことメモ
+                      </label>
+                      <textarea
+                        value={memoText}
+                        onChange={(e) => setMemoText(e.target.value)}
+                        placeholder="よかった点、次回への引き継ぎなど..."
+                        rows={3}
+                        className="w-full resize-none rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-base leading-6 text-stone-900 outline-none transition focus:border-stone-400 focus:bg-white"
+                      />
                     </div>
-                  )}
 
-                  {/* 写真1枚（圧縮して保存） */}
-                  <div>
-                    <label className="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-stone-400">
-                      写真
-                    </label>
-                    {photoLoading ? (
-                      <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-dashed border-stone-300 bg-stone-50">
-                        <span className="text-[10px] text-stone-400">処理中…</span>
-                      </div>
-                    ) : photoDataUrl ? (
-                      <div className="relative inline-block">
-                        <img
-                          src={photoDataUrl}
-                          alt="会の写真"
-                          className="h-28 w-28 rounded-xl object-cover ring-1 ring-stone-200"
-                        />
+                    {/* お気に入り登録 */}
+                    {storeName && (
+                      <div className="flex items-center justify-between rounded-xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
+                        <div>
+                          <p className="text-sm font-bold text-stone-800">{storeName}</p>
+                          {storeArea && (
+                            <p className="text-[11px] text-stone-400">{storeArea}</p>
+                          )}
+                        </div>
                         <button
                           type="button"
-                          onClick={() => { setPhotoDataUrl(null); setSaveError(null) }}
-                          className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-stone-700 text-white transition hover:bg-stone-900"
+                          onClick={() => setIsFavorite((v) => !v)}
+                          className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold transition active:scale-95 ${
+                            isFavorite
+                              ? 'bg-rose-100 text-rose-600 ring-1 ring-rose-200'
+                              : 'bg-stone-100 text-stone-500 ring-1 ring-stone-200'
+                          }`}
                         >
-                          <X size={10} strokeWidth={3} />
+                          <Heart
+                            size={11}
+                            strokeWidth={2.5}
+                            className={isFavorite ? 'fill-rose-500 text-rose-500' : ''}
+                          />
+                          {isFavorite ? 'お気に入り済み' : 'お気に入り'}
                         </button>
                       </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-stone-300 bg-stone-50 text-stone-400 transition hover:border-stone-400 hover:text-stone-600 active:scale-95"
-                      >
-                        <ImagePlus size={18} strokeWidth={1.8} />
-                        <span className="text-[9px] font-bold">追加</span>
-                      </button>
                     )}
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handlePhotoChange}
-                    />
+
+                    {/* 写真1枚（圧縮して保存） */}
+                    <div>
+                      <label className="mb-1.5 block text-[10px] font-black uppercase tracking-wider text-stone-400">
+                        写真
+                      </label>
+                      {photoLoading ? (
+                        <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-dashed border-stone-300 bg-stone-50">
+                          <span className="text-[10px] text-stone-400">処理中…</span>
+                        </div>
+                      ) : photoDataUrl ? (
+                        <div className="relative inline-block">
+                          <img
+                            src={photoDataUrl}
+                            alt="会の写真"
+                            className="h-28 w-28 rounded-xl object-cover ring-1 ring-stone-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => { setPhotoDataUrl(null); setSaveError(null) }}
+                            className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-stone-700 text-white transition hover:bg-stone-900"
+                          >
+                            <X size={10} strokeWidth={3} />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-stone-300 bg-stone-50 text-stone-400 transition hover:border-stone-400 hover:text-stone-600 active:scale-95"
+                        >
+                          <ImagePlus size={18} strokeWidth={1.8} />
+                          <span className="text-[9px] font-bold">追加</span>
+                        </button>
+                      )}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handlePhotoChange}
+                      />
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
 
         {/* 完了CTA */}
         <div className="space-y-2.5 pb-8">
@@ -458,13 +463,15 @@ export function SettlementSummaryTable({
               <p className="text-[12px] leading-5 text-red-700">{saveError}</p>
             </motion.div>
           )}
-          <button
-            type="button"
-            onClick={handleComplete}
-            className="w-full rounded-2xl bg-stone-900 px-4 py-4 text-sm font-black text-white shadow-md transition hover:opacity-90 active:scale-[0.98]"
-          >
-            会を完了する
-          </button>
+          {!isToolMode && (
+            <button
+              type="button"
+              onClick={handleComplete}
+              className="w-full rounded-2xl bg-stone-900 px-4 py-4 text-sm font-black text-white shadow-md transition hover:opacity-90 active:scale-[0.98]"
+            >
+              会を完了する
+            </button>
+          )}
           <button
             type="button"
             onClick={onBack}

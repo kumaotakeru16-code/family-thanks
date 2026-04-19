@@ -31,6 +31,7 @@ import {
   ImagePlus,
   Heart,
   Plus,
+  Trash2,
 } from 'lucide-react'
 
 import { createEvent, loadEventData } from '@/lib/kanji-db'
@@ -93,8 +94,9 @@ type Step =
   | 'shared'
   | 'pastStores'
   | 'storeDetail'
+  | 'pastEvents'
 
-type AppMode = 'full' | 'store_only'
+type AppMode = 'full' | 'store_only' | 'settlement_only'
 
 // 決定後ボトムシートの種別
 type DecisionSheet =
@@ -651,8 +653,6 @@ export default function Page() {
   const [placesFallback, setPlacesFallback] = useState(false)
   const [eventDetail, setEventDetail] = useState<any>(null)
   const [copied, setCopied] = useState(false)
-  const [showStartSheet, setShowStartSheet] = useState(false)
-
   // ── 清算 state ──────────────────────────────────────────────────────────────
   const [settlementDraft, setSettlementDraft] = useState<SettlementDraft | null>(null)
   const [settlementConfig, setSettlementConfig] = useState<SettlementConfig | null>(null)
@@ -728,6 +728,13 @@ export default function Page() {
   const [decisionSheet, setDecisionSheet] = useState<DecisionSheet>(null)
   // 日程決定後ボトムシート内タブ（yes/maybe）
   const [decisionSheetDateTab, setDecisionSheetDateTab] = useState<'yes' | 'maybe'>('yes')
+
+  // ── ボトムシート open 状態を ref で追跡（既存 onPopState に統合） ───────────────
+  // history 操作は既存の step 用 useEffect に任せ、ここでは ref だけ管理する
+  const sheetHistoryRef = useRef(false)
+  useEffect(() => {
+    sheetHistoryRef.current = decisionSheet !== null
+  }, [decisionSheet])
 
   // ── 長押し削除 state ────────────────────────────────────────────────────────
   const [deleteTarget, setDeleteTarget] = useState<
@@ -855,8 +862,27 @@ useEffect(() => {
   const onPopState = () => {
     if (isHandlingBackRef.current) return
 
+    // ボトムシートが開いていれば先にシートだけ閉じる（ページ遷移しない）
+    if (sheetHistoryRef.current) {
+      sheetHistoryRef.current = false
+      setDecisionSheet(null)
+      // 消費した history entry の代わりに再度積んで step 用の履歴を維持
+      window.history.pushState({ appStep: step }, '', window.location.href)
+      return
+    }
+
     // homeなら通常のブラウザ戻るを許可
     if (step === 'home') return
+
+    // settlement_only / pastEvents はフロー外 → home へ
+    if (step === 'pastEvents' || (step === 'settlement' && appMode === 'settlement_only')) {
+      isHandlingBackRef.current = true
+      setAppMode('full')
+      setSettlementDraft(null)
+      setStep('home')
+      window.setTimeout(() => { isHandlingBackRef.current = false }, 0)
+      return
+    }
 
     const previousStep = getPreviousStep(step)
 
@@ -873,7 +899,7 @@ useEffect(() => {
 
   window.addEventListener('popstate', onPopState)
   return () => window.removeEventListener('popstate', onPopState)
-}, [step])
+}, [step, appMode])
 
 useEffect(() => {
   if (step === 'create' && generatedDates.length === 0) {
@@ -1428,6 +1454,13 @@ function startStoreOnlyFlow() {
   setStep('organizerConditions')
 }
 
+/** 会計ツール（settlement_only）を単独起動する */
+function startSettlementOnlyTool() {
+  setAppMode('settlement_only')
+  setSettlementDraft(null)
+  setStep('settlement')
+}
+
 /**
  * manualStore step へ遷移する。
  * isManualStore フラグのセットと入力欄のクリアをまとめて行う。
@@ -1980,6 +2013,7 @@ const backStep: Step | null = (() => {
   if (step === 'finalConfirm') return isManualStore ? 'manualStore' : 'storeSuggestion'
   if (step === 'organizerConditions' && appMode === 'store_only') return 'home'
   if (step === 'storeSuggestion' && skipStoreCondition && !!prefilledStore) return 'dateConfirmed'
+  if (step === 'settlement' && appMode === 'settlement_only') return 'home'
   return getPreviousStep(step)
 })()
 
@@ -2068,8 +2102,8 @@ return (
             </button>
           </header>
 
-          {/* ステップバー */}
-          {showProgress && (
+          {/* ステップバー（フルフローのみ） */}
+          {showProgress && appMode === 'full' && (
             <div className="mt-2">
               <FlowProgress step={step} />
             </div>
@@ -2084,45 +2118,52 @@ return (
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'home' && (
           <motion.div
-            className="space-y-6"
+            className="space-y-6 pb-10"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
           >
-            {/* ── Hero ───────────────────────────────────────────── */}
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, ease: 'easeOut' }}
-              className="pt-2"
-            >
-              {/* ロゴ */}
-              <div className="mb-5 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900">
-                    <CalendarDays size={17} className="text-white" strokeWidth={2.5} />
-                  </div>
-                  <span className="text-[13px] font-black tracking-[0.25em] text-stone-900 uppercase">Kanji</span>
+            {/* ── ヘッダー ─────────────────────────────────────── */}
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900">
+                  <CalendarDays size={17} className="text-white" strokeWidth={2.5} />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setStep('settings')}
-                  className="-mr-1 flex h-9 w-9 items-center justify-center rounded-xl text-stone-400 transition hover:text-stone-700 active:scale-95"
-                  aria-label="設定"
-                >
-                  <Settings size={17} strokeWidth={2} />
-                </button>
+                <span className="text-[13px] font-black tracking-[0.25em] text-stone-900 uppercase">Kanji</span>
               </div>
+              <button
+                type="button"
+                onClick={() => setStep('settings')}
+                className="-mr-1 flex h-9 w-9 items-center justify-center rounded-xl text-stone-400 transition hover:text-stone-700 active:scale-95"
+                aria-label="設定"
+              >
+                <Settings size={17} strokeWidth={2} />
+              </button>
+            </div>
 
-              {/* キャッチコピー */}
-              <h1 className="text-[28px] font-black leading-[1.2] tracking-tight text-stone-900">
-                幹事、これ1つで終わる。
-              </h1>
-              <p className="mt-2.5 text-sm leading-6 text-stone-700">
-                日程調整・お店決め・会計共有までまとめて。<br className="sm:hidden" />
-              
-              </p>
-            </motion.div>
+            {/* ── イベントを作る（主導線）────────────────────────── */}
+            <motion.button
+              type="button"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, ease: 'easeOut' }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => { setEventName(''); void trackEvent('start_from_dates'); setStep('create') }}
+              className="flex w-full items-center gap-4 rounded-3xl px-5 py-5 text-left text-white transition active:scale-[0.98]"
+              style={{
+                background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)',
+                boxShadow: '0 6px 24px rgba(14,28,16,0.5)',
+              }}
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15">
+                <CalendarPlus size={22} className="text-emerald-400" strokeWidth={2} />
+              </div>
+              <div className="flex-1">
+                <p className="text-[18px] font-black tracking-tight">イベントを作る</p>
+                <p className="mt-0.5 text-[12px] text-white/50">日程調整からスタート</p>
+              </div>
+              <ChevronRight size={18} className="shrink-0 text-white/30" />
+            </motion.button>
 
             {/* ── 進行中の会 ─────────────────────────────────────── */}
             <section>
@@ -2176,84 +2217,68 @@ return (
                   })}
                 </div>
               ) : (
-                <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25, delay: 0.2, ease: 'easeOut' }}
-                  className="rounded-2xl border-2 border-dashed border-stone-200 px-6 py-10 text-center"
-                >
-                  <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-stone-100">
-                    <CalendarPlus size={20} className="text-stone-400" strokeWidth={1.8} />
-                  </div>
-                  <p className="text-sm font-bold text-stone-500">まだ進行中の会はありません</p>
-                </motion.div>
+                <div className="rounded-2xl border-2 border-dashed border-stone-200 px-6 py-8 text-center">
+                  <p className="text-sm font-bold text-stone-400">進行中の会はありません</p>
+                </div>
               )}
             </section>
 
-            {/* ── 完了済みの会 ─────────────────────────────────── */}
+            {/* ── ツール ─────────────────────────────────────────── */}
+            <section>
+              <div className="mb-3 flex items-center gap-2">
+                <Wallet size={12} className="text-stone-400" strokeWidth={2.5} />
+                <p className="text-[11px] font-black tracking-[0.2em] text-stone-400 uppercase">ツール</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {/* お店を探す */}
+                <button
+                  type="button"
+                  onClick={() => { void trackEvent('start_from_store'); startStoreOnlyFlow() }}
+                  className="flex flex-col items-start gap-3 rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100 transition active:scale-95 hover:bg-stone-100"
+                >
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900">
+                    <UtensilsCrossed size={16} className="text-white" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-black tracking-tight text-stone-900">お店を探す</p>
+                    <p className="mt-0.5 text-[11px] text-stone-400">条件を入れてAI提案</p>
+                  </div>
+                </button>
+                {/* 会計を試算する */}
+                <button
+                  type="button"
+                  onClick={() => startSettlementOnlyTool()}
+                  className="flex flex-col items-start gap-3 rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100 transition active:scale-95 hover:bg-stone-100"
+                >
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900">
+                    <Receipt size={16} className="text-white" strokeWidth={2} />
+                  </div>
+                  <div>
+                    <p className="text-[14px] font-black tracking-tight text-stone-900">会計を試算する</p>
+                    <p className="mt-0.5 text-[11px] text-stone-400">傾斜・均等で割り勘</p>
+                  </div>
+                </button>
+              </div>
+            </section>
+
+            {/* ── 完了済みの会（リンクのみ）────────────────────── */}
             {mounted && (
-              <section className="mt-6">
-                {/* 完了済みの会の一覧
-                    表示ソース: userSettings.pastEventRecords（saveCompletionData で追加）
-                    各レコードは buildPastEventRecord で生成し、settlementConfirm 完了時に保存される
-                    CLOUD-MIGRATION: Supabase past_events テーブルから SELECT に差し替え予定 */}
-                <div className="mb-3 flex items-center gap-2">
-                  <CheckCircle2 size={12} className="text-stone-300" strokeWidth={2.5} />
-                  <p className="text-[11px] font-black tracking-[0.2em] text-stone-300 uppercase">完了済み</p>
+              <button
+                type="button"
+                onClick={() => setStep('pastEvents')}
+                className="flex w-full items-center justify-between rounded-2xl bg-stone-50/60 px-4 py-3.5 ring-1 ring-stone-100/80 transition hover:bg-stone-50 active:scale-[0.99]"
+              >
+                <div className="flex items-center gap-2.5">
+                  <CheckCircle2 size={14} className="text-stone-300" strokeWidth={2} />
+                  <span className="text-[13px] font-bold text-stone-500">完了済みの会を見る</span>
+                  {userSettings.pastEventRecords.length > 0 && (
+                    <span className="rounded-full bg-stone-200/80 px-2 py-0.5 text-[10px] font-bold text-stone-500">
+                      {userSettings.pastEventRecords.length}件
+                    </span>
+                  )}
                 </div>
-                {userSettings.pastEventRecords.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-stone-200/70 px-6 py-8 text-center">
-                    <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-stone-100/80">
-                      <CheckCircle2 size={17} className="text-stone-300" strokeWidth={1.8} />
-                    </div>
-                    <p className="text-sm font-bold text-stone-400">まだ完了済みの会はありません</p>
-                    <p className="mt-1.5 text-xs leading-5 text-stone-400">
-                      精算後に会を完了すると、ここに記録が残ります
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {userSettings.pastEventRecords.slice(0, 5).map((record, idx) => (
-                      <motion.button
-                        type="button"
-                        key={record.id}
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.18, delay: idx * 0.04 }}
-                        whileTap={{ scale: 0.984 }}
-                        {...makeLongPressHandlers(() => setDeleteTarget({ type: 'completed', id: record.id, title: record.title }))}
-                        onClick={() => {
-                          if (longPressFiredRef.current) { longPressFiredRef.current = false; return }
-                          setCompletedEventDetail(record); setShowDetailParticipants(false)
-                        }}
-                        className="flex w-full items-center justify-between rounded-2xl bg-stone-50 px-4 py-3.5 text-left ring-1 ring-stone-100 transition hover:bg-white hover:shadow-sm"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-stone-100">
-                            <CheckCircle2 size={13} className="text-stone-300" strokeWidth={2} />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-[13px] font-bold text-stone-600">{record.title}</p>
-                            <p className="text-[11px] text-stone-400">
-                              {record.eventDate}
-                              {record.storeName ? `　${record.storeName}` : ''}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="ml-2 flex shrink-0 items-center gap-1.5">
-                          {record.memo && (
-                            <span className="rounded-full bg-stone-200/80 px-2 py-0.5 text-[9px] font-bold text-stone-500">メモ</span>
-                          )}
-                          {record.hasPhoto && (
-                            <span className="rounded-full bg-stone-200/80 px-2 py-0.5 text-[9px] font-bold text-stone-500">写真</span>
-                          )}
-                          <ChevronRight size={12} className="text-stone-300" />
-                        </div>
-                      </motion.button>
-                    ))}
-                  </div>
-                )}
-              </section>
+                <ChevronRight size={14} className="text-stone-300" />
+              </button>
             )}
           </motion.div>
         )}
@@ -2469,6 +2494,254 @@ return (
               applyOrganizerSettings({ ...organizerSettings, organizerName: name })
             }}
           />
+        )}
+
+        {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            完了済みの会
+        ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+        {step === 'pastEvents' && (
+          <motion.div
+            className="space-y-4 pb-10"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setStep('home')}
+                className="-ml-1 flex h-9 w-9 items-center justify-center rounded-xl text-stone-400 transition hover:text-stone-700 active:scale-95"
+                aria-label="戻る"
+              >
+                <ChevronLeft size={20} strokeWidth={2.5} />
+              </button>
+              <div>
+                <h2 className="text-[18px] font-black tracking-tight text-stone-900">完了済みの会</h2>
+              </div>
+            </div>
+
+            {userSettings.pastEventRecords.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-16 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-stone-100">
+                  <CheckCircle2 size={24} className="text-stone-300" strokeWidth={2} />
+                </div>
+                <p className="text-[13px] font-bold text-stone-400">完了した会はまだありません</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {[...userSettings.pastEventRecords].reverse().map((record) => (
+                  <button
+                    key={record.id}
+                    type="button"
+                    onClick={() => setCompletedEventDetail(record)}
+                    className="w-full rounded-2xl bg-white px-4 py-4 text-left ring-1 ring-stone-100 transition hover:bg-stone-50 active:scale-[0.99]"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[15px] font-black tracking-tight text-stone-900">{record.title}</p>
+                        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                          {record.eventDate && (
+                            <span className="flex items-center gap-1 text-[11px] text-stone-400">
+                              <CalendarDays size={10} strokeWidth={2} />
+                              {record.eventDate}
+                            </span>
+                          )}
+                          {record.storeName && (
+                            <span className="flex items-center gap-1 text-[11px] text-stone-400">
+                              <UtensilsCrossed size={10} strokeWidth={2} />
+                              {record.storeName}
+                            </span>
+                          )}
+                          {record.participants && record.participants.length > 0 && (
+                            <span className="flex items-center gap-1 text-[11px] text-stone-400">
+                              <Users size={10} strokeWidth={2} />
+                              {record.participants.length}名
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <ChevronRight size={14} className="mt-0.5 shrink-0 text-stone-300" strokeWidth={2} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 詳細モーダル（pastEvents step内でも使用） */}
+            <AnimatePresence>
+              {completedEventDetail && (
+                <motion.div
+                  key="past-detail"
+                  className="fixed inset-0 z-[200] flex flex-col"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <div
+                    className="absolute inset-0 bg-black/40"
+                    onClick={() => setCompletedEventDetail(null)}
+                  />
+                  <motion.div
+                    className="absolute bottom-0 left-0 right-0 max-h-[85vh] overflow-y-auto rounded-t-3xl bg-white px-5 pb-10 pt-6 shadow-2xl max-w-xl mx-auto"
+                    initial={{ y: '100%' }}
+                    animate={{ y: 0 }}
+                    exit={{ y: '100%' }}
+                    transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+                  >
+                    <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-stone-200" />
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <CheckCircle2 size={11} className="text-stone-300" strokeWidth={2.5} />
+                      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">完了済み</p>
+                    </div>
+                    <h3 className="text-xl font-black tracking-tight text-stone-900">{completedEventDetail.title}</h3>
+                    <div className="mt-5 space-y-4">
+                      <div className="flex gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-stone-50 ring-1 ring-stone-100">
+                          <CalendarDays size={14} className="text-stone-400" />
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">日時</p>
+                          <p className="mt-0.5 text-sm font-bold text-stone-800">{completedEventDetail.eventDate || '—'}</p>
+                        </div>
+                      </div>
+                      {completedEventDetail.storeName && (() => {
+                        const storeKey = completedEventDetail.storeId ?? completedEventDetail.storeName
+                        const isFav = userSettings.favoriteStores.some(f => f.id === storeKey)
+                        const handleToggleFav = () => {
+                          const { next } = toggleFavoriteStore(
+                            userSettings,
+                            {
+                              id: storeKey,
+                              name: completedEventDetail.storeName,
+                              area: completedEventDetail.storeArea ?? '',
+                              genre: completedEventDetail.storeGenre ?? '',
+                              link: completedEventDetail.storeLink ?? '',
+                            },
+                            isFav,
+                          )
+                          setUserSettings(next)
+                        }
+                        return (
+                          <div className="flex items-center justify-between gap-3 rounded-2xl bg-stone-50 px-4 py-3.5 ring-1 ring-stone-100">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-stone-100">
+                                <UtensilsCrossed size={14} className="text-stone-400" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-black uppercase tracking-wider text-stone-400">お店</p>
+                                <p className="mt-0.5 truncate text-sm font-bold text-stone-800">{completedEventDetail.storeName}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleToggleFav}
+                              className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold transition active:scale-95 ${
+                                isFav
+                                  ? 'bg-rose-100 text-rose-600 ring-1 ring-rose-200'
+                                  : 'bg-white text-stone-500 ring-1 ring-stone-200'
+                              }`}
+                            >
+                              <Heart size={11} strokeWidth={2.5} className={isFav ? 'fill-rose-500 text-rose-500' : ''} />
+                              {isFav ? 'お気に入り済み' : 'お気に入り'}
+                            </button>
+                          </div>
+                        )
+                      })()}
+                      {completedEventDetail.participants && completedEventDetail.participants.length > 0 && (
+                        <div className="overflow-hidden rounded-2xl bg-stone-50 ring-1 ring-stone-100">
+                          <button
+                            type="button"
+                            onClick={() => setShowDetailParticipants(v => !v)}
+                            className="flex w-full items-center justify-between px-4 py-3"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Users size={13} className="text-stone-400" strokeWidth={2} />
+                              <span className="text-sm font-bold text-stone-700">参加者を見る</span>
+                              <span className="rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-bold text-stone-500">
+                                {completedEventDetail.participants.length}名
+                              </span>
+                            </div>
+                            <ChevronDown
+                              size={14}
+                              className={`text-stone-400 transition-transform duration-200 ${showDetailParticipants ? 'rotate-180' : ''}`}
+                            />
+                          </button>
+                          <AnimatePresence>
+                            {showDetailParticipants && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="flex flex-wrap gap-1.5 border-t border-stone-100 px-4 pb-3.5 pt-3">
+                                  {completedEventDetail.participants.map((name) => (
+                                    <span
+                                      key={name}
+                                      className="rounded-full bg-white px-3 py-1 text-[12px] font-bold text-stone-700 ring-1 ring-stone-200"
+                                    >
+                                      {name}
+                                    </span>
+                                  ))}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      )}
+                      {completedEventDetail.memo && (
+                        <div className="rounded-2xl bg-stone-50 px-4 py-3.5 ring-1 ring-stone-100">
+                          <p className="mb-1 text-[10px] font-black uppercase tracking-wider text-stone-400">メモ</p>
+                          <p className="text-sm leading-6 text-stone-700 whitespace-pre-line">{completedEventDetail.memo}</p>
+                        </div>
+                      )}
+                      {completedEventDetail.hasPhoto && (
+                        completedEventDetail.photoDataUrl ? (
+                          <div>
+                            <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-stone-400">写真</p>
+                            <img
+                              src={completedEventDetail.photoDataUrl}
+                              alt="会の写真"
+                              className="w-full max-h-60 rounded-2xl object-contain ring-1 ring-stone-100"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 rounded-2xl bg-stone-50 px-4 py-3 ring-1 ring-stone-100">
+                            <ImagePlus size={13} className="text-stone-400" />
+                            <p className="text-sm text-stone-500">写真（データなし）</p>
+                          </div>
+                        )
+                      )}
+                    </div>
+                    <div className="mt-6 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`「${completedEventDetail.title}」を削除しますか？`)) {
+                            deletePastRecord(completedEventDetail.id)
+                            setCompletedEventDetail(null)
+                          }
+                        }}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-stone-100 text-stone-400 transition hover:bg-rose-50 hover:text-rose-500 active:scale-95"
+                        aria-label="削除"
+                      >
+                        <Trash2 size={15} strokeWidth={2} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCompletedEventDetail(null)}
+                        className="flex-1 rounded-2xl bg-stone-100 py-3 text-sm font-bold text-stone-600 transition hover:bg-stone-200 active:scale-[0.98]"
+                      >
+                        閉じる
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
         )}
 
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -4421,36 +4694,41 @@ ${finalStore?.link ?? ''}`
             参加者は finalYesParticipants → heroYesParticipants → activeParticipants の優先順
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
         {step === 'settlement' && (() => {
-          // 確定日の yes 参加者を優先。なければ active 全員
-          const baseParticipants =
-            finalYesParticipants.length > 0
-              ? finalYesParticipants
-              : heroYesParticipants.length > 0
-              ? heroYesParticipants
-              : activeParticipants
-
-          // 幹事を必ず参加者に含める（重複チェック）
-          const organizerName = organizerSettings.organizerName || '幹事'
-          const alreadyIn = baseParticipants.some(
-            (p) => p.id === 'organizer-self' || p.name === organizerName
-          )
-          const settlementParticipants = alreadyIn
-            ? baseParticipants
-            : [{ id: 'organizer-self', name: organizerName }, ...baseParticipants]
+          // settlement_only: メンバーなしで開始（PartyCard の＋追加で入力）
+          // full: 確定日 yes 参加者 → heroYes → active の優先順
+          let settlementParticipants: { id: string; name: string }[]
+          if (appMode === 'settlement_only') {
+            settlementParticipants = []
+          } else {
+            const baseParticipants =
+              finalYesParticipants.length > 0
+                ? finalYesParticipants
+                : heroYesParticipants.length > 0
+                ? heroYesParticipants
+                : activeParticipants
+            const organizerName = organizerSettings.organizerName || '幹事'
+            const alreadyIn = baseParticipants.some(
+              (p) => p.id === 'organizer-self' || p.name === organizerName
+            )
+            settlementParticipants = (alreadyIn
+              ? baseParticipants
+              : [{ id: 'organizer-self', name: organizerName }, ...baseParticipants]
+            ).map((p) => ({ id: p.id, name: p.name }))
+          }
 
           return (
             <SettlementStep
-              participants={settlementParticipants.map((p) => ({ id: p.id, name: p.name }))}
+              participants={settlementParticipants}
               organizerSettings={organizerSettings}
               onSaveSettings={(s) => applyOrganizerSettings(s)}
               initialDraft={settlementDraft}
               onSaveDraft={setSettlementDraft}
-              onSubmit={(config) => {
-                const result = calcSettlement(
-                  config,
-                  settlementParticipants.map((p) => ({ id: p.id, name: p.name }))
-                )
-                const storeName = isManualStore
+              isToolMode={appMode === 'settlement_only'}
+              onSubmit={(config, allParticipants) => {
+                const result = calcSettlement(config, allParticipants)
+                const storeName = appMode === 'settlement_only'
+                  ? undefined
+                  : isManualStore
                   ? (manualStoreName || undefined)
                   : ((selectedStore || recommendedStores[0])?.name ?? undefined)
                 const payment = {
@@ -4462,13 +4740,18 @@ ${finalStore?.link ?? ''}`
                   accountName: organizerSettings.accountName,
                 }
                 const baseMsg = generateSettlementMessage(result, config.parties.map((p) => p.id), storeName, payment)
-                const msg = eventName ? baseMsg.replace('会計まとめです。', `${eventName}の会計まとめです。`) : baseMsg
+                const msg = (appMode !== 'settlement_only' && eventName)
+                  ? baseMsg.replace('会計まとめです。', `${eventName}の会計まとめです。`)
+                  : baseMsg
                 setSettlementConfig(config)
                 setSettlementResult(result)
                 setSettlementMessage(msg)
                 setDecisionSheet({ type: 'settlementConfirm' })
               }}
-              onBack={() => setStep('finalConfirm')}
+              onBack={() => {
+                if (appMode === 'settlement_only') { setAppMode('full'); setSettlementDraft(null); setStep('home') }
+                else setStep('finalConfirm')
+              }}
             />
           )
         })()}
@@ -4652,79 +4935,6 @@ ${finalStore?.link ?? ''}`
         )}
 
       </div>
-
-      {/* FAB — 幹事を始める（ホームのみ表示） */}
-      <AnimatePresence>
-        {step === 'home' && (
-          <motion.button
-            type="button"
-            onClick={() => setShowStartSheet(true)}
-            aria-label="幹事を始める"
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: 20 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 28 }}
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.95 }}
-            className="fixed bottom-6 right-5 z-50 flex items-center gap-2 rounded-full px-5 py-4 text-white"
-            style={{ background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)', boxShadow: '0 8px 28px rgba(20,83,45,0.6), inset 0 1px 0 rgba(255,255,255,0.14)' }}
-          >
-            <Plus size={18} strokeWidth={2.5} />
-            <span className="text-[14px] font-black tracking-tight">幹事を始める</span>
-          </motion.button>
-        )}
-      </AnimatePresence>
-
-      {/* ボトムシート — 開始方法の選択 */}
-      <AnimatePresence>
-        {showStartSheet && (
-          <>
-            {/* 背景オーバーレイ */}
-            <motion.div
-              className="fixed inset-0 z-50 bg-black/30 backdrop-blur-[2px]"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={() => setShowStartSheet(false)}
-            />
-            {/* シート本体 */}
-            <motion.div
-              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl bg-white px-5 pb-10 pt-4 shadow-2xl"
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 420, damping: 40 }}
-            >
-              {/* ハンドル */}
-              <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-stone-200" />
-              <p className="mb-5 text-center text-[13px] font-bold tracking-wide text-stone-400">どこから始めますか</p>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => { setShowStartSheet(false); setEventName(''); void trackEvent('start_from_dates'); setStep('create') }}
-                  className="flex flex-col items-center gap-3 rounded-2xl bg-stone-50 px-4 py-7 ring-1 ring-stone-100 transition active:scale-95 hover:bg-stone-100"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-900">
-                    <CalendarDays size={22} className="text-white" strokeWidth={2} />
-                  </div>
-                  <span className="text-[15px] font-black tracking-tight text-stone-900">日程</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setShowStartSheet(false); void trackEvent('start_from_store'); startStoreOnlyFlow() }}
-                  className="flex flex-col items-center gap-3 rounded-2xl bg-stone-50 px-4 py-7 ring-1 ring-stone-100 transition active:scale-95 hover:bg-stone-100"
-                >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-900">
-                    <UtensilsCrossed size={22} className="text-white" strokeWidth={2} />
-                  </div>
-                  <span className="text-[15px] font-black tracking-tight text-stone-900">お店</span>
-                </button>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
 
       {/* 優先したい人 ボトムシート */}
       <AnimatePresence>
@@ -5067,6 +5277,11 @@ ${finalStore?.link ?? ''}`
                     : heroDate?.label ?? ''
 
                 const handleComplete = (data: CompletionData): CompleteResult => {
+                  if (appMode === 'settlement_only') {
+                    // ツールモードは記録を保存しない
+                    void trackEvent('complete_settlement')
+                    return 'ok'
+                  }
                   const record = buildPastEventRecord({
                     eventName,
                     eventDate: settlementDate,
@@ -5094,8 +5309,14 @@ ${finalStore?.link ?? ''}`
 
                 function handleCompleted() {
                   setDecisionSheet(null)
-                  resetFlowStateAfterCompletion()
-                  setStep('home')
+                  if (appMode === 'settlement_only') {
+                    setAppMode('full')
+                    setSettlementDraft(null)
+                    setStep('home')
+                  } else {
+                    resetFlowStateAfterCompletion()
+                    setStep('home')
+                  }
                 }
 
                 return (
@@ -5111,6 +5332,7 @@ ${finalStore?.link ?? ''}`
                     storeGenre={settlementStore?.genre}
                     eventName={eventName}
                     eventDate={settlementDate}
+                    isToolMode={appMode === 'settlement_only'}
                     onBack={() => { setDecisionSheet(null); setStep('settlement') }}
                     onShare={(text) => openLineShare(text)}
                     onComplete={handleComplete}
