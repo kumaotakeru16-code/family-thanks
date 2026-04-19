@@ -465,6 +465,13 @@ export function SettlementSummaryTable({
           >
             会を完了する
           </button>
+          <button
+            type="button"
+            onClick={onBack}
+            className="w-full py-2.5 text-center text-[12px] font-bold text-white/35 transition hover:text-white/55"
+          >
+            会計を修正する
+          </button>
         </div>
       </div>
     </>

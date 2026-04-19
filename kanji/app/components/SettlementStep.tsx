@@ -263,7 +263,10 @@ function GradientCoeffCard({
                       onChange={(e) =>
                         onGradientChange({ ...gradient, [role]: parseFloat(e.target.value) })
                       }
-                      className="w-full accent-stone-900"
+                      className="w-full h-1.5 cursor-pointer appearance-none rounded-full [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-sm [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white"
+                      style={{
+                        background: `linear-gradient(to right, rgba(255,255,255,0.80) ${(gradient[role] / 2.0) * 100}%, rgba(255,255,255,0.12) ${(gradient[role] / 2.0) * 100}%)`,
+                      }}
                     />
                     <div className="flex justify-between text-[10px] text-stone-300">
                       <span>0</span>
@@ -651,7 +654,7 @@ export function SettlementStep({
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
             <Receipt size={13} className="text-white" strokeWidth={2.5} />
           </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Settlement</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 3 · 会計精算</p>
         </div>
         <h2 className="text-[22px] font-black tracking-tight text-stone-900">会計計算</h2>
       </div>
