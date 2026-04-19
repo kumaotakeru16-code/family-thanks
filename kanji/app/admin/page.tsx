@@ -40,7 +40,7 @@ export default function AdminPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#F5F3EF] px-4 pb-16 pt-10">
+    <div className="min-h-screen bg-[#111111] px-4 pb-16 pt-10">
       <div className="mx-auto max-w-md space-y-6">
 
         {/* ヘッダー */}

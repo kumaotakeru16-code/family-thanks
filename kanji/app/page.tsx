@@ -1984,11 +1984,11 @@ return (
       </motion.div>
     )}
   </AnimatePresence>
-  <main className="min-h-screen" style={{ background: '#F5F3EF' }}>
+  <main className="min-h-screen" style={{ background: '#111111' }}>
     <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 pb-20 pt-6 sm:px-5">
       {/* ── グローバルナビ + ステップバー — ホーム以外で sticky 表示 ─────────── */}
       {step !== 'home' && (
-        <div className="sticky top-0 z-40 -mx-4 sm:-mx-5 mb-5 border-b border-stone-200/70 bg-[#F0EDE8]/90 px-4 pb-2 pt-3 backdrop-blur-sm sm:px-5">
+        <div className="sticky top-0 z-40 -mx-4 sm:-mx-5 mb-5 border-b border-white/8 bg-[#111111]/95 px-4 pb-2 pt-3 backdrop-blur-sm sm:px-5">
           <header className="flex h-8 items-center justify-between">
             {/* 左: 戻るナビゲーション */}
             {backStep ? (
@@ -2225,7 +2225,7 @@ return (
           {showCreating && (
             <motion.div
               key="creating"
-              className="fixed inset-0 z-[9998] flex flex-col items-center justify-center bg-[#F5F3EF]"
+              className="fixed inset-0 z-[9998] flex flex-col items-center justify-center bg-[#111111]"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -2534,7 +2534,7 @@ return (
         )}
         {/* ── 会を作る sticky CTA ── */}
         {(step === 'create' || step === 'dates') && (
-          <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+          <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
             {!eventName.trim() && (
               <p className="mb-2 text-center text-[11px] text-stone-400">会の名前を入力してください</p>
             )}
@@ -2716,7 +2716,7 @@ return (
         onClick={() => setShowPrioritySheet(true)}
         className={`mt-1 flex items-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-bold ring-1 transition active:scale-95 ${
           mainGuestIds.length > 0
-            ? 'bg-stone-900 text-white ring-stone-900'
+            ? 'bg-emerald-500 text-white ring-emerald-500'
             : 'bg-white text-stone-500 ring-stone-200 hover:bg-stone-50'
         }`}
       >
@@ -2745,33 +2745,61 @@ return (
     ) : (
       <>
         {/* 決定候補ヒーロー */}
-        <div className="overflow-hidden rounded-3xl bg-stone-900">
+        <div
+          className="overflow-hidden rounded-3xl ring-1 ring-white/10"
+          style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
+        >
+          {/* 上部ゴールドライン */}
+          <div className="h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
           <div className="px-6 py-5">
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">
-              {heroIsBest ? '決定候補' : '代替候補'}
+            {/* ラベル */}
+            <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(214,175,60,0.65)' }}>
+              {heroIsBest ? 'Recommended Date' : 'Alternative Date'}
             </p>
-            <p className="mt-1 text-3xl font-black text-white">
+            {/* 日付（ゴールド） */}
+            <p className="mt-2 text-[32px] font-black leading-tight tracking-tight" style={{ color: '#d4af3c' }}>
               {heroDate?.label}
             </p>
-            {heroDateReason && (
-              <p className="mt-1.5 text-sm font-bold text-white/70">{heroDateReason}</p>
-            )}
-            <p className="mt-2 text-sm font-bold text-white/50">
-              最大参加人数 {yesCount + maybeCount}人
+            {/* 参加統計 */}
+            <p className="mt-1.5 text-sm font-bold text-white/60">
+              {yesCount}/{activeParticipants.length} confirmed
+              {maybeCount > 0 ? `, ${maybeCount} pending` : ''}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
-              <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
-                参加予定 {yesCount}人
-              </span>
-              <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
-                調整中 {maybeCount}人
-              </span>
-              {eventType && (
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
-                  {eventType}
-                </span>
-              )}
-            </div>
+            {/* 判断理由 */}
+            {heroDateReason && (
+              <p className="mt-2 text-[13px] leading-snug text-white/45">{heroDateReason}</p>
+            )}
+            {/* 参加確定者アバター */}
+            {heroYesParticipants.length > 0 && (
+              <div className="mt-4">
+                <p className="mb-2.5 text-[10px] font-bold uppercase tracking-[0.15em] text-white/28">
+                  Confirmed attendees
+                </p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {heroYesParticipants.slice(0, 6).map((p, i) => {
+                    const avatarPalette = ['#374151','#1d4e2a','#6b4c11','#4c1d95','#7f1d1d','#0e4e6c']
+                    return (
+                      <div
+                        key={p.id}
+                        title={p.name}
+                        className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-black text-white ring-1 ring-white/15"
+                        style={{ background: avatarPalette[i % avatarPalette.length] }}
+                      >
+                        {p.name.charAt(0)}
+                      </div>
+                    )
+                  })}
+                  {heroYesParticipants.length > 6 && (
+                    <span className="text-xs font-bold text-white/30">+{heroYesParticipants.length - 6}</span>
+                  )}
+                  <span className="ml-1 text-xs text-white/35">
+                    {heroYesParticipants.slice(0, 3).map(p => p.name).join(', ')}
+                    {heroYesParticipants.length > 3 ? '…' : ''}
+                  </span>
+                </div>
+              </div>
+            )}
+            {/* 優先者表示 */}
             {mainGuestIds.length > 0 && (() => {
               const firstName = activeParticipants.find(p => p.id === mainGuestIds[0])?.name ?? ''
               const extra = mainGuestIds.length - 1
@@ -2779,27 +2807,27 @@ return (
                 <button
                   type="button"
                   onClick={() => setShowPrioritySheet(true)}
-                  className="mt-3 flex items-center gap-1 text-[11px] font-bold text-white/40 transition hover:text-white/60"
+                  className="mt-3 flex items-center gap-1 text-[11px] font-bold text-white/35 transition hover:text-white/55"
                 >
                   <Users size={10} strokeWidth={2.5} />
                   優先：{firstName}{extra > 0 ? ` +${extra}` : ''}
                 </button>
               )
             })()}
+            {/* 詳細トグル */}
             <button
               type="button"
               onClick={() => setShowHeroParticipants((v) => !v)}
-              className="mt-3 text-xs font-bold text-white/70 underline"
+              className="mt-3 text-[11px] font-bold underline underline-offset-2"
+              style={{ color: 'rgba(214,175,60,0.55)' }}
             >
               {showHeroParticipants ? '参加者を閉じる' : '参加者を見る'}
             </button>
             {showHeroParticipants && (
-              <div className="mt-4 space-y-3">
-                <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/80">
-                    参加予定
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-4 space-y-2.5">
+                <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/8">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400/70">参加予定</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
                     {heroYesParticipants.length > 0 ? (
                       heroYesParticipants.map((p) => (
                         <span key={p.id} className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
@@ -2807,15 +2835,13 @@ return (
                         </span>
                       ))
                     ) : (
-                      <span className="text-xs text-white/40">まだいません</span>
+                      <span className="text-xs text-white/35">まだいません</span>
                     )}
                   </div>
                 </div>
-                <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300/80">
-                    調整中
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
+                <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/8">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400/70">調整中</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
                     {heroMaybeParticipants.length > 0 ? (
                       heroMaybeParticipants.map((p) => (
                         <span key={p.id} className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
@@ -2823,11 +2849,25 @@ return (
                         </span>
                       ))
                     ) : (
-                      <span className="text-xs text-white/40">まだいません</span>
+                      <span className="text-xs text-white/35">まだいません</span>
                     )}
                   </div>
                 </div>
               </div>
+            )}
+          </div>
+          {/* 下部ステータスバー */}
+          <div className="flex flex-wrap gap-2 bg-black/20 px-6 py-3.5">
+            <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+              参加予定 {yesCount}人
+            </span>
+            <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
+              調整中 {maybeCount}人
+            </span>
+            {eventType && (
+              <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/50">
+                {eventType}
+              </span>
             )}
           </div>
         </div>
@@ -2836,7 +2876,11 @@ return (
         <button
           type="button"
           onClick={decideRecommendedDate}
-          className="w-full rounded-2xl bg-stone-900 py-4 text-[15px] font-black text-white shadow-sm transition hover:opacity-90 active:scale-[0.98]"
+          className="w-full rounded-2xl py-4 text-[15px] font-black text-white transition active:scale-[0.98]"
+          style={{
+            background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)',
+            boxShadow: '0 6px 24px rgba(20,83,45,0.55), inset 0 1px 0 rgba(255,255,255,0.14)'
+          }}
         >
           この日で決定 →
         </button>
@@ -2908,7 +2952,7 @@ return (
                         onClick={() => setHeroBestDateId(date.id)}
                         className={`rounded-lg px-1 py-1 text-left text-xs font-bold transition active:scale-95 ${
                           isSelected
-                            ? 'bg-stone-900 text-white'
+                            ? 'bg-emerald-600 text-white'
                             : 'text-stone-500 hover:bg-stone-100 hover:text-stone-900'
                         }`}
                       >
@@ -3053,11 +3097,12 @@ return (
     </div>
 
     {/* 確定日程 ヒーロー */}
-    <div className="overflow-hidden rounded-3xl bg-stone-900">
+    <div className="overflow-hidden rounded-3xl ring-1 ring-white/10" style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}>
+      <div className="h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
       <div className="px-6 py-6">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/50">確定日程</p>
-        <p className="mt-1 text-3xl font-black text-white">{heroDate?.label}</p>
-        <p className="mt-2 text-sm font-bold text-white/70">最大参加人数 {yesCount + maybeCount}人</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(214,175,60,0.65)' }}>確定日程</p>
+        <p className="mt-2 text-[32px] font-black leading-tight tracking-tight" style={{ color: '#d4af3c' }}>{heroDate?.label}</p>
+        <p className="mt-1.5 text-sm font-bold text-white/60">最大参加人数 {yesCount + maybeCount}人</p>
         <button
           type="button"
           onClick={() => setShowHeroParticipants((v) => !v)}
@@ -3098,7 +3143,7 @@ return (
           </div>
         )}
       </div>
-      <div className="flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
+      <div className="flex flex-wrap gap-2 bg-black/20 px-6 py-3.5">
         <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
           参加予定 {yesCount}人
         </span>
@@ -3106,7 +3151,7 @@ return (
           調整中 {maybeCount}人
         </span>
         {eventType && (
-          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
+          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/50">
             {eventType}
           </span>
         )}
@@ -3220,7 +3265,7 @@ return (
       )}
     </div>
 
-    <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+    <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
       <PrimaryBtn size="large" onClick={() => {
         if (skipStoreCondition && prefilledStore) {
           setStep('storeSuggestion')
@@ -3329,7 +3374,7 @@ return (
                     {genreRanking.map(({ genre, count }, i) => (
                       <span key={genre} className={cx(
                         'rounded-full px-2.5 py-0.5 text-[11px] font-semibold',
-                        i === 0 ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-500'
+                        i === 0 ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-500'
                       )}>
                         {genre}
                         <span className="ml-1 opacity-50 font-normal">{count}</span>
@@ -3421,7 +3466,7 @@ return (
             </div>
 
             {/* CTA — sticky bottom */}
-            <div className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+            <div className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
               <PrimaryBtn size="large" onClick={startStoreSuggestion}>
                 {isLoadingStores ? '候補を探しています…' : 'この条件でお店を提案してもらう'}
               </PrimaryBtn>
@@ -3545,7 +3590,7 @@ return (
 
         {/* 軸候補モード CTA */}
         <motion.div
-          className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5"
+          className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.3 }}
@@ -3730,7 +3775,11 @@ return (
           <button
             type="button"
             onClick={() => { void loadFinalDecisionView() }}
-            className="w-full rounded-2xl bg-stone-900 py-4 text-[15px] font-black text-white shadow-sm transition hover:opacity-90 active:scale-[0.98]"
+            className="w-full rounded-2xl py-4 text-[15px] font-black text-white transition active:scale-[0.98]"
+            style={{
+              background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)',
+              boxShadow: '0 6px 24px rgba(20,83,45,0.55), inset 0 1px 0 rgba(255,255,255,0.14)'
+            }}
           >
             この店で決める →
           </button>
@@ -3742,6 +3791,7 @@ return (
             <div className="px-0.5">
               <p className="text-[10px] font-black tracking-[0.15em] text-stone-400 uppercase">他の候補</p>
             </div>
+
             <motion.div
               className="space-y-2"
               initial="hidden"
@@ -3809,75 +3859,70 @@ return (
           </div>
         )}
 
-        {/* CTA エリア — sticky bottom */}
-        <motion.div
-          className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.25, duration: 0.3 }}
-        >
-          {appMode === 'store_only' ? (
-            /* store_only CTA: お気に入り + 軸に会作成 + 詳細 */
-            <>
-              {primaryStore && (() => {
-                const storeKey = primaryStore.id
-                const isFav = userSettings.favoriteStores.some(f => f.id === storeKey)
-                return (
-                  <PrimaryBtn
-                    size="large"
-                    onClick={() => {
-                      const { next } = toggleFavoriteStore(
-                        userSettings,
-                        {
-                          id: storeKey,
-                          name: primaryStore.name,
-                          area: primaryStore.area ?? '',
-                          genre: orgPrefs.genres[0] ?? primaryStore.genre ?? '',
-                          link: primaryStore.link,
-                          imageUrl: primaryStore.image,
-                          station: primaryStore.access,
-                          priceRange: orgPrefs.priceRange !== '指定なし' ? orgPrefs.priceRange : undefined,
-                        },
-                        isFav,
-                      )
-                      setUserSettings(next)
-                    }}
-                  >
-                    <span className="inline-flex items-center justify-center gap-2">
-                      <Heart size={15} strokeWidth={isFav ? 0 : 2} className={isFav ? 'fill-current' : ''} />
-                      {isFav ? 'お気に入りから外す' : 'お気に入りに登録する'}
-                    </span>
-                  </PrimaryBtn>
-                )
-              })()}
-              <button
-                type="button"
-                onClick={() => {
-                  setPrefilledStore(primaryStore)
-                  setAppMode('full')
-                  setSkipStoreCondition(true)
-                  setStep('create')
-                }}
-                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-bold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98]"
-              >
-                このお店を軸に会を作成する
-              </button>
-            </>
-          ) : (
-            <>
-              <PrimaryBtn size="large" onClick={loadFinalDecisionView}>
-                この店で決める →
-              </PrimaryBtn>
-              <button
-                type="button"
-                onClick={enterManualStoreStep}
-                className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-[13px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-[0.98]"
-              >
-                自分でお店を探す
-              </button>
-            </>
-          )}
-        </motion.div>
+        {/* 自分でお店を探す（full モードのみ、インライン配置） */}
+        {appMode !== 'store_only' && (
+          <button
+            type="button"
+            onClick={enterManualStoreStep}
+            className="w-full py-2.5 text-center text-[12px] font-bold text-stone-500 transition hover:text-stone-400"
+          >
+            自分でお店を探す →
+          </button>
+        )}
+
+        {/* store_only CTA — sticky bottom（full モードは非表示） */}
+        {appMode === 'store_only' && (
+          <motion.div
+            className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.25, duration: 0.3 }}
+          >
+            {primaryStore && (() => {
+              const storeKey = primaryStore.id
+              const isFav = userSettings.favoriteStores.some(f => f.id === storeKey)
+              return (
+                <PrimaryBtn
+                  size="large"
+                  onClick={() => {
+                    const { next } = toggleFavoriteStore(
+                      userSettings,
+                      {
+                        id: storeKey,
+                        name: primaryStore.name,
+                        area: primaryStore.area ?? '',
+                        genre: orgPrefs.genres[0] ?? primaryStore.genre ?? '',
+                        link: primaryStore.link,
+                        imageUrl: primaryStore.image,
+                        station: primaryStore.access,
+                        priceRange: orgPrefs.priceRange !== '指定なし' ? orgPrefs.priceRange : undefined,
+                      },
+                      isFav,
+                    )
+                    setUserSettings(next)
+                  }}
+                >
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <Heart size={15} strokeWidth={isFav ? 0 : 2} className={isFav ? 'fill-current' : ''} />
+                    {isFav ? 'お気に入りから外す' : 'お気に入りに登録する'}
+                  </span>
+                </PrimaryBtn>
+              )
+            })()}
+            <button
+              type="button"
+              onClick={() => {
+                setPrefilledStore(primaryStore)
+                setAppMode('full')
+                setSkipStoreCondition(true)
+                setStep('create')
+              }}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-bold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98]"
+            >
+              このお店を軸に会を作成する
+            </button>
+          </motion.div>
+        )}
       </>
     )}
   </div>
@@ -4021,7 +4066,7 @@ return (
                         onClick={() => selectManualSearchResult(item)}
                         className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left ring-1 transition active:scale-[0.98] ${
                           isSelected
-                            ? 'bg-stone-900 ring-stone-900'
+                            ? 'bg-emerald-600 ring-emerald-600'
                             : 'bg-stone-50 ring-stone-100 hover:ring-stone-300'
                         }`}
                       >
@@ -4088,7 +4133,7 @@ return (
             </div>
 
             {/* CTA — sticky bottom */}
-            <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4">
+            <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4">
               <div className="mx-auto max-w-xl space-y-2">
                 {/* Hot Pepper URL のときだけ表示 — LinkSwitch により自動アフィリエイト変換される */}
                 {manualStoreUrl && /hotpepper\.jp/i.test(manualStoreUrl) && (
@@ -4106,7 +4151,8 @@ return (
                 <button
                   type="button"
                   onClick={confirmManualStore}
-                  className="w-full rounded-2xl bg-stone-900 px-4 py-4 text-sm font-black text-white shadow-md transition hover:opacity-90 active:scale-[0.98]"
+                  className="w-full rounded-2xl px-4 py-4 text-sm font-black text-white transition active:scale-[0.98]"
+                  style={{ background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)', boxShadow: '0 6px 24px rgba(20,83,45,0.55), inset 0 1px 0 rgba(255,255,255,0.14)' }}
                 >
                   この内容で進む →
                 </button>
@@ -4316,11 +4362,12 @@ ${finalStore?.link ?? ''}`
           )}
 
           {/* 清算へ進む — sticky bottom */}
-          <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#F5F3EF] via-[#F5F3EF]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+          <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
             <button
               type="button"
               onClick={() => setStep('settlement')}
-              className="inline-flex w-full items-center justify-center rounded-2xl bg-stone-900 px-4 py-4 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+              className="inline-flex w-full items-center justify-center rounded-2xl px-4 py-4 text-sm font-black text-white transition active:scale-[0.98]"
+              style={{ background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)', boxShadow: '0 6px 24px rgba(20,83,45,0.55), inset 0 1px 0 rgba(255,255,255,0.14)' }}
             >
               会計をまとめる（清算）→
             </button>
@@ -4650,7 +4697,8 @@ ${finalStore?.link ?? ''}`
                 <div className="space-y-2">
                   <button type="button"
                     onClick={() => reuseStoreAsFirst(selectedPastStore)}
-                    className="block w-full rounded-2xl bg-stone-900 px-4 py-3.5 text-left transition hover:bg-stone-800 active:scale-[0.99]"
+                    className="block w-full rounded-2xl px-4 py-3.5 text-left transition active:scale-[0.99]"
+                    style={{ background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)', boxShadow: '0 4px 16px rgba(20,83,45,0.5), inset 0 1px 0 rgba(255,255,255,0.12)' }}
                   >
                     <p className="text-sm font-black text-white">この店を第一候補にして進める</p>
                     <p className="mt-0.5 text-[11px] text-white/50">お店選びの画面から再開します</p>
@@ -4684,7 +4732,8 @@ ${finalStore?.link ?? ''}`
             transition={{ type: 'spring', stiffness: 380, damping: 28 }}
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.95 }}
-            className="fixed bottom-6 right-5 z-50 flex items-center gap-2 rounded-full bg-stone-900 px-5 py-4 text-white shadow-xl"
+            className="fixed bottom-6 right-5 z-50 flex items-center gap-2 rounded-full px-5 py-4 text-white"
+            style={{ background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)', boxShadow: '0 8px 28px rgba(20,83,45,0.6), inset 0 1px 0 rgba(255,255,255,0.14)' }}
           >
             <Plus size={18} strokeWidth={2.5} />
             <span className="text-[14px] font-black tracking-tight">幹事を始める</span>
@@ -4783,7 +4832,7 @@ ${finalStore?.link ?? ''}`
                       }
                       className={`rounded-full px-4 py-2 text-sm font-bold ring-1 transition active:scale-95 ${
                         selected
-                          ? 'bg-stone-900 text-white ring-stone-900'
+                          ? 'bg-emerald-500 text-white ring-emerald-500'
                           : 'bg-stone-50 text-stone-600 ring-stone-200 hover:bg-stone-100'
                       }`}
                     >
@@ -4806,7 +4855,8 @@ ${finalStore?.link ?? ''}`
               <button
                 type="button"
                 onClick={() => setShowPrioritySheet(false)}
-                className="mt-5 w-full rounded-2xl bg-stone-900 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+                className="mt-5 w-full rounded-2xl py-3.5 text-sm font-black text-white transition active:scale-[0.98]"
+                style={{ background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)', boxShadow: '0 6px 24px rgba(20,83,45,0.55), inset 0 1px 0 rgba(255,255,255,0.14)' }}
               >
                 完了
               </button>
@@ -4902,7 +4952,7 @@ function FlowProgress({ step }: { step: Step }) {
           key={i}
           className={cx(
             'h-[3px] flex-1 rounded-full transition-all duration-500',
-            i < current ? 'bg-stone-700' : i === current ? 'bg-stone-900' : 'bg-stone-200'
+            i < current ? 'bg-emerald-600' : i === current ? 'bg-emerald-400' : 'bg-white/15'
           )}
         />
       ))}
@@ -4912,7 +4962,7 @@ function FlowProgress({ step }: { step: Step }) {
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <section className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100 md:px-6 md:py-6 lg:px-7 lg:py-7">
+    <section className="rounded-3xl bg-[#1d1d1d] px-5 py-5 shadow-sm ring-1 ring-white/8 md:px-6 md:py-6 lg:px-7 lg:py-7">
       {children}
     </section>
   )
@@ -5053,6 +5103,10 @@ function PrimaryBtn({
   size?: 'large' | 'default'
   disabled?: boolean
 }) {
+  const activeStyle = {
+    background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)',
+    boxShadow: '0 6px 24px rgba(20,83,45,0.55), inset 0 1px 0 rgba(255,255,255,0.14)',
+  }
   return (
     <motion.button
       type="button"
@@ -5061,12 +5115,13 @@ function PrimaryBtn({
       whileTap={disabled ? {} : { scale: 0.975 }}
       transition={{ duration: 0.12 }}
       className={cx(
-        'w-full rounded-2xl font-bold tracking-wide transition-colors duration-150',
+        'w-full rounded-2xl font-bold tracking-wide',
         size === 'large' ? 'py-4 text-[15px]' : 'py-3 text-sm',
         disabled
-          ? 'cursor-not-allowed bg-stone-200 text-stone-400'
-          : 'bg-stone-900 text-white shadow-md shadow-stone-900/20 hover:bg-stone-800'
+          ? 'cursor-not-allowed bg-white/10 text-white/30'
+          : 'text-white'
       )}
+      style={disabled ? undefined : activeStyle}
     >
       {children}
     </motion.button>
