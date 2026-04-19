@@ -420,7 +420,7 @@ function buildDateReason(params: {
   } else {
     // ── BEST以外：代替案として控えめなトーン ─────────────────────────────────
     if (availableCount === totalCount) {
-      return `全員参加できる日程ですが、他の条件を考慮してメイン候補外になっています。`
+      return `全員参加できますが、他候補の方がより決めやすい日程です`
     }
     if (mainGuestAvailability === 'no') {
       return `主賓の参加が難しい候補です。日程優先ならこの候補も選べます。`
