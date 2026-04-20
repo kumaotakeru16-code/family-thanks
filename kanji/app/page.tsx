@@ -392,87 +392,43 @@ function getTopAreas(participants: Participant[]) {
 }
 
 /**
- * 箇条書き理由を3〜4個生成。
- * 選定ロジック（主賓 → × → ○ → △）の順序に合わせて理由を並べる。
- * 「全員」「未回答」「参加率%」は使わない。相対比較のみ根拠にする。
+ * 短い事実ベースの箇条書きを生成（最大4項目）。
+ * 「解釈なし・名詞 or 短文」形式。長い説明文は書かない。
+ * 「全員」「未回答」「参加率%」は使わない。
  */
 function buildDateReasons(params: {
   mainGuestAvailability?: Availability | null
   yesCount: number
   maybeCount: number
   noCount: number
-  /** 他候補の最大 yesCount（比較用） */
   maxAltYesCount: number
-  /** 他候補の最大 maybeCount（比較用） */
   maxAltMaybeCount: number
-  /** 他候補の最小 noCount（比較用） */
   minAltNoCount: number
   dateLabel?: string
   eventType: EventType | string
 }): string[] {
-  const {
-    mainGuestAvailability,
-    yesCount,
-    maybeCount,
-    noCount,
-    maxAltYesCount,
-    minAltNoCount,
-    dateLabel = '',
-    eventType,
-  } = params
-
+  const { mainGuestAvailability, yesCount, maybeCount, noCount } = params
   if (yesCount === 0 && maybeCount === 0) return []
-  const reasons: string[] = []
 
-  // 1. 主賓（最優先）
+  const items: string[] = []
+
+  // 1. 不可（最重要 — 最初に配置）
+  items.push(noCount === 0 ? '不可なし' : `不可 ${noCount}人`)
+
+  // 2. 参加予定
+  items.push(`参加予定 ${yesCount}人`)
+
+  // 3. 調整中
+  items.push(maybeCount === 0 ? '調整中なし' : `調整中 ${maybeCount}人`)
+
+  // 4. 主賓（いる場合のみ）
   if (mainGuestAvailability === 'yes') {
-    const formalTypes = ['歓迎会', '送別会', '会食']
-    if (formalTypes.includes(eventType as string)) {
-      reasons.push('主賓が参加できる候補です')
-    } else {
-      reasons.push('主賓も参加可能です')
-    }
+    items.push('主賓 参加予定')
   } else if (mainGuestAvailability === 'maybe') {
-    reasons.push('主賓は調整中ですが参加見込みがあります')
+    items.push('主賓 調整中')
   }
 
-  // 2. 不可の少なさ（最重要判断基準）
-  if (noCount === 0) {
-    reasons.push('不可がいないため、まとまりやすい状況です')
-  } else if (noCount < minAltNoCount) {
-    reasons.push(`不可が${noCount}人で、他候補より少ない状況です`)
-  }
-
-  // 3. 参加予定人数（他候補との比較）
-  if (yesCount > 0) {
-    if (yesCount > maxAltYesCount) {
-      reasons.push(`参加予定が${yesCount}人で、候補日の中で最も多いです`)
-    } else if (yesCount === maxAltYesCount && maxAltYesCount > 0) {
-      reasons.push(`参加予定${yesCount}人で、他候補と同水準です`)
-    } else {
-      reasons.push(`参加予定が${yesCount}人います`)
-    }
-  }
-
-  // 4. 調整中の伸びしろ（ポジティブに表現）
-  if (maybeCount > 0) {
-    reasons.push(`調整中${maybeCount}人が確定すれば、さらに参加が増えます`)
-  } else if (reasons.length < 3) {
-    reasons.push('調整中がいないため、見通しが立てやすい候補です')
-  }
-
-  // 5. 曜日・時間帯（補助。強い理由が足りないときのみ）
-  if (reasons.length < 3 && dateLabel) {
-    const isWeekend = /[土日]/.test(dateLabel)
-    const hasEveningTime = /1[89]:|2[0-3]:/.test(dateLabel)
-    if (isWeekend) {
-      reasons.push('週末で予定を合わせやすい候補です')
-    } else if (hasEveningTime) {
-      reasons.push('仕事後に集まりやすい時間帯です')
-    }
-  }
-
-  return reasons.slice(0, 4)
+  return items
 }
 
 /**
@@ -490,27 +446,21 @@ function buildDateSummary(params: {
   if (yesCount === 0 && maybeCount === 0) return ''
 
   if (mainGuestAvailability === 'yes' && noCount === 0) {
-    return '主賓が参加でき、不可もいない。現時点で最もまとまりやすい候補です'
-  }
-  if (mainGuestAvailability === 'yes' && yesCount > maxAltYesCount) {
-    return '現時点では、この日が最もまとまりやすい候補です'
+    return '現時点で最も進めやすい日程です'
   }
   if (mainGuestAvailability === 'yes') {
-    return '主賓が参加できる候補として、最も選びやすい状況です'
-  }
-  if (noCount === 0 && noCount < minAltNoCount) {
-    return '不可がいないため、他候補より成立しやすい状況です'
+    return '主賓が参加できる最有力候補です'
   }
   if (noCount === 0 && yesCount > maxAltYesCount) {
-    return '不可ゼロで参加予定も最多。現時点でこの日が最も決めやすいです'
+    return '不可ゼロ・参加予定も最多。最も決めやすい日程です'
   }
   if (noCount === 0) {
-    return '不可がいないため、調整を進めやすい候補です'
+    return 'スムーズに決めやすい候補です'
   }
   if (yesCount > maxAltYesCount) {
-    return 'いまの回答状況では、この日が最も決めやすい候補です'
+    return '参加予定が最多の候補です'
   }
-  return '他候補と比べて、この日が第一候補として最も自然です'
+  return '現時点での第一候補です'
 }
 
 /** 箇条書き理由を最大5個生成（意思決定の根拠として機能する順序で） */
@@ -3158,53 +3108,99 @@ return (
         >
           {/* 上部ゴールドライン */}
           <div className="h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
-          <div className="px-6 py-5">
-            {/* ラベル */}
+
+          <div className="px-6 pt-5 pb-4">
+            {/* ① ラベル */}
             <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(214,175,60,0.65)' }}>
               {heroIsBest ? 'Recommended Date' : 'Alternative Date'}
             </p>
-            {/* 日付（ゴールド） */}
-            <p className="mt-2 text-[32px] font-black leading-tight tracking-tight" style={{ color: '#d4af3c' }}>
+            {/* ① 日付（主役・ゴールド） */}
+            <p className="mt-1.5 text-[32px] font-black leading-tight tracking-tight" style={{ color: '#d4af3c' }}>
               {heroDate?.label}
             </p>
-            {/* ── 理由セクション ────────────────────────────── */}
-            {heroDateReasons.length > 0 && (
-              <div className="mt-5">
-                <p className="mb-2.5 text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: 'rgba(74,222,128,0.55)' }}>
-                  この日程が最適な理由
-                </p>
-                <ul className="space-y-1.5">
-                  {heroDateReasons.map((r, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/65" />
-                      <span className="text-[13px] leading-[1.45] text-white/65">
-                        {r.split(/(\d+人|いない|最も(?:多い|少ない|決めやすい)?|主賓)/).map((part, j) =>
-                          /^(\d+人|いない|最も(?:多い|少ない|決めやすい)?|主賓)$/.test(part)
-                            ? <span key={j} className="font-black text-white/92">{part}</span>
-                            : <span key={j}>{part}</span>
-                        )}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                {heroDateSummary && (
-                  <p className="mt-3.5 text-[13px] font-bold leading-5 text-white/85">{heroDateSummary}</p>
-                )}
-              </div>
-            )}
+
+            {/* ② 参加者イニシャル横並び */}
+            {(heroYesParticipants.length > 0 || heroMaybeParticipants.length > 0) && (() => {
+              const MAX_VISIBLE = 5
+              const allVisible = [
+                ...heroYesParticipants.map(p => ({ ...p, type: 'yes' as const })),
+                ...heroMaybeParticipants.map(p => ({ ...p, type: 'maybe' as const })),
+              ]
+              const visible = allVisible.slice(0, MAX_VISIBLE)
+              const overflow = allVisible.length - MAX_VISIBLE
+              return (
+                <div className="mt-4 flex items-center gap-2">
+                  <div className="flex items-center -space-x-1.5">
+                    {visible.map((p) => (
+                      <div
+                        key={p.id}
+                        title={p.name}
+                        className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-black ring-2 ring-[#0e1c10] ${
+                          p.type === 'yes'
+                            ? 'bg-emerald-500/30 text-emerald-200'
+                            : 'bg-amber-500/25 text-amber-200'
+                        }`}
+                      >
+                        {p.name.slice(0, 1)}
+                      </div>
+                    ))}
+                    {overflow > 0 && (
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-[10px] font-black text-white/50 ring-2 ring-[#0e1c10]">
+                        +{overflow}
+                      </div>
+                    )}
+                  </div>
+                  {/* ③ 人数サマリ */}
+                  <div className="flex items-center gap-2 text-[12px] font-bold">
+                    {heroYesParticipants.length > 0 && (
+                      <span className="text-emerald-300/80">参加予定 {heroYesParticipants.length}人</span>
+                    )}
+                    {heroYesParticipants.length > 0 && heroMaybeParticipants.length > 0 && (
+                      <span className="text-white/20">·</span>
+                    )}
+                    {heroMaybeParticipants.length > 0 && (
+                      <span className="text-amber-300/70">調整中 {heroMaybeParticipants.length}人</span>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
 
-          {/* 参加者を見る（チップバーの代わり） */}
+          {/* 区切り線 */}
+          <div className="mx-6 border-t border-white/8" />
+
+          {/* ④ 理由セクション */}
+          {heroDateReasons.length > 0 && (
+            <div className="px-6 py-4">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: 'rgba(74,222,128,0.45)' }}>
+                この日程が最適な理由
+              </p>
+              <ul className="space-y-1">
+                {heroDateReasons.map((r, i) => (
+                  <li key={i} className="flex items-center gap-2 text-[12px] font-bold text-white/55">
+                    <span className="h-1 w-1 shrink-0 rounded-full bg-emerald-400/50" />
+                    {r}
+                  </li>
+                ))}
+              </ul>
+              {heroDateSummary && (
+                <p className="mt-3 text-[12px] font-bold text-white/75">→ {heroDateSummary}</p>
+              )}
+            </div>
+          )}
+
+          {/* 参加者詳細（展開） */}
           <div className="border-t border-white/6">
             <button
               type="button"
               onClick={() => setShowHeroParticipants((v) => !v)}
               className="flex w-full items-center justify-between px-6 py-3 transition hover:bg-white/4 active:bg-white/6"
             >
-              <span className="text-[11px] font-bold text-white/40">参加者を見る</span>
+              <span className="text-[11px] font-bold text-white/35">参加者の詳細を見る</span>
               <ChevronDown
                 size={13}
-                className={`text-white/30 transition-transform duration-200 ${showHeroParticipants ? 'rotate-180' : ''}`}
+                className={`text-white/25 transition-transform duration-200 ${showHeroParticipants ? 'rotate-180' : ''}`}
               />
             </button>
             {showHeroParticipants && (
@@ -5559,9 +5555,9 @@ function StoreLoadingOverlay() {
 // ─── CTA スタイル定数 ──────────────────────────────────────────────────────────
 /** ① 主CTA: amber solid（最終決定ボタン） */
 const CTA_PRIMARY_STYLE = {
-  background: 'linear-gradient(180deg, #f59e0b 0%, #d97706 100%)',
-  boxShadow: '0 6px 24px rgba(180,83,9,0.38), inset 0 1px 0 rgba(255,255,255,0.18)',
-  color: '#1a1a1a',
+  background: 'linear-gradient(180deg, #d97706 0%, #92400e 100%)',
+  boxShadow: '0 4px 16px rgba(120,53,15,0.45), inset 0 1px 0 rgba(255,255,255,0.10)',
+  color: '#fef3c7',
 } as const
 
 // ─── ボタンコンポーネント ─────────────────────────────────────────────────────

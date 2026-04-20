@@ -469,9 +469,9 @@ export function SettlementSummaryTable({
               onClick={handleComplete}
               className="w-full rounded-2xl px-4 py-4 text-sm font-black transition active:scale-[0.98]"
               style={{
-                background: 'linear-gradient(180deg, #f59e0b 0%, #d97706 100%)',
-                boxShadow: '0 6px 24px rgba(180,83,9,0.38), inset 0 1px 0 rgba(255,255,255,0.18)',
-                color: '#1a1a1a',
+                background: 'linear-gradient(180deg, #d97706 0%, #92400e 100%)',
+                boxShadow: '0 4px 16px rgba(120,53,15,0.45), inset 0 1px 0 rgba(255,255,255,0.10)',
+                color: '#fef3c7',
               }}
             >
               会を完了する
