@@ -2254,12 +2254,12 @@ return (
                     const s = ev.status ?? 'date_pending'
                     const statusCfg =
                       s === 'reserved'
-                        ? { label: '当日待機中', sub: '会が終わったら会計をまとめます', cls: 'bg-emerald-500/12 text-emerald-600 ring-emerald-400/30', Icon: CheckCircle2 }
+                        ? { label: '会計準備中', cls: 'bg-emerald-500/12 text-emerald-600 ring-emerald-400/30', Icon: CheckCircle2 }
                         : s === 'store_confirmed'
-                        ? { label: '予約待ち', sub: 'まだ予約が完了していません', cls: 'bg-amber-500/15 text-amber-500 ring-amber-500/25', Icon: CalendarDays }
+                        ? { label: '予約調整中', cls: 'bg-amber-500/15 text-amber-500 ring-amber-500/25', Icon: CalendarDays }
                         : s === 'store_pending'
-                        ? { label: 'お店未決定', sub: 'まだお店が決まっていません', cls: 'bg-stone-100 text-stone-500 ring-stone-300', Icon: CircleDashed }
-                        : { label: '日程調整中', sub: 'まだ日程が決まっていません', cls: 'bg-stone-50 text-stone-500 ring-stone-200', Icon: Clock }
+                        ? { label: 'お店未決定', cls: 'bg-stone-100 text-stone-500 ring-stone-300', Icon: CircleDashed }
+                        : { label: '日程調整中', cls: 'bg-stone-50 text-stone-500 ring-stone-200', Icon: Clock }
                     const { Icon: StatusIcon } = statusCfg
                     return (
                       <motion.button
@@ -2285,9 +2285,6 @@ return (
                           </div>
                           <div className="min-w-0">
                             <p className="truncate text-[15px] font-black tracking-tight text-stone-900">{ev.name}</p>
-                            {statusCfg.sub && (
-                              <p className="mt-0.5 text-[11px] font-bold text-stone-400">{statusCfg.sub}</p>
-                            )}
                           </div>
                         </div>
                         <div className="ml-3 flex shrink-0 items-center gap-2">
