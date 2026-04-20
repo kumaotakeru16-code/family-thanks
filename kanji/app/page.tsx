@@ -2323,18 +2323,18 @@ return (
               <button
                 type="button"
                 onClick={() => setStep('pastEvents')}
-                className="flex w-full items-center justify-between rounded-2xl bg-stone-50/60 px-4 py-3.5 ring-1 ring-stone-100/80 transition hover:bg-stone-50 active:scale-[0.99]"
+                className="flex w-full items-center justify-between rounded-2xl bg-stone-100 px-4 py-3.5 ring-1 ring-stone-200 transition hover:bg-stone-150 active:scale-[0.99]"
               >
                 <div className="flex items-center gap-2.5">
-                  <CheckCircle2 size={14} className="text-stone-300" strokeWidth={2} />
-                  <span className="text-[13px] font-bold text-stone-500">完了済みの会を見る</span>
+                  <CheckCircle2 size={14} className="text-stone-500" strokeWidth={2} />
+                  <span className="text-[13px] font-bold text-stone-700">完了済みの会を見る</span>
                   {userSettings.pastEventRecords.length > 0 && (
-                    <span className="rounded-full bg-stone-200/80 px-2 py-0.5 text-[10px] font-bold text-stone-500">
+                    <span className="rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-bold text-stone-600">
                       {userSettings.pastEventRecords.length}件
                     </span>
                   )}
                 </div>
-                <ChevronRight size={14} className="text-stone-300" />
+                <ChevronRight size={14} className="text-stone-400" />
               </button>
             )}
           </motion.div>
@@ -3011,7 +3011,7 @@ return (
         }
         setStep('dashboard')
       }}
-      className="w-full py-2.5 text-center text-sm font-bold text-white/50 transition hover:text-white/70"
+      className="w-full rounded-2xl bg-amber-500/15 py-3 text-sm font-bold text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
     >
       回答状況を見る →
     </button>
@@ -3242,8 +3242,7 @@ return (
         <button
           type="button"
           onClick={decideRecommendedDate}
-          className="w-full rounded-2xl py-4 text-[15px] font-black transition active:scale-[0.98]"
-          style={CTA_PRIMARY_STYLE}
+          className="w-full rounded-2xl bg-amber-500/15 py-4 text-[15px] font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
         >
           この日で決定 →
         </button>
@@ -4116,8 +4115,7 @@ return (
           <button
             type="button"
             onClick={() => { void loadFinalDecisionView() }}
-            className="w-full rounded-2xl py-4 text-[15px] font-black transition active:scale-[0.98]"
-            style={CTA_PRIMARY_STYLE}
+            className="w-full rounded-2xl bg-amber-500/15 py-4 text-[15px] font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
           >
             この店で決める →
           </button>
@@ -4698,7 +4696,7 @@ ${finalStore?.link ?? ''}`
             <button
               type="button"
               onClick={() => setStep('settlement')}
-              className="inline-flex w-full items-center justify-center rounded-2xl border border-amber-500/30 px-4 py-3.5 text-sm font-black text-amber-400 transition active:scale-[0.98] hover:bg-amber-500/8"
+              className="inline-flex w-full items-center justify-center rounded-2xl bg-amber-500/15 px-4 py-3.5 text-sm font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
             >
               会計をまとめる（清算）→
             </button>
@@ -5149,7 +5147,7 @@ ${finalStore?.link ?? ''}`
                     <button
                       type="button"
                       onClick={() => { setDecisionSheet(null); setStep('dashboard') }}
-                      className="w-full py-2.5 text-center text-sm font-bold text-white/50 transition hover:text-white/70"
+                      className="w-full rounded-2xl bg-amber-500/15 py-3 text-sm font-bold text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
                     >
                       回答状況を見る →
                     </button>
@@ -5215,7 +5213,7 @@ ${finalStore?.link ?? ''}`
                           setStep('organizerConditions')
                         }
                       }}
-                      className="w-full rounded-2xl py-3.5 text-[15px] font-black text-amber-300 transition active:scale-[0.98] bg-amber-500/10 ring-1 ring-amber-500/35 hover:bg-amber-500/15"
+                      className="w-full rounded-2xl bg-amber-500/15 py-3.5 text-[15px] font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
                     >
                       お店を決める →
                     </button>
@@ -5257,10 +5255,11 @@ ${finalStore?.link ?? ''}`
                       ホットペッパーで予約/確認する
                     </StoreExternalLink>
                   )}
-                  {/* 共有パネル */}
+                  {/* 共有パネル — URLのみ時はお店のURLを表示 */}
                   <SharePanel
                     shareText={decisionSheet.shareText}
-                    shareUrl={decisionSheet.shareUrl}
+                    shareUrl={decisionSheet.storeLink ?? decisionSheet.shareUrl}
+                    hideUrlToggle={!decisionSheet.storeLink}
                     label="参加者に知らせる"
                   />
                   {/* 次のアクション */}
@@ -5268,7 +5267,7 @@ ${finalStore?.link ?? ''}`
                     <button
                       type="button"
                       onClick={() => { setDecisionSheet(null); setStep('settlement') }}
-                      className="w-full rounded-2xl border border-amber-500/30 py-3.5 text-sm font-black text-amber-400 transition active:scale-[0.98] hover:bg-amber-500/8"
+                      className="w-full rounded-2xl bg-amber-500/15 py-3.5 text-sm font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
                     >
                       精算へ進む →
                     </button>
@@ -5430,50 +5429,8 @@ function Card({ children }: { children: React.ReactNode }) {
   )
 }
 
-function StepLabel({ n }: { n: number }) {
-  return (
-    <p className="mb-4 text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">
-      Step {n} / 10
-    </p>
-  )
-}
-
-function CardTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-2xl font-black tracking-tight text-stone-900 leading-tight">{children}</h2>
-}
-
-function CardSub({ children }: { children: React.ReactNode }) {
-  return <p className="mt-2 mb-6 text-sm leading-6 text-stone-400">{children}</p>
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-[10px] font-black tracking-[0.25em] text-stone-400 uppercase">{children}</p>
-}
-
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <p className="text-sm font-bold text-stone-700">{children}</p>
-}
-
-function StatBox({ label, value, soft }: { label: string; value: string; soft?: boolean }) {
-  return (
-    <div className={cx('rounded-2xl px-4 py-4', soft ? 'bg-amber-50' : 'bg-stone-50')}>
-      <p className={cx('text-[10px] font-black tracking-[0.2em] uppercase', soft ? 'text-amber-500' : 'text-stone-400')}>{label}</p>
-      <p className={cx('mt-2 text-xl font-black', soft ? 'text-amber-700' : 'text-stone-900')}>{value}</p>
-    </div>
-  )
-}
-
-function ReasonItem({ icon, text, highlight }: { icon: string; text: string; highlight?: boolean }) {
-  return (
-    <div className="flex items-start gap-2.5">
-      <span className={cx('mt-0.5 shrink-0 text-sm', highlight ? 'text-emerald-400' : 'text-white/40')}>{icon}</span>
-      <p className={cx('text-sm leading-5', highlight ? 'font-semibold text-white/90' : 'text-white/65')}>{text}</p>
-    </div>
-  )
-}
-
-function ButtonRow({ children }: { children: React.ReactNode }) {
-  return <div className="mt-8 flex gap-3">{children}</div>
 }
 
 // ─── 共通ローディングオーバーレイ ────────────────────────────────────────────
@@ -5552,13 +5509,7 @@ function StoreLoadingOverlay() {
   )
 }
 
-// ─── CTA スタイル定数 ──────────────────────────────────────────────────────────
-/** ① 主CTA: amber solid（最終決定ボタン） */
-const CTA_PRIMARY_STYLE = {
-  background: 'linear-gradient(180deg, #d97706 0%, #92400e 100%)',
-  boxShadow: '0 4px 16px rgba(120,53,15,0.45), inset 0 1px 0 rgba(255,255,255,0.10)',
-  color: '#fef3c7',
-} as const
+// CTA_PRIMARY_STYLE は PrimaryBtn クラスに統一されました（削除済み）
 
 // ─── ボタンコンポーネント ─────────────────────────────────────────────────────
 // Framer Motion の whileTap で押し込み感を統一
@@ -5586,42 +5537,11 @@ function PrimaryBtn({
         size === 'large' ? 'py-4 text-[15px]' : 'py-3 text-sm',
         disabled
           ? 'cursor-not-allowed bg-white/10 text-white/30'
-          : 'bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/35 hover:bg-amber-500/15'
+          : 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/40 hover:bg-amber-500/20'
       )}
     >
       {children}
     </motion.button>
-  )
-}
-
-function GhostBtn({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      whileTap={{ scale: 0.975 }}
-      transition={{ duration: 0.12 }}
-      className="inline-flex w-full items-center justify-center py-2.5 text-sm font-medium text-stone-400 transition-colors duration-150 hover:text-stone-600"
-    >
-      {children}
-    </motion.button>
-  )
-}
-
-function DecisionLayout({
-  main,
-  side,
-}: {
-  main: React.ReactNode
-  side: React.ReactNode
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_360px]">
-      <div className="min-w-0 space-y-4">{main}</div>
-      <aside className="min-w-0 space-y-4 xl:sticky xl:top-6 xl:self-start">
-        {side}
-      </aside>
-    </div>
   )
 }
 
@@ -5649,43 +5569,6 @@ function PaneCard({
   )
 }
 
-function MiniInfoCard({
-  label,
-  value,
-  tone = 'default',
-}: {
-  label: string
-  value: React.ReactNode
-  tone?: 'default' | 'warm'
-}) {
-  return (
-    <div
-      className={cx(
-        'rounded-2xl px-4 py-4 ring-1',
-        tone === 'warm'
-          ? 'bg-amber-50 ring-amber-100'
-          : 'bg-stone-50 ring-stone-100'
-      )}
-    >
-      <p
-        className={cx(
-          'text-[10px] font-black uppercase tracking-[0.2em]',
-          tone === 'warm' ? 'text-amber-500' : 'text-stone-400'
-        )}
-      >
-        {label}
-      </p>
-      <div
-        className={cx(
-          'mt-2',
-          tone === 'warm' ? 'text-amber-800' : 'text-stone-900'
-        )}
-      >
-        {value}
-      </div>
-    </div>
-  )
-}
 
 
 function Chip({ children, active, onClick }: { children: React.ReactNode; active?: boolean; onClick?: () => void }) {

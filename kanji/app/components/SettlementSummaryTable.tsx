@@ -467,12 +467,7 @@ export function SettlementSummaryTable({
             <button
               type="button"
               onClick={handleComplete}
-              className="w-full rounded-2xl px-4 py-4 text-sm font-black transition active:scale-[0.98]"
-              style={{
-                background: 'linear-gradient(180deg, #d97706 0%, #92400e 100%)',
-                boxShadow: '0 4px 16px rgba(120,53,15,0.45), inset 0 1px 0 rgba(255,255,255,0.10)',
-                color: '#fef3c7',
-              }}
+              className="w-full rounded-2xl bg-amber-500/15 px-4 py-4 text-sm font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
             >
               会を完了する
             </button>
