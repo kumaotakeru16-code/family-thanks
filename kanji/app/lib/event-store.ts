@@ -9,7 +9,7 @@
  *
  * 保存責務:
  *   - SavedEvent の一覧（最大 3 件）
- *   - 会のフェーズ（date_pending / store_pending / store_confirmed）
+ *   - 会のフェーズ（date_pending / store_pending / store_confirmed / reserved）
  *   - 確定日程 ID・店舗情報
  *   - 清算完了時に removeSavedEvent で削除し、PastEventRecord として user-settings.ts 側へ移す
  *
@@ -34,7 +34,7 @@ export type SavedEvent = {
   eventType: string
   createdAt: number
   /** 会の進行フェーズ */
-  status?: 'date_pending' | 'store_pending' | 'store_confirmed'
+  status?: 'date_pending' | 'store_pending' | 'store_confirmed' | 'reserved'
   /** 幹事が確定した日程 ID（status が store_pending 以降で設定） */
   confirmedDateId?: string
   /** 自前で入力したお店かどうか */

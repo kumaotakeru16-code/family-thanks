@@ -1546,6 +1546,7 @@ function enterManualStoreStep() {
  *      - date_pending  → dashboard（回答収集中）
  *      - store_pending → organizerConditions（日程確定済み、店未選択）
  *      - store_confirmed → finalConfirm（店も確定済み）
+ *      - reserved → settlement（予約完了済み、当日精算待ち）
  */
 async function openSavedEvent(id: string, name: string, type: string, overrideStep?: Step) {
   setCreatedEventId(id)
@@ -1571,8 +1572,8 @@ async function openSavedEvent(id: string, name: string, type: string, overrideSt
       orgPrefsInitRef.current = false // participantMajority useEffect を再実行させる
       setStep('organizerConditions')
 
-    } else if (status === 'store_confirmed') {
-      // 店も確定済み → 最終確認から再開（決定内容 + 店舗情報を復元）
+    } else if (status === 'store_confirmed' || status === 'reserved') {
+      // 店確定済み or 予約完了 → 決定内容 + 店舗情報を復元
       try {
         const dr = await loadDecision(id)
         const decision = dr?.decision ?? null
@@ -1588,7 +1589,9 @@ async function openSavedEvent(id: string, name: string, type: string, overrideSt
           restoreRecommendedStoreState(savedEv)
         }
 
-        setStep(overrideStep ?? 'finalConfirm')
+        // reserved（予約完了済み）は直接 settlement へ、それ以外は finalConfirm
+        const targetStep = overrideStep ?? (status === 'reserved' ? 'settlement' : 'finalConfirm')
+        setStep(targetStep)
       } catch {
         // loadDecision 失敗 → dateConfirmed へ fallback
         if (confirmedDateId) setHeroBestDateId(confirmedDateId)
@@ -2233,11 +2236,13 @@ return (
                   {savedEvents.map((ev, idx) => {
                     const s = ev.status ?? 'date_pending'
                     const statusCfg =
-                      s === 'store_confirmed'
-                        ? { label: '清算する →', cls: 'bg-amber-500/15 text-amber-400 ring-amber-500/25', Icon: Receipt }
+                      s === 'reserved'
+                        ? { label: '当日待機中', sub: '当日の精算です', cls: 'bg-emerald-500/12 text-emerald-600 ring-emerald-400/30', Icon: CheckCircle2 }
+                        : s === 'store_confirmed'
+                        ? { label: '予約待ち', sub: '次は予約を確認', cls: 'bg-amber-500/15 text-amber-500 ring-amber-500/25', Icon: CalendarDays }
                         : s === 'store_pending'
-                        ? { label: '次：お店を決める', cls: 'bg-stone-100 text-stone-500 ring-stone-300', Icon: CircleDashed }
-                        : { label: '次：日程を決める', cls: 'bg-stone-50 text-stone-500 ring-stone-200', Icon: Clock }
+                        ? { label: 'お店未決定', sub: '次はお店を決める', cls: 'bg-stone-100 text-stone-500 ring-stone-300', Icon: CircleDashed }
+                        : { label: '日程調整中', sub: '次は日程を確定する', cls: 'bg-stone-50 text-stone-500 ring-stone-200', Icon: Clock }
                     const { Icon: StatusIcon } = statusCfg
                     return (
                       <motion.button
@@ -2250,16 +2255,22 @@ return (
                         {...makeLongPressHandlers(() => setDeleteTarget({ type: 'ongoing', id: ev.id, name: ev.name }))}
                         onClick={() => {
                           if (longPressFiredRef.current) { longPressFiredRef.current = false; return }
-                          void openSavedEvent(ev.id, ev.name, ev.eventType, s === 'store_confirmed' ? 'settlement' : undefined)
+                          void openSavedEvent(ev.id, ev.name, ev.eventType, s === 'reserved' ? 'settlement' : undefined)
                         }}
                         className="group flex w-full items-center justify-between rounded-2xl bg-white px-4 py-4 text-left shadow-sm ring-1 ring-stone-100/80 transition-shadow hover:shadow-md"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-stone-50 ring-1 ring-stone-100">
-                            <CalendarDays size={15} className="text-stone-500" strokeWidth={2} />
+                          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${s === 'reserved' ? 'bg-emerald-50 ring-emerald-100' : 'bg-stone-50 ring-stone-100'}`}>
+                            {s === 'reserved'
+                              ? <CheckCircle2 size={15} className="text-emerald-500" strokeWidth={2} />
+                              : <CalendarDays size={15} className="text-stone-500" strokeWidth={2} />
+                            }
                           </div>
                           <div className="min-w-0">
                             <p className="truncate text-[15px] font-black tracking-tight text-stone-900">{ev.name}</p>
+                            {statusCfg.sub && (
+                              <p className="mt-0.5 text-[11px] font-bold text-stone-400">{statusCfg.sub}</p>
+                            )}
                           </div>
                         </div>
                         <div className="ml-3 flex shrink-0 items-center gap-2">
@@ -4645,62 +4656,99 @@ ${finalStore?.link ?? ''}`
             </div>
           </div>
 
-          {/* 共有文 + CTA */}
-          <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-            <div className="mb-3">
-              <p className="text-sm font-bold text-stone-900">共有文</p>
-            </div>
-            <textarea
-              value={editableFinalShareText || finalShareText}
-              onChange={(e) => setEditableFinalShareText(e.target.value)}
-              rows={6}
-              className="w-full resize-none rounded-2xl bg-stone-50 px-4 py-3 text-base leading-6 text-stone-700 outline-none transition focus:bg-white focus:ring-1 focus:ring-stone-300"
-            />
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={async () => {
-                  await navigator.clipboard.writeText(editableFinalShareText || finalShareText)
-                  setCopied(true)
-                  setTimeout(() => setCopied(false), 1600)
-                }}
-                className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-white px-4 py-3.5 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
-              >
-                {copied ? 'コピーしました' : 'コピー'}
-              </button>
-              <button
-                type="button"
-                onClick={() => openLineShare(editableFinalShareText || finalShareText)}
-                className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
-              >
-                LINEで送る
-              </button>
-            </div>
-          </div>
+          {/* ステータスに応じてコンテンツ + 底部CTAを切り替え */}
+          {(() => {
+            const currentStatus = savedEvents.find(e => e.id === (createdEventId || finalEvent?.id))?.status
+            const isReserved = currentStatus === 'reserved'
+            return isReserved ? (
+              <>
+                {/* 予約完了バッジ */}
+                <div className="flex items-center gap-2 rounded-2xl bg-emerald-500/10 px-4 py-3.5 ring-1 ring-emerald-500/25">
+                  <CheckCircle2 size={14} className="shrink-0 text-emerald-400" strokeWidth={2.5} />
+                  <p className="text-[12px] font-black text-emerald-300">予約完了しました</p>
+                </div>
 
-          {/* お店リンク — LinkSwitch により自動アフィリエイト変換される */}
-          {finalStore?.link && (
-            <div className="space-y-1.5">
-              <StoreExternalLink
-                href={finalStore.link}
-                className="inline-flex w-full items-center justify-center rounded-2xl border border-stone-200 bg-white px-4 py-4 text-sm font-bold text-stone-700 transition hover:bg-stone-50 active:scale-[0.98]"
-              >
-                お店ページを開く →
-              </StoreExternalLink>
-              <AffiliateNote />
-            </div>
-          )}
+                {/* 共有文 */}
+                <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+                  <div className="mb-3">
+                    <p className="text-sm font-bold text-stone-900">共有文</p>
+                  </div>
+                  <textarea
+                    value={editableFinalShareText || finalShareText}
+                    onChange={(e) => setEditableFinalShareText(e.target.value)}
+                    rows={6}
+                    className="w-full resize-none rounded-2xl bg-stone-50 px-4 py-3 text-base leading-6 text-stone-700 outline-none transition focus:bg-white focus:ring-1 focus:ring-stone-300"
+                  />
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await navigator.clipboard.writeText(editableFinalShareText || finalShareText)
+                        setCopied(true)
+                        setTimeout(() => setCopied(false), 1600)
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-2xl bg-white px-4 py-3.5 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
+                    >
+                      {copied ? 'コピーしました' : 'コピー'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openLineShare(editableFinalShareText || finalShareText)}
+                      className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+                    >
+                      LINEで送る
+                    </button>
+                  </div>
+                </div>
 
-          {/* 清算へ進む — sticky bottom */}
-          <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
-            <button
-              type="button"
-              onClick={() => setStep('settlement')}
-              className="inline-flex w-full items-center justify-center rounded-2xl bg-amber-500/15 px-4 py-3.5 text-sm font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
-            >
-              会計をまとめる（清算）→
-            </button>
-          </div>
+                {/* 精算CTA */}
+                <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+                  <button
+                    type="button"
+                    onClick={() => setStep('settlement')}
+                    className="inline-flex w-full items-center justify-center rounded-2xl bg-amber-500/15 px-4 py-3.5 text-sm font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
+                  >
+                    会計をまとめる（清算）→
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* 未予約 → 予約確認パネルのみ（共有・精算は非表示） */
+              <div className="sticky bottom-0 -mx-4 space-y-3 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+                {finalStore?.link && (
+                  <StoreExternalLink
+                    href={finalStore.link}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white/10 py-3.5 text-sm font-black text-white ring-1 ring-white/15 transition hover:bg-white/15 active:scale-[0.98]"
+                  >
+                    <ExternalLink size={14} strokeWidth={2.5} />
+                    ホットペッパーで予約/確認する
+                  </StoreExternalLink>
+                )}
+                <div className="rounded-2xl bg-white/5 px-4 py-4 ring-1 ring-white/8">
+                  <p className="mb-3 text-[11px] font-black text-white/40">予約できましたか？</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const id = createdEventId || finalEvent?.id
+                        if (id) updateEventStatus(id, 'reserved')
+                      }}
+                      className="flex-1 rounded-xl bg-emerald-500/15 py-2.5 text-[13px] font-black text-emerald-300 ring-1 ring-emerald-500/30 transition hover:bg-emerald-500/20 active:scale-[0.98]"
+                    >
+                      予約しました
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStep('home')}
+                      className="flex-1 rounded-xl bg-white/6 py-2.5 text-[13px] font-bold text-white/40 ring-1 ring-white/8 transition hover:bg-white/10 active:scale-[0.98]"
+                    >
+                      あとでやる
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
         </div>
       )
     })()}
@@ -5229,58 +5277,99 @@ ${finalStore?.link ?? ''}`
               )}
 
               {/* ── 店決定後 ───────────────────────────────────── */}
-              {decisionSheet.type === 'storeDecided' && (
-                <div className="px-5 space-y-5">
-                  {/* 決定内容 */}
-                  <div
-                    className="overflow-hidden rounded-2xl ring-1 ring-white/10"
-                    style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
-                  >
-                    <div className="h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
-                    <div className="px-5 py-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.25em]" style={{ color: 'rgba(214,175,60,0.65)' }}>お店が決まりました</p>
-                      <p className="mt-1.5 text-xl font-black text-white leading-snug">{decisionSheet.storeName}</p>
-                      {heroDate && (
-                        <p className="mt-1 text-sm text-white/45">{heroDate.label}</p>
-                      )}
+              {decisionSheet.type === 'storeDecided' && (() => {
+                const isReserved = savedEvents.find(e => e.id === (createdEventId || finalEvent?.id))?.status === 'reserved'
+                return (
+                  <div className="px-5 space-y-5">
+                    {/* 決定内容 */}
+                    <div
+                      className="overflow-hidden rounded-2xl ring-1 ring-white/10"
+                      style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
+                    >
+                      <div className="h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+                      <div className="px-5 py-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.25em]" style={{ color: 'rgba(214,175,60,0.65)' }}>お店が決まりました</p>
+                        <p className="mt-1.5 text-xl font-black text-white leading-snug">{decisionSheet.storeName}</p>
+                        {heroDate && (
+                          <p className="mt-1 text-sm text-white/45">{heroDate.label}</p>
+                        )}
+                      </div>
                     </div>
+
+                    {isReserved ? (
+                      /* ── 予約完了後 ── */
+                      <>
+                        {/* 完了バッジ */}
+                        <div className="flex items-center gap-2 rounded-2xl bg-emerald-500/10 px-4 py-3.5 ring-1 ring-emerald-500/25">
+                          <CheckCircle2 size={14} className="shrink-0 text-emerald-400" strokeWidth={2.5} />
+                          <p className="text-[12px] font-black text-emerald-300">予約完了しました</p>
+                        </div>
+                        {/* 共有パネル */}
+                        <SharePanel
+                          shareText={decisionSheet.shareText}
+                          shareUrl={decisionSheet.storeLink ?? decisionSheet.shareUrl}
+                          hideUrlToggle={!decisionSheet.storeLink}
+                          label="参加者に知らせる"
+                        />
+                        {/* 精算CTA */}
+                        <div className="space-y-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => { setDecisionSheet(null); setStep('settlement') }}
+                            className="w-full rounded-2xl bg-amber-500/15 py-3.5 text-sm font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
+                          >
+                            精算へ進む →
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDecisionSheet(null)}
+                            className="w-full py-2.5 text-center text-[12px] font-bold text-white/35 transition hover:text-white/55"
+                          >
+                            あとで精算する
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      /* ── 未予約状態 ── */
+                      <>
+                        {/* 予約リンク */}
+                        {decisionSheet.storeLink && (
+                          <StoreExternalLink
+                            href={decisionSheet.storeLink}
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white/10 py-3.5 text-sm font-black text-white ring-1 ring-white/15 transition hover:bg-white/15 active:scale-[0.98]"
+                          >
+                            <ExternalLink size={14} strokeWidth={2.5} />
+                            ホットペッパーで予約/確認する
+                          </StoreExternalLink>
+                        )}
+                        {/* 予約確認 */}
+                        <div className="rounded-2xl bg-white/5 px-4 py-4 ring-1 ring-white/8">
+                          <p className="mb-3 text-[11px] font-black text-white/40">予約できましたか？</p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const id = createdEventId || finalEvent?.id
+                                if (id) updateEventStatus(id, 'reserved')
+                              }}
+                              className="flex-1 rounded-xl bg-emerald-500/15 py-2.5 text-[13px] font-black text-emerald-300 ring-1 ring-emerald-500/30 transition hover:bg-emerald-500/20 active:scale-[0.98]"
+                            >
+                              予約しました
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDecisionSheet(null)}
+                              className="flex-1 rounded-xl bg-white/6 py-2.5 text-[13px] font-bold text-white/40 ring-1 ring-white/8 transition hover:bg-white/10 active:scale-[0.98]"
+                            >
+                              あとでやる
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
-                  {/* 予約ボタン（主役アクション） */}
-                  {decisionSheet.storeLink && (
-                    <StoreExternalLink
-                      href={decisionSheet.storeLink}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white/10 py-3.5 text-sm font-black text-white ring-1 ring-white/15 transition hover:bg-white/15 active:scale-[0.98]"
-                    >
-                      <ExternalLink size={14} strokeWidth={2.5} />
-                      ホットペッパーで予約/確認する
-                    </StoreExternalLink>
-                  )}
-                  {/* 共有パネル — URLのみ時はお店のURLを表示 */}
-                  <SharePanel
-                    shareText={decisionSheet.shareText}
-                    shareUrl={decisionSheet.storeLink ?? decisionSheet.shareUrl}
-                    hideUrlToggle={!decisionSheet.storeLink}
-                    label="参加者に知らせる"
-                  />
-                  {/* 次のアクション */}
-                  <div className="space-y-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => { setDecisionSheet(null); setStep('settlement') }}
-                      className="w-full rounded-2xl bg-amber-500/15 py-3.5 text-sm font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
-                    >
-                      精算へ進む →
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDecisionSheet(null)}
-                      className="w-full py-2.5 text-center text-[12px] font-bold text-white/35 transition hover:text-white/55"
-                    >
-                      あとで精算する
-                    </button>
-                  </div>
-                </div>
-              )}
+                )
+              })()}
 
               {/* ── 清算確認（SettlementSummaryTable をシートに内包） ── */}
               {decisionSheet.type === 'settlementConfirm' && settlementConfig && settlementResult && (() => {
