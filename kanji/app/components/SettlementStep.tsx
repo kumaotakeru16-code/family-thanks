@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import {
-  ChevronDown, ChevronUp, CreditCard, Receipt, Users,
+  ChevronDown, ChevronUp, CreditCard, Users,
   SlidersHorizontal, UserPlus, X, Check,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -839,15 +839,7 @@ export function SettlementStep({
         {/* ── ヘッダー（送金先チップ右上） ── */}
         <div className="px-0.5">
           <div className="mb-2 flex items-center justify-between">
-            {!isToolMode && (
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
-                  <Receipt size={13} className="text-white" strokeWidth={2.5} />
-                </div>
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/38">Step 3 · 会計精算</p>
-              </div>
-            )}
-            {isToolMode && <div />}
+            <div />
             {/* 送金先チップ */}
             <button
               type="button"
@@ -975,11 +967,7 @@ export function SettlementStep({
               type="button"
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="w-full rounded-2xl py-4 text-sm font-black text-white transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30"
-              style={{
-                background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)',
-                boxShadow: '0 6px 24px rgba(20,83,45,0.5), inset 0 1px 0 rgba(255,255,255,0.14)',
-              }}
+              className="w-full rounded-2xl bg-amber-500/10 py-4 text-sm font-black text-amber-300 ring-1 ring-amber-500/35 transition hover:bg-amber-500/15 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30"
             >
               計算して確認する →
             </button>

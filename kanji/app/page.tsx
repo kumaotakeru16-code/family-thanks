@@ -316,10 +316,11 @@ const MOCK_PAST_STORES: PastStore[] = [
 ]
 
 // --- Helpers ---
-function scoreAvailability(v?: Availability): number {
-  if (v === 'yes') return 2
-  if (v === 'maybe') return 1
-  return 0
+/** 段階比較用ティア（小さいほど優先） */
+function mgTier(avail: Availability | undefined): number {
+  if (avail === 'yes') return 0
+  if (avail === 'no') return 2
+  return 1 // maybe / undefined
 }
 
 function availabilityLabel(v?: Availability) {
@@ -390,88 +391,126 @@ function getTopAreas(participants: Participant[]) {
     .map(([area]) => area)
 }
 
-/** 箇条書き理由を最大5個生成（意思決定の根拠として機能する順序で） */
+/**
+ * 箇条書き理由を3〜4個生成。
+ * 選定ロジック（主賓 → × → ○ → △）の順序に合わせて理由を並べる。
+ * 「全員」「未回答」「参加率%」は使わない。相対比較のみ根拠にする。
+ */
 function buildDateReasons(params: {
   mainGuestAvailability?: Availability | null
-  availableCount: number
-  maybeCount?: number
-  noCount?: number
-  totalCount: number
+  yesCount: number
+  maybeCount: number
+  noCount: number
+  /** 他候補の最大 yesCount（比較用） */
+  maxAltYesCount: number
+  /** 他候補の最大 maybeCount（比較用） */
+  maxAltMaybeCount: number
+  /** 他候補の最小 noCount（比較用） */
+  minAltNoCount: number
+  dateLabel?: string
   eventType: EventType | string
-  isBest?: boolean
 }): string[] {
   const {
     mainGuestAvailability,
-    availableCount,
-    maybeCount = 0,
-    noCount = 0,
-    totalCount,
+    yesCount,
+    maybeCount,
+    noCount,
+    maxAltYesCount,
+    minAltNoCount,
+    dateLabel = '',
     eventType,
-    isBest = true,
   } = params
 
-  if (totalCount === 0 || availableCount === 0) return []
+  if (yesCount === 0 && maybeCount === 0) return []
   const reasons: string[] = []
-  const formalTypes = ['歓迎会', '送別会', '会食']
-  const isFormal = formalTypes.includes(eventType as string)
 
-  // 1. 全員参加
-  if (availableCount === totalCount) {
-    reasons.push(`全員（${totalCount}人）が参加できる`)
-  } else if (isBest && availableCount >= Math.ceil(totalCount * 0.6)) {
-    reasons.push(`参加予定が${availableCount}人で候補中最多`)
-  }
-
-  // 2. 主賓参加
+  // 1. 主賓（最優先）
   if (mainGuestAvailability === 'yes') {
-    if (isFormal) {
-      reasons.push(`主賓が参加できる`)
+    const formalTypes = ['歓迎会', '送別会', '会食']
+    if (formalTypes.includes(eventType as string)) {
+      reasons.push('主賓が参加できる候補です')
     } else {
-      reasons.push(`主賓も参加可能`)
+      reasons.push('主賓も参加可能です')
     }
-  } else if (mainGuestAvailability === 'maybe' && isBest) {
-    reasons.push(`主賓は調整中だが参加見込みあり`)
+  } else if (mainGuestAvailability === 'maybe') {
+    reasons.push('主賓は調整中ですが参加見込みがあります')
   }
 
-  // 3. 調整中が少ない
-  if (maybeCount === 0 && availableCount < totalCount) {
-    reasons.push(`調整中ゼロ — 確定度が高い`)
-  } else if (maybeCount === 1) {
-    reasons.push(`調整中が1人のみ`)
-  } else if (maybeCount > 0 && isBest) {
-    reasons.push(`調整中${maybeCount}人が確定すればさらに増える`)
+  // 2. 不可の少なさ（最重要判断基準）
+  if (noCount === 0) {
+    reasons.push('不可がいないため、まとまりやすい状況です')
+  } else if (noCount < minAltNoCount) {
+    reasons.push(`不可が${noCount}人で、他候補より少ない状況です`)
   }
 
-  // 4. 不参加が少ない
-  if (noCount === 0 && availableCount < totalCount) {
-    reasons.push(`不参加ゼロ`)
-  } else if (noCount === 1) {
-    reasons.push(`不参加は1人のみ`)
+  // 3. 参加予定人数（他候補との比較）
+  if (yesCount > 0) {
+    if (yesCount > maxAltYesCount) {
+      reasons.push(`参加予定が${yesCount}人で、候補日の中で最も多いです`)
+    } else if (yesCount === maxAltYesCount && maxAltYesCount > 0) {
+      reasons.push(`参加予定${yesCount}人で、他候補と同水準です`)
+    } else {
+      reasons.push(`参加予定が${yesCount}人います`)
+    }
   }
 
-  // 5. bestでない場合の代替理由
-  if (!isBest && mainGuestAvailability === 'no') {
-    reasons.push(`主賓の参加は難しいが日程は成立する`)
+  // 4. 調整中の伸びしろ（ポジティブに表現）
+  if (maybeCount > 0) {
+    reasons.push(`調整中${maybeCount}人が確定すれば、さらに参加が増えます`)
+  } else if (reasons.length < 3) {
+    reasons.push('調整中がいないため、見通しが立てやすい候補です')
   }
 
-  return reasons.slice(0, 5)
+  // 5. 曜日・時間帯（補助。強い理由が足りないときのみ）
+  if (reasons.length < 3 && dateLabel) {
+    const isWeekend = /[土日]/.test(dateLabel)
+    const hasEveningTime = /1[89]:|2[0-3]:/.test(dateLabel)
+    if (isWeekend) {
+      reasons.push('週末で予定を合わせやすい候補です')
+    } else if (hasEveningTime) {
+      reasons.push('仕事後に集まりやすい時間帯です')
+    }
+  }
+
+  return reasons.slice(0, 4)
 }
 
-/** まとめ文 */
+/**
+ * まとめ文。断定せず「現時点では」「他候補比較で」の相対評価トーンにする。
+ */
 function buildDateSummary(params: {
   mainGuestAvailability?: Availability | null
-  availableCount: number
-  totalCount: number
-  isBest?: boolean
+  yesCount: number
+  maybeCount: number
+  noCount: number
+  maxAltYesCount: number
+  minAltNoCount: number
 }): string {
-  const { mainGuestAvailability, availableCount, totalCount, isBest = true } = params
-  if (availableCount === totalCount) return 'この日で全員集まれます。安心して決定できます'
-  if (mainGuestAvailability === 'yes' && availableCount >= Math.ceil(totalCount * 0.6)) {
-    return '主賓・多数が参加可能で、最も成立しやすい日程です'
+  const { mainGuestAvailability, yesCount, maybeCount, noCount, maxAltYesCount, minAltNoCount } = params
+  if (yesCount === 0 && maybeCount === 0) return ''
+
+  if (mainGuestAvailability === 'yes' && noCount === 0) {
+    return '主賓が参加でき、不可もいない。現時点で最もまとまりやすい候補です'
   }
-  if (isBest && availableCount >= Math.ceil(totalCount * 0.6)) return '最も成立しやすい日程です'
-  if (isBest) return 'この日程での開催が現実的です'
-  return '代替候補として成立します'
+  if (mainGuestAvailability === 'yes' && yesCount > maxAltYesCount) {
+    return '現時点では、この日が最もまとまりやすい候補です'
+  }
+  if (mainGuestAvailability === 'yes') {
+    return '主賓が参加できる候補として、最も選びやすい状況です'
+  }
+  if (noCount === 0 && noCount < minAltNoCount) {
+    return '不可がいないため、他候補より成立しやすい状況です'
+  }
+  if (noCount === 0 && yesCount > maxAltYesCount) {
+    return '不可ゼロで参加予定も最多。現時点でこの日が最も決めやすいです'
+  }
+  if (noCount === 0) {
+    return '不可がいないため、調整を進めやすい候補です'
+  }
+  if (yesCount > maxAltYesCount) {
+    return 'いまの回答状況では、この日が最も決めやすい候補です'
+  }
+  return '他候補と比べて、この日が第一候補として最も自然です'
 }
 
 /** 箇条書き理由を最大5個生成（意思決定の根拠として機能する順序で） */
@@ -915,8 +954,12 @@ useEffect(() => {
     // homeなら通常のブラウザ戻るを許可
     if (step === 'home') return
 
-    // settlement_only / pastEvents はフロー外 → home へ
-    if (step === 'pastEvents' || (step === 'settlement' && appMode === 'settlement_only')) {
+    // フロー外モード → 常にホームへ（スタック関係なく）
+    if (
+      step === 'pastEvents' ||
+      (step === 'settlement' && appMode === 'settlement_only') ||
+      (appMode === 'store_only' && (step === 'storeSuggestion' || step === 'organizerConditions' || step === 'finalConfirm' || step === 'manualStore'))
+    ) {
       isHandlingBackRef.current = true
       setAppMode('full')
       setSettlementDraft(null)
@@ -1032,43 +1075,47 @@ const answerCount = answeredParticipants.length
 const recommendedDate = useMemo(() => {
   if (activeDates.length === 0) return null
 
-  const scored = activeDates.map(date => {
-    const totalScore = activeParticipants.reduce(
-      (s, p) => s + scoreAvailability(p.availability?.[date.id]),
-      0
-    )
+  const candidates = activeDates.map(date => {
+    const yesCount  = activeParticipants.filter(p => p.availability?.[date.id] === 'yes').length
+    const maybeCount = activeParticipants.filter(p => p.availability?.[date.id] === 'maybe').length
+    const noCount   = activeParticipants.filter(p => p.availability?.[date.id] === 'no').length
 
-    const availableCount = activeParticipants.filter(
-      p => p.availability?.[date.id] === 'yes'
-    ).length
-
-    const mgBonuses = mainGuestIds.map(mgId => {
-      const mg = activeParticipants.find(p => p.id === mgId)
-      const mga = mg?.availability?.[date.id]
-      return mga === 'yes' ? 3 : mga === 'maybe' ? 1 : 0
-    })
-    const bonus = mgBonuses.reduce((s: number, b: number) => s + b, 0)
-
-    // summarize main guest availability: 'yes' if all yes, 'maybe' if any maybe, 'no' if any no, undefined if none selected
-    const mgAvails = mainGuestIds.map(mgId => {
-      const mg = activeParticipants.find(p => p.id === mgId)
-      return mg?.availability?.[date.id]
-    }).filter(Boolean) as Availability[]
-    const mga: Availability | undefined = mgAvails.length === 0 ? undefined
+    // 主賓の出欠を集約: 1人でも × → no, 全員 ○ → yes, それ以外 → maybe
+    const mgAvails = mainGuestIds
+      .map(id => activeParticipants.find(p => p.id === id)?.availability?.[date.id])
+      .filter((a): a is Availability => a !== undefined)
+    const mga: Availability | undefined =
+      mgAvails.length === 0          ? undefined
+      : mgAvails.some(a => a === 'no')  ? 'no'
       : mgAvails.every(a => a === 'yes') ? 'yes'
-      : mgAvails.some(a => a === 'no') ? 'no'
       : 'maybe'
+
+    // 段階比較キー（昇順で小さいほど優先）
+    // [mgTierKey, noCount, -yesCount, -maybeCount]
+    const tier = mgAvails.length > 0 ? mgTier(mga) : 1
 
     return {
       date,
-      score: totalScore + bonus,
-      availableCount,
+      yesCount,
+      maybeCount,
+      noCount,
       mainGuestAvailability: mga,
+      _tier: tier,
     }
   })
 
-  scored.sort((a, b) => b.score - a.score)
-  return scored[0] ?? null
+  // 段階比較ソート
+  candidates.sort((a, b) => {
+    if (a._tier !== b._tier)       return a._tier - b._tier       // 1. 主賓ティア
+    if (a.noCount !== b.noCount)   return a.noCount - b.noCount   // 2. × の少なさ
+    if (a.yesCount !== b.yesCount) return b.yesCount - a.yesCount // 3. ○ の多さ
+    return b.maybeCount - a.maybeCount                             // 4. △ の多さ
+  })
+
+  const best = candidates[0]
+  return best
+    ? { date: best.date, availableCount: best.yesCount, mainGuestAvailability: best.mainGuestAvailability }
+    : null
 }, [activeDates, activeParticipants, mainGuestIds])
 
 
@@ -1104,11 +1151,10 @@ const heroIsBest = heroBestDateId === null || heroDate?.id === recommendedDate?.
 
 const { heroDateReasons, heroDateSummary } = (() => {
   if (!heroDate) return { heroDateReasons: [] as string[], heroDateSummary: '' }
-  const total = activeParticipants.length
-  if (total === 0) return { heroDateReasons: [] as string[], heroDateSummary: '' }
   const hYes = activeParticipants.filter(p => p.availability?.[heroDate.id] === 'yes').length
   const hMaybe = activeParticipants.filter(p => p.availability?.[heroDate.id] === 'maybe').length
   const hNo = activeParticipants.filter(p => p.availability?.[heroDate.id] === 'no').length
+  if (hYes === 0 && hMaybe === 0) return { heroDateReasons: [] as string[], heroDateSummary: '' }
 
   let heroMga: Availability | null = null
   if (mainGuestIds.length > 0) {
@@ -1122,21 +1168,42 @@ const { heroDateReasons, heroDateSummary } = (() => {
     }
   }
 
+  // 他候補との相対比較用
+  const altDatesForReason = activeDates.filter(d => d.id !== heroDate.id)
+  const maxAltYesCount = altDatesForReason.reduce((max, d) => {
+    const cnt = activeParticipants.filter(p => p.availability?.[d.id] === 'yes').length
+    return Math.max(max, cnt)
+  }, 0)
+  const maxAltMaybeCount = altDatesForReason.reduce((max, d) => {
+    const cnt = activeParticipants.filter(p => p.availability?.[d.id] === 'maybe').length
+    return Math.max(max, cnt)
+  }, 0)
+  const minAltNoCount = altDatesForReason.length > 0
+    ? altDatesForReason.reduce((min, d) => {
+        const cnt = activeParticipants.filter(p => p.availability?.[d.id] === 'no').length
+        return Math.min(min, cnt)
+      }, Infinity)
+    : hNo + 1 // 候補が1つしかない場合は自分より多く設定しておく
+
   return {
     heroDateReasons: buildDateReasons({
       mainGuestAvailability: heroMga,
-      availableCount: hYes,
+      yesCount: hYes,
       maybeCount: hMaybe,
       noCount: hNo,
-      totalCount: total,
+      maxAltYesCount,
+      maxAltMaybeCount,
+      minAltNoCount,
+      dateLabel: heroDate.label,
       eventType,
-      isBest: heroIsBest,
     }),
     heroDateSummary: buildDateSummary({
       mainGuestAvailability: heroMga,
-      availableCount: hYes,
-      totalCount: total,
-      isBest: heroIsBest,
+      yesCount: hYes,
+      maybeCount: hMaybe,
+      noCount: hNo,
+      maxAltYesCount,
+      minAltNoCount,
     }),
   }
 })()
@@ -1253,20 +1320,6 @@ const alternativeStores =
   selectedStore
     ? generateShareText(eventType, selectedStore, organizerConditions, eventName || undefined)
     : ''
-
-const availableCount = recommendedDate?.availableCount ?? 0
-  
-// dateReason は未使用（heroDateReasons / heroDateSummary に統合済み）
-const _dateReason = ''
-
-
-
-const dateSummaryText =
-  totalCount === 0 || availableCount === 0
-    ? 'まだ十分な回答が集まっていません'
-    : availableCount === 1
-    ? '現時点では1名が参加可能です'
-    : `参加できる人 ${availableCount}人 — 現時点で最も集まりやすい候補です`
 
 const storeReasons = selectedStore
   ? buildStoreReasons({
@@ -2809,12 +2862,6 @@ return (
             transition={{ duration: 0.25, ease: 'easeOut' }}
           >
           <div className="px-0.5">
-            <div className="mb-2 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
-                <CalendarPlus size={13} className="text-white" strokeWidth={2.5} />
-              </div>
-              <p className="text-[10px] font-black tracking-[0.22em] text-stone-400 uppercase">Step 1 · 日程調整</p>
-            </div>
             <h2 className="text-[22px] font-black tracking-tight text-stone-900">候補日を選ぶ</h2>
           </div>
           <Card>
@@ -2990,12 +3037,6 @@ return (
     transition={{ duration: 0.25, ease: 'easeOut' }}
   >
     <div className="px-0.5">
-      <div className="mb-2 flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
-          <Users size={13} className="text-white" strokeWidth={2.5} />
-        </div>
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 1 · 日程調整</p>
-      </div>
       <h2 className="text-[22px] font-black tracking-tight text-stone-900">日程調整を送る</h2>
     </div>
     <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
@@ -3006,8 +3047,8 @@ return (
         label="参加者に送る"
       />
     </div>
-    <PrimaryBtn
-      size="large"
+    <button
+      type="button"
       onClick={async () => {
         if (createdEventId) {
           try {
@@ -3020,9 +3061,10 @@ return (
         }
         setStep('dashboard')
       }}
+      className="w-full py-2.5 text-center text-sm font-bold text-white/50 transition hover:text-white/70"
     >
-      回答状況を見る
-    </PrimaryBtn>
+      回答状況を見る →
+    </button>
   </motion.div>
 )}
 
@@ -3040,12 +3082,6 @@ return (
   >
     <div className="flex items-start justify-between px-0.5">
       <div>
-        <div className="mb-2 flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
-            <CalendarDays size={13} className="text-white" strokeWidth={2.5} />
-          </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 1 · 日程調整</p>
-        </div>
         <h2 className="text-[22px] font-black tracking-tight text-stone-900">日程を決める</h2>
       </div>
       <div className="mt-1 flex items-center gap-2">
@@ -3141,26 +3177,38 @@ return (
                   {heroDateReasons.map((r, i) => (
                     <li key={i} className="flex items-start gap-2">
                       <span className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/65" />
-                      <span className="text-[13px] leading-[1.45] text-white/72">{r}</span>
+                      <span className="text-[13px] leading-[1.45] text-white/65">
+                        {r.split(/(\d+人|いない|最も(?:多い|少ない|決めやすい)?|主賓)/).map((part, j) =>
+                          /^(\d+人|いない|最も(?:多い|少ない|決めやすい)?|主賓)$/.test(part)
+                            ? <span key={j} className="font-black text-white/92">{part}</span>
+                            : <span key={j}>{part}</span>
+                        )}
+                      </span>
                     </li>
                   ))}
                 </ul>
                 {heroDateSummary && (
-                  <p className="mt-3.5 text-[13px] font-bold leading-5 text-white/88">{heroDateSummary}</p>
+                  <p className="mt-3.5 text-[13px] font-bold leading-5 text-white/85">{heroDateSummary}</p>
                 )}
               </div>
             )}
-            {/* 詳細トグル */}
+          </div>
+
+          {/* 参加者を見る（チップバーの代わり） */}
+          <div className="border-t border-white/6">
             <button
               type="button"
               onClick={() => setShowHeroParticipants((v) => !v)}
-              className="mt-4 text-[11px] font-bold underline underline-offset-2"
-              style={{ color: 'rgba(214,175,60,0.45)' }}
+              className="flex w-full items-center justify-between px-6 py-3 transition hover:bg-white/4 active:bg-white/6"
             >
-              {showHeroParticipants ? '参加者を閉じる' : '参加者を見る'}
+              <span className="text-[11px] font-bold text-white/40">参加者を見る</span>
+              <ChevronDown
+                size={13}
+                className={`text-white/30 transition-transform duration-200 ${showHeroParticipants ? 'rotate-180' : ''}`}
+              />
             </button>
             {showHeroParticipants && (
-              <div className="mt-3 space-y-2.5">
+              <div className="space-y-2.5 px-6 pb-4">
                 <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/8">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400/70">参加予定</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -3192,31 +3240,14 @@ return (
               </div>
             )}
           </div>
-          {/* 下部ステータスバー */}
-          <div className="flex flex-wrap gap-2 bg-black/20 px-6 py-3.5">
-            <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
-              参加予定 {yesCount}人
-            </span>
-            <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
-              調整中 {maybeCount}人
-            </span>
-            {eventType && (
-              <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/50">
-                {eventType}
-              </span>
-            )}
-          </div>
         </div>
 
         {/* ヒーロー直下 決定CTA */}
         <button
           type="button"
           onClick={decideRecommendedDate}
-          className="w-full rounded-2xl py-4 text-[15px] font-black text-white transition active:scale-[0.98]"
-          style={{
-            background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)',
-            boxShadow: '0 6px 24px rgba(20,83,45,0.55), inset 0 1px 0 rgba(255,255,255,0.14)'
-          }}
+          className="w-full rounded-2xl py-4 text-[15px] font-black transition active:scale-[0.98]"
+          style={CTA_PRIMARY_STYLE}
         >
           この日で決定 →
         </button>
@@ -3424,12 +3455,6 @@ return (
     transition={{ duration: 0.25, ease: 'easeOut' }}
   >
     <div className="px-0.5">
-      <div className="mb-2 flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
-          <CalendarDays size={13} className="text-white" strokeWidth={2.5} />
-        </div>
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 1 · 日程調整</p>
-      </div>
       <h2 className="text-[22px] font-black tracking-tight text-stone-900">日程共有</h2>
     </div>
 
@@ -3634,18 +3659,6 @@ return (
             {isLoadingStores && <StoreLoadingOverlay />}
             {/* ヘッダー */}
             <div className="px-0.5">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
-                    <UtensilsCrossed size={13} className="text-white" strokeWidth={2.5} />
-                  </div>
-                  {appMode === 'store_only' ? (
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">お店探し</p>
-                  ) : (
-                    <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 2 · お店探し</p>
-                  )}
-                </div>
-              </div>
               <h2 className="text-[22px] font-black tracking-tight text-stone-900">お店の条件</h2>
             </div>
 
@@ -3834,20 +3847,6 @@ return (
       transition={{ duration: 0.22, ease: 'easeOut' }}
       className="px-0.5"
     >
-      <div className="mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
-            <UtensilsCrossed size={13} className="text-white" strokeWidth={2.5} />
-          </div>
-          {appMode === 'store_only' ? (
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">お店候補</p>
-          ) : (skipStoreCondition && prefilledStore) ? (
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">この会の軸候補</p>
-          ) : (
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 2 · お店探し</p>
-          )}
-        </div>
-      </div>
       <h2 className="text-[22px] font-black tracking-tight text-stone-900">
         {(skipStoreCondition && prefilledStore) ? 'この店で始めますか？' : 'お店を選ぶ'}
       </h2>
@@ -4121,11 +4120,8 @@ return (
           <button
             type="button"
             onClick={() => { void loadFinalDecisionView() }}
-            className="w-full rounded-2xl py-4 text-[15px] font-black text-white transition active:scale-[0.98]"
-            style={{
-              background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)',
-              boxShadow: '0 6px 24px rgba(20,83,45,0.55), inset 0 1px 0 rgba(255,255,255,0.14)'
-            }}
+            className="w-full rounded-2xl py-4 text-[15px] font-black transition active:scale-[0.98]"
+            style={CTA_PRIMARY_STYLE}
           >
             この店で決める →
           </button>
@@ -4521,12 +4517,6 @@ return (
     transition={{ duration: 0.25, ease: 'easeOut' }}
   >
     <div className="px-0.5">
-      <div className="mb-2 flex items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-stone-900">
-          <CheckCircle2 size={13} className="text-white" strokeWidth={2.5} />
-        </div>
-        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-400">Step 2 · お店探し</p>
-      </div>
       <h2 className="text-[22px] font-black tracking-tight text-stone-900">共有</h2>
     </div>
 
@@ -4712,8 +4702,7 @@ ${finalStore?.link ?? ''}`
             <button
               type="button"
               onClick={() => setStep('settlement')}
-              className="inline-flex w-full items-center justify-center rounded-2xl px-4 py-4 text-sm font-black text-white transition active:scale-[0.98]"
-              style={{ background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)', boxShadow: '0 6px 24px rgba(20,83,45,0.55), inset 0 1px 0 rgba(255,255,255,0.14)' }}
+              className="inline-flex w-full items-center justify-center rounded-2xl border border-amber-500/30 px-4 py-3.5 text-sm font-black text-amber-400 transition active:scale-[0.98] hover:bg-amber-500/8"
             >
               会計をまとめる（清算）→
             </button>
@@ -5160,12 +5149,11 @@ ${finalStore?.link ?? ''}`
                     label="参加者に送る"
                   />
                   {/* 次のアクション */}
-                  <div className="space-y-2 pt-1">
+                  <div className="space-y-1 pt-1">
                     <button
                       type="button"
                       onClick={() => { setDecisionSheet(null); setStep('dashboard') }}
-                      className="w-full rounded-2xl py-4 text-[15px] font-black text-white transition active:scale-[0.98]"
-                      style={{ background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)', boxShadow: '0 6px 24px rgba(20,83,45,0.55), inset 0 1px 0 rgba(255,255,255,0.14)' }}
+                      className="w-full py-2.5 text-center text-sm font-bold text-white/50 transition hover:text-white/70"
                     >
                       回答状況を見る →
                     </button>
@@ -5231,8 +5219,7 @@ ${finalStore?.link ?? ''}`
                           setStep('organizerConditions')
                         }
                       }}
-                      className="w-full rounded-2xl py-4 text-[15px] font-black text-white transition active:scale-[0.98]"
-                      style={{ background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)', boxShadow: '0 6px 24px rgba(20,83,45,0.55), inset 0 1px 0 rgba(255,255,255,0.14)' }}
+                      className="w-full rounded-2xl py-3.5 text-[15px] font-black text-amber-300 transition active:scale-[0.98] bg-amber-500/10 ring-1 ring-amber-500/35 hover:bg-amber-500/15"
                     >
                       お店を決める →
                     </button>
@@ -5285,8 +5272,7 @@ ${finalStore?.link ?? ''}`
                     <button
                       type="button"
                       onClick={() => { setDecisionSheet(null); setStep('settlement') }}
-                      className="w-full rounded-2xl py-4 text-[15px] font-black text-white transition active:scale-[0.98]"
-                      style={{ background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)', boxShadow: '0 6px 24px rgba(20,83,45,0.55), inset 0 1px 0 rgba(255,255,255,0.14)' }}
+                      className="w-full rounded-2xl border border-amber-500/30 py-3.5 text-sm font-black text-amber-400 transition active:scale-[0.98] hover:bg-amber-500/8"
                     >
                       精算へ進む →
                     </button>
@@ -5396,6 +5382,12 @@ const PHASE_LABELS: Record<1 | 2 | 3, string> = {
   3: '会計精算',
 }
 
+const PHASE_ICONS: Record<1 | 2 | 3, React.ReactNode> = {
+  1: <CalendarDays size={12} strokeWidth={2.5} />,
+  2: <UtensilsCrossed size={12} strokeWidth={2.5} />,
+  3: <Receipt size={12} strokeWidth={2.5} />,
+}
+
 function FlowProgress({ step }: { step: Step }) {
   const phase = STEP_PHASE[step] ?? 1
   return (
@@ -5404,14 +5396,26 @@ function FlowProgress({ step }: { step: Step }) {
         const done = p < phase
         const active = p === phase
         return (
-          <div key={p} className="flex flex-1 flex-col gap-1">
-            <div className={cx(
-              'h-[3px] rounded-full transition-all duration-500',
-              done ? 'bg-emerald-500' : active ? 'bg-emerald-400' : 'bg-white/12'
-            )} />
+          <div key={p} className="flex flex-1 flex-col gap-1.5">
+            {/* アイコン + バー */}
+            <div className="flex items-center gap-1.5">
+              <div className={cx(
+                'flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors duration-300',
+                done ? 'bg-emerald-900/60 text-emerald-400'
+                  : active ? 'bg-emerald-500/20 text-emerald-300'
+                  : 'bg-white/6 text-white/20'
+              )}>
+                {PHASE_ICONS[p]}
+              </div>
+              <div className={cx(
+                'h-[3px] flex-1 rounded-full transition-all duration-500',
+                done ? 'bg-emerald-500' : active ? 'bg-emerald-400' : 'bg-white/12'
+              )} />
+            </div>
+            {/* ラベル */}
             <p className={cx(
-              'text-[9px] font-black uppercase tracking-[0.15em] transition-colors duration-300',
-              done || active ? 'text-emerald-400/60' : 'text-white/18'
+              'pl-0.5 text-[9px] font-black tracking-[0.14em] transition-colors duration-300',
+              done || active ? 'text-emerald-400/70' : 'text-white/20'
             )}>
               {PHASE_LABELS[p]}
             </p>
@@ -5552,6 +5556,14 @@ function StoreLoadingOverlay() {
   )
 }
 
+// ─── CTA スタイル定数 ──────────────────────────────────────────────────────────
+/** ① 主CTA: amber solid（最終決定ボタン） */
+const CTA_PRIMARY_STYLE = {
+  background: 'linear-gradient(180deg, #f59e0b 0%, #d97706 100%)',
+  boxShadow: '0 6px 24px rgba(180,83,9,0.38), inset 0 1px 0 rgba(255,255,255,0.18)',
+  color: '#1a1a1a',
+} as const
+
 // ─── ボタンコンポーネント ─────────────────────────────────────────────────────
 // Framer Motion の whileTap で押し込み感を統一
 function PrimaryBtn({
@@ -5565,10 +5577,7 @@ function PrimaryBtn({
   size?: 'large' | 'default'
   disabled?: boolean
 }) {
-  const activeStyle = {
-    background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)',
-    boxShadow: '0 6px 24px rgba(20,83,45,0.55), inset 0 1px 0 rgba(255,255,255,0.14)',
-  }
+  // ② セカンダリCTA: amber-500/12 地、amber/35 リング、amber-300 テキスト
   return (
     <motion.button
       type="button"
@@ -5577,13 +5586,12 @@ function PrimaryBtn({
       whileTap={disabled ? {} : { scale: 0.975 }}
       transition={{ duration: 0.12 }}
       className={cx(
-        'w-full rounded-2xl font-bold tracking-wide',
+        'w-full rounded-2xl font-bold tracking-wide transition',
         size === 'large' ? 'py-4 text-[15px]' : 'py-3 text-sm',
         disabled
           ? 'cursor-not-allowed bg-white/10 text-white/30'
-          : 'text-white'
+          : 'bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/35 hover:bg-amber-500/15'
       )}
-      style={disabled ? undefined : activeStyle}
     >
       {children}
     </motion.button>
