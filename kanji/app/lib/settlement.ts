@@ -1,6 +1,9 @@
 // app/lib/settlement.ts
 // 清算機能のすべての型と計算ロジックを集約する
 
+/** KANJIの公開URL（共有文の末尾に添付） */
+const KANJI_APP_URL = 'https://family-thanks-6kgq.vercel.app/'
+
 export type ParticipantRole = '主賓' | '上長' | '先輩' | '通常'
 
 export const ROLES: readonly ParticipantRole[] = ['主賓', '上長', '先輩', '通常']
@@ -269,6 +272,11 @@ export function generateSettlementMessage(
   // ── 補足文 ───────────────────────────────────────────────────────────────
   lines.push('')
   lines.push('※金額は調整のうえ、100円単位で切り上げて計算しています')
+
+  // ── KANJI 導線 ───────────────────────────────────────────────────────────
+  lines.push('')
+  lines.push('飲み会の調整からお店決め、会計までまとめて進められる幹事ツール')
+  lines.push(`KANJI ${KANJI_APP_URL}`)
 
   return lines.join('\n')
 }

@@ -554,6 +554,17 @@ function buildStoreChips(store: StoreCandidate, orgPrefs?: OrganizerPrefs): stri
   return chips.slice(0, 3)
 }
 
+/** 「この店にした理由」を1文で返す（優先度順に最上位1つだけ） */
+function buildHighlightReason(store: StoreCandidate, hasMainGuest: boolean): string {
+  const hasPrivateRoom = store.hasPrivateRoom || (store.tags ?? []).includes('個室あり')
+  if (hasPrivateRoom) return '個室ありで周りを気にせず話せる'
+  if (store.walkMinutes != null && store.walkMinutes <= 3) return '駅から近く集合しやすい'
+  if (hasMainGuest) return '主賓の希望に合っている'
+  if (store.googleRating && store.googleRating >= 4.0 && store.googleRatingCount && store.googleRatingCount >= 100) return '口コミ評価が高く安心'
+  if (store.walkMinutes != null && store.walkMinutes <= 5) return '駅から近く集合しやすい'
+  return 'バランスがよく使いやすい'
+}
+
 function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(' ')
 }
@@ -689,6 +700,8 @@ export default function Page() {
   const [settlementResult, setSettlementResult] = useState<SettlementResult | null>(null)
   const [settlementMessage, setSettlementMessage] = useState('')
   const [settlementCopied, setSettlementCopied] = useState(false)
+  const [showSettlementFeedback, setShowSettlementFeedback] = useState(false)
+  const [settlementFeedbackChoice, setSettlementFeedbackChoice] = useState<'good' | 'normal' | 'bad' | null>(null)
   const [organizerSettings, setOrganizerSettings] = useState<OrganizerSettings>(() => loadOrganizerSettings())
   const [userSettings, setUserSettings] = useState<UserSettings>(() => loadUserSettings())
 
@@ -1292,6 +1305,10 @@ const storeSummary = selectedStore
 const storeChips = selectedStore
   ? buildStoreChips(selectedStore, orgPrefs)
   : []
+
+const storeHighlightReason = selectedStore
+  ? buildHighlightReason(selectedStore, mainGuestIds.length > 0)
+  : null
 
   // Merge store tags + active organizer conditions into display tags (max 4)
 const effectiveTags = useMemo(() => {
@@ -2237,12 +2254,12 @@ return (
                     const s = ev.status ?? 'date_pending'
                     const statusCfg =
                       s === 'reserved'
-                        ? { label: '当日待機中', sub: '当日の精算です', cls: 'bg-emerald-500/12 text-emerald-600 ring-emerald-400/30', Icon: CheckCircle2 }
+                        ? { label: '当日待機中', sub: '会が終わったら会計をまとめます', cls: 'bg-emerald-500/12 text-emerald-600 ring-emerald-400/30', Icon: CheckCircle2 }
                         : s === 'store_confirmed'
-                        ? { label: '予約待ち', sub: '次は予約を確認', cls: 'bg-amber-500/15 text-amber-500 ring-amber-500/25', Icon: CalendarDays }
+                        ? { label: '予約待ち', sub: 'まだ予約が完了していません', cls: 'bg-amber-500/15 text-amber-500 ring-amber-500/25', Icon: CalendarDays }
                         : s === 'store_pending'
-                        ? { label: 'お店未決定', sub: '次はお店を決める', cls: 'bg-stone-100 text-stone-500 ring-stone-300', Icon: CircleDashed }
-                        : { label: '日程調整中', sub: '次は日程を確定する', cls: 'bg-stone-50 text-stone-500 ring-stone-200', Icon: Clock }
+                        ? { label: 'お店未決定', sub: 'まだお店が決まっていません', cls: 'bg-stone-100 text-stone-500 ring-stone-300', Icon: CircleDashed }
+                        : { label: '日程調整中', sub: 'まだ日程が決まっていません', cls: 'bg-stone-50 text-stone-500 ring-stone-200', Icon: Clock }
                     const { Icon: StatusIcon } = statusCfg
                     return (
                       <motion.button
@@ -5413,15 +5430,101 @@ ${finalStore?.link ?? ''}`
                 }
 
                 function handleCompleted() {
-                  setDecisionSheet(null)
-                  if (appMode === 'settlement_only') {
-                    setAppMode('full')
-                    setSettlementDraft(null)
-                    setStep('home')
-                  } else {
-                    resetFlowStateAfterCompletion()
+                  // 精算完了後はフィードバック画面を挟む
+                  setShowSettlementFeedback(true)
+                }
+
+                // フィードバック画面
+                if (showSettlementFeedback) {
+                  const goHome = () => {
+                    setShowSettlementFeedback(false)
+                    setSettlementFeedbackChoice(null)
+                    setDecisionSheet(null)
+                    if (appMode === 'settlement_only') {
+                      setAppMode('full')
+                      setSettlementDraft(null)
+                    } else {
+                      resetFlowStateAfterCompletion()
+                    }
                     setStep('home')
                   }
+                  const handleFeedback = (choice: 'good' | 'normal' | 'bad') => {
+                    setSettlementFeedbackChoice(choice)
+                  }
+                  return (
+                    <div className="px-5 py-6 space-y-6 text-center">
+                      {settlementFeedbackChoice === null ? (
+                        <>
+                          <div className="space-y-1.5">
+                            <p className="text-xl font-black text-stone-900">会計が完了しました</p>
+                            <p className="text-sm text-stone-400">いい会になりましたか？</p>
+                          </div>
+                          <div className="flex justify-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => handleFeedback('good')}
+                              className="flex flex-col items-center gap-1.5 rounded-2xl bg-stone-50 px-5 py-3.5 text-2xl ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-95"
+                            >
+                              <span>👍</span>
+                              <span className="text-[11px] font-bold text-stone-500">よかった</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleFeedback('normal')}
+                              className="flex flex-col items-center gap-1.5 rounded-2xl bg-stone-50 px-5 py-3.5 text-2xl ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-95"
+                            >
+                              <span>😐</span>
+                              <span className="text-[11px] font-bold text-stone-500">ふつう</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleFeedback('bad')}
+                              className="flex flex-col items-center gap-1.5 rounded-2xl bg-stone-50 px-5 py-3.5 text-2xl ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-95"
+                            >
+                              <span>👎</span>
+                              <span className="text-[11px] font-bold text-stone-500">いまいち</span>
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={goHome}
+                            className="text-[12px] text-stone-400 transition hover:text-stone-600"
+                          >
+                            スキップ
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="space-y-2">
+                            <p className="text-xl font-black text-stone-900">
+                              {settlementFeedbackChoice === 'good' ? 'よかったです！' : 'おつかれさまでした'}
+                            </p>
+                            <p className="text-sm leading-6 text-stone-400">
+                              {settlementFeedbackChoice === 'good'
+                                ? 'またこのメンバーで集まりましょう'
+                                : '次はもっといい会にしましょう'}
+                            </p>
+                          </div>
+                          {settlementFeedbackChoice === 'good' && settlementStore && (
+                            <button
+                              type="button"
+                              onClick={goHome}
+                              className="w-full rounded-2xl bg-amber-500/15 py-3.5 text-sm font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
+                            >
+                              このお店をお気に入り登録
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={goHome}
+                            className="w-full rounded-2xl bg-stone-900 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
+                          >
+                            ホームへ戻る
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )
                 }
 
                 return (
