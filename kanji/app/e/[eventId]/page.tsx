@@ -270,9 +270,9 @@ export default function EventParticipantPage() {
             className="overflow-hidden rounded-3xl ring-1 ring-white/10"
             style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
           >
-            <div className="h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+            <div className="h-px bg-gradient-to-r from-transparent via-brand/40 to-transparent" />
             <div className="px-6 py-8">
-              <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(214,175,60,0.65)' }}>Thanks</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(60,197,90,0.70)' }}>Thanks</p>
               <h1 className="mt-2 text-[26px] font-black tracking-tight text-white">
                 回答ありがとうございます
               </h1>
@@ -304,7 +304,7 @@ export default function EventParticipantPage() {
             </p>
             <a
               href="/"
-              className="mt-3.5 inline-block text-xs font-bold text-emerald-400/80 underline underline-offset-2 transition hover:text-emerald-400"
+              className="mt-3.5 inline-block text-xs font-bold text-brand/80 underline underline-offset-2 transition hover:text-brand"
             >
               このアプリで会を作る →
             </a>
@@ -331,9 +331,9 @@ export default function EventParticipantPage() {
             className="overflow-hidden rounded-3xl ring-1 ring-white/10"
             style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
           >
-            <div className="h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
+            <div className="h-px bg-gradient-to-r from-transparent via-brand/40 to-transparent" />
             <div className="px-6 py-7">
-              <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(214,175,60,0.65)' }}>Confirmed</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(60,197,90,0.70)' }}>Confirmed</p>
               <h2 className="mt-2 text-[22px] font-black tracking-tight text-white">日程が確定しました</h2>
               {confirmedDateLabel && (
                 <p className="mt-3 text-[26px] font-black leading-tight" style={{ color: '#d4af3c' }}>
@@ -358,9 +358,9 @@ export default function EventParticipantPage() {
               className="overflow-hidden rounded-3xl ring-1 ring-white/10"
               style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
             >
-              <div className="h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+              <div className="h-px bg-gradient-to-r from-transparent via-brand/40 to-transparent" />
               <div className="px-6 py-6">
-                <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(214,175,60,0.65)' }}>
+                <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(60,197,90,0.70)' }}>
                   Recommended Date
                 </p>
                 {topDateLabels.length === 1 ? (
@@ -429,7 +429,7 @@ export default function EventParticipantPage() {
                                 <div className="flex flex-col items-center gap-1">
                                   <span>{formatDateLabelShort(d.label)}</span>
                                   {isTop && (
-                                    <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[9px] font-bold text-emerald-400">
+                                    <span className="rounded-full bg-brand/15 px-2 py-0.5 text-[9px] font-bold text-brand">
                                       最多
                                     </span>
                                   )}
@@ -451,8 +451,8 @@ export default function EventParticipantPage() {
                                 className="px-2 py-2.5 text-center text-base font-black"
                               >
                                 <span className={
-                                  value === 'yes' ? 'text-emerald-400'
-                                  : value === 'maybe' ? 'text-amber-400'
+                                  value === 'yes' ? 'text-brand'
+                                  : value === 'maybe' ? 'text-brand/50'
                                   : 'text-white/20'
                                 }>
                                   {value === 'yes' ? '○' : value === 'maybe' ? '△' : '×'}
@@ -508,11 +508,11 @@ export default function EventParticipantPage() {
                           onClick={() => setAnswer(d.id, 'yes')}
                           className={`flex items-center justify-center rounded-xl py-3 ring-1 transition active:scale-95 ${
                             selected === 'yes'
-                              ? 'bg-emerald-500/25 ring-emerald-500/60'
-                              : 'bg-white/5 ring-white/10 hover:ring-emerald-500/30'
+                              ? 'bg-brand/20 ring-brand/50'
+                              : 'bg-white/5 ring-white/10 hover:ring-brand/25'
                           }`}
                         >
-                          <span className={`text-[20px] font-black leading-none ${selected === 'yes' ? 'text-emerald-400' : 'text-white/20'}`}>○</span>
+                          <span className={`text-[20px] font-black leading-none ${selected === 'yes' ? 'text-brand' : 'text-white/20'}`}>○</span>
                         </button>
                         {/* △ */}
                         <button
@@ -520,11 +520,11 @@ export default function EventParticipantPage() {
                           onClick={() => setAnswer(d.id, 'maybe')}
                           className={`flex items-center justify-center rounded-xl py-3 ring-1 transition active:scale-95 ${
                             selected === 'maybe'
-                              ? 'bg-amber-500/20 ring-amber-400/60'
-                              : 'bg-white/5 ring-white/10 hover:ring-amber-400/30'
+                              ? 'bg-brand/10 ring-brand/30'
+                              : 'bg-white/5 ring-white/10 hover:ring-brand/15'
                           }`}
                         >
-                          <span className={`text-[20px] font-black leading-none ${selected === 'maybe' ? 'text-amber-400' : 'text-white/20'}`}>△</span>
+                          <span className={`text-[20px] font-black leading-none ${selected === 'maybe' ? 'text-brand/60' : 'text-white/20'}`}>△</span>
                         </button>
                         {/* × */}
                         <button
@@ -560,7 +560,7 @@ export default function EventParticipantPage() {
                     onClick={() => setPrefGenre(isSelected ? null : option)}
                     className={`rounded-full px-3.5 py-1.5 text-xs font-bold ring-1 transition active:scale-95 ${
                       isSelected
-                        ? 'bg-emerald-500/20 text-emerald-400 ring-emerald-500/40'
+                        ? 'bg-brand/15 text-brand ring-brand/35'
                         : 'bg-white/5 text-white/45 ring-white/10 hover:ring-white/20'
                     }`}
                   >

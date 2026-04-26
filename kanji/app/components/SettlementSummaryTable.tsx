@@ -51,7 +51,7 @@ type Props = {
 }
 
 const ROLE_BADGE: Record<string, string> = {
-  主賓: 'bg-amber-100 text-amber-700',
+  主賓: 'bg-brand/12 text-brand',
   上長: 'bg-stone-100 text-stone-700',
   先輩: 'bg-stone-100 text-stone-600',
   通常: '',
@@ -467,7 +467,8 @@ export function SettlementSummaryTable({
             <button
               type="button"
               onClick={handleComplete}
-              className="w-full rounded-2xl bg-amber-500/15 px-4 py-4 text-sm font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
+              className="w-full rounded-2xl px-4 py-4 text-sm font-black text-white transition active:scale-[0.98]"
+              style={{ background: 'var(--brand)' }}
             >
               会を完了する
             </button>

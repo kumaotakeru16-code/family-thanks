@@ -1,8 +1,8 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import {
-  ChevronDown, ChevronUp, CreditCard, Users,
+  CreditCard, Users,
   SlidersHorizontal, UserPlus, X, Check,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -44,7 +44,7 @@ export type SettlementDraft = {
 // ─── ロールバッジ色 ────────────────────────────────────────────────────────────
 
 const ROLE_COLORS: Record<ParticipantRole, { active: string; inactive: string }> = {
-  主賓: { active: 'bg-amber-500/20 text-amber-400 ring-amber-500/30', inactive: 'bg-white/8 text-white/35 ring-white/8' },
+  主賓: { active: 'bg-brand/15 text-brand ring-brand/25', inactive: 'bg-white/8 text-white/35 ring-white/8' },
   上長: { active: 'bg-violet-500/20 text-violet-400 ring-violet-500/30', inactive: 'bg-white/8 text-white/35 ring-white/8' },
   先輩: { active: 'bg-sky-500/20 text-sky-400 ring-sky-500/30', inactive: 'bg-white/8 text-white/35 ring-white/8' },
   通常: { active: 'bg-white/15 text-white/80 ring-white/20', inactive: 'bg-white/8 text-white/35 ring-white/8' },
@@ -306,7 +306,7 @@ function GradientSliders({
         <span className="text-sm font-bold text-white/70">主賓</span>
         <div className="flex items-baseline gap-3">
           {previewEnabled && activeRoles.has('主賓') && (
-            <span className="text-sm font-medium text-amber-400">¥0</span>
+            <span className="text-sm font-medium text-brand">¥0</span>
           )}
           <span className="w-8 text-right text-sm font-black text-white/30">0.0</span>
         </div>
@@ -825,8 +825,6 @@ export function SettlementStep({
   }
 
   const isPaid = hasPaymentInfo(organizerSettings)
-  const allParty1 = [...participants, ...party1ExtraMembers]
-  const allParty2 = [...participants, ...party2ExtraMembers]
 
   return (
     <>
@@ -967,7 +965,8 @@ export function SettlementStep({
               type="button"
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="w-full rounded-2xl bg-amber-500/10 py-4 text-sm font-black text-amber-300 ring-1 ring-amber-500/35 transition hover:bg-amber-500/15 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30"
+              className="w-full rounded-2xl py-4 text-sm font-black text-black transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30"
+              style={{ background: 'var(--brand)' }}
             >
               計算して確認する →
             </button>

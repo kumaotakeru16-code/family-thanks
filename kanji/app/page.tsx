@@ -32,6 +32,8 @@ import {
   Heart,
   Plus,
   Trash2,
+  CheckCheck,
+  Check,
 } from 'lucide-react'
 
 import { createEvent, loadEventData } from '@/lib/kanji-db'
@@ -43,6 +45,8 @@ import { SettlementSummaryTable, type CompletionData, type CompleteResult } from
 import { SettingsScreen } from '@/app/components/SettingsScreen'
 import { StoreExternalLink, AffiliateNote } from '@/app/components/StoreExternalLink'
 import { SharePanel } from '@/app/components/ui'
+import KanjiLogo from '@/app/components/KanjiLogo'
+import KanjiMark from '@/app/components/KanjiMark'
 import {
   type SettlementConfig,
   type SettlementResult,
@@ -331,15 +335,15 @@ function availabilityLabel(v?: Availability) {
 }
 
 function availabilityStyle(v?: Availability) {
-  if (v === 'yes') return 'text-emerald-600 font-bold'
-  if (v === 'maybe') return 'text-amber-500'
+  if (v === 'yes') return 'text-brand font-bold'
+  if (v === 'maybe') return 'text-brand/60'
   return 'text-stone-300'
 }
 
 function ratingStyle(r: '◎' | '○' | '△') {
-  if (r === '◎') return 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+  if (r === '◎') return 'bg-brand/10 text-brand ring-brand/20'
   if (r === '○') return 'bg-stone-100 text-stone-500 ring-stone-200'
-  return 'bg-amber-50 text-amber-600 ring-amber-200'
+  return 'bg-white/8 text-white/40 ring-white/10'
 }
 
 function generateShareText(eventType: string, store: StoreCandidate, conditions: string[], name?: string): string {
@@ -2114,30 +2118,27 @@ return (
           initial={{ scale: 0.82, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
-          className="mb-6 flex h-24 w-24 items-center justify-center rounded-[28px] bg-stone-800 ring-1 ring-white/10"
+          className="mb-6 flex h-24 w-24 items-center justify-center rounded-[28px] bg-[#0e1c10] ring-1 ring-white/10"
         >
-          <div className="flex flex-col items-center gap-0.5">
-            <CalendarDays size={28} className="text-white/80" strokeWidth={1.8} />
-            <span className="text-[17px] font-black tracking-tight text-white">幹事</span>
-          </div>
+          <KanjiLogo size={36} />
         </motion.div>
         {/* アプリ名 */}
         <motion.p
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.35 }}
-          className="text-[13px] font-bold tracking-[0.18em] text-white/40 uppercase"
+          className="text-[11px] font-medium tracking-[0.22em] text-white/30 uppercase"
         >
-          KANJI
+          飲み会の幹事ツール
         </motion.p>
       </motion.div>
     )}
   </AnimatePresence>
-  <main className="min-h-screen" style={{ background: '#111111' }}>
+  <main className="min-h-screen" style={{ background: '#000000' }}>
     <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 pb-20 pt-6 sm:px-5">
       {/* ── グローバルナビ + ステップバー — ホーム以外で sticky 表示 ─────────── */}
       {step !== 'home' && (
-        <div className="sticky top-0 z-40 -mx-4 sm:-mx-5 mb-5 border-b border-white/8 bg-[#111111]/95 px-4 pb-2 pt-3 backdrop-blur-sm sm:px-5">
+        <div className="sticky top-0 z-40 -mx-4 sm:-mx-5 mb-5 border-b border-white/8 bg-[#000000]/95 px-4 pb-2 pt-3 backdrop-blur-sm sm:px-5">
           <header className="flex h-8 items-center justify-between">
             {/* 左: 戻るナビゲーション */}
             {backStep ? (
@@ -2162,10 +2163,9 @@ return (
             <button
               type="button"
               onClick={navigateHome}
-              className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.2em] text-stone-400 transition hover:text-stone-600"
+              className="transition active:opacity-70"
             >
-              <CalendarDays size={11} strokeWidth={2.5} />
-              Kanji
+              <KanjiLogo size={18} />
             </button>
 
             {/* 右: ホームアイコン */}
@@ -2228,10 +2228,7 @@ return (
               {/* ── ヘッダー ───────────────────────────────────── */}
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900">
-                    <CalendarDays size={17} className="text-white" strokeWidth={2.5} />
-                  </div>
-                  <span className="text-[13px] font-black tracking-[0.25em] text-stone-900 uppercase">Kanji</span>
+                  <KanjiLogo size={24} />
                 </div>
                 <button
                   type="button"
@@ -2251,26 +2248,27 @@ return (
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, ease: 'easeOut' }}
                   {...makeLongPressHandlers(() => setDeleteTarget({ type: 'ongoing', id: heroEvent.id, name: heroEvent.name }))}
-                  className="overflow-hidden rounded-3xl ring-1 ring-white/8"
-                  style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
+                  className="overflow-hidden rounded-3xl"
+                  style={{ background: 'var(--brand)' }}
                 >
-                  <div className="h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
-                  <div className="flex flex-col items-center px-6 pt-7 pb-7 text-center">
-                    {/* ラベル */}
-                    <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/35">次にやること</p>
+                  <div className="flex flex-col items-center px-6 pt-6 pb-5 text-center">
+                    {/* ラベル: 黒チップ */}
+                    <span className="inline-flex items-center rounded-full bg-black/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-black/50">
+                      次にやること
+                    </span>
                     {/* イベント名 */}
-                    <p className="mt-3 text-[24px] font-black leading-snug tracking-tight text-white">{heroEvent.name}</p>
-                    {/* 状態バッジ */}
-                    <div className="mt-3">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-3 py-1 text-[10px] font-black text-emerald-300 ring-1 ring-emerald-500/25">
+                    <p className="mt-3 text-[22px] font-black leading-snug tracking-tight text-black">{heroEvent.name}</p>
+                    {/* 状態バッジ: 黒背景グリーン文字 */}
+                    <div className="mt-2">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-black px-3 py-1 text-[10px] font-black text-brand">
                         {heroCfg.label}
                       </span>
                     </div>
                     {/* 説明 */}
-                    <p className="mt-2 text-[13px] font-bold text-white/45">{heroCfg.desc}</p>
+                    <p className="mt-1.5 text-[12px] font-bold text-black/50">{heroCfg.desc}</p>
 
                     {/* ステップバー */}
-                    <div className="mt-6 flex w-full items-center">
+                    <div className="mt-5 flex w-full items-center">
                       {([
                         { phase: 1, icon: <CalendarDays size={11} strokeWidth={2.5} />, label: '日程調整' },
                         { phase: 2, icon: <UtensilsCrossed size={11} strokeWidth={2.5} />, label: 'お店選び' },
@@ -2282,39 +2280,39 @@ return (
                           <div key={phase} className="flex flex-1 items-center">
                             <div className="flex flex-1 flex-col items-center gap-1">
                               <div className={`flex h-7 w-7 items-center justify-center rounded-full transition ${
-                                done   ? 'bg-emerald-500/25 text-emerald-400'
-                                : active ? 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/40'
-                                : 'bg-white/8 text-white/25'
+                                done   ? 'bg-black/20 text-black/60'
+                                : active ? 'bg-black text-brand'
+                                : 'bg-black/10 text-black/25'
                               }`}>
                                 {done ? <CheckCircle2 size={12} strokeWidth={2.5} /> : icon}
                               </div>
                               <p className={`text-[9px] font-black tracking-wide ${
-                                done ? 'text-emerald-400/60' : active ? 'text-amber-300/80' : 'text-white/20'
+                                done ? 'text-black/35' : active ? 'text-black/70' : 'text-black/20'
                               }`}>{label}</p>
                             </div>
                             {i < 2 && (
-                              <div className={`mb-4 h-px w-6 shrink-0 ${done ? 'bg-emerald-500/30' : 'bg-white/10'}`} />
+                              <div className={`mb-4 h-px w-6 shrink-0 ${done ? 'bg-black/25' : 'bg-black/12'}`} />
                             )}
                           </div>
                         )
                       })}
                     </div>
 
-                    {/* 主CTA */}
+                    {/* 主CTA: 黒背景グリーン文字 */}
                     <button
                       type="button"
                       onClick={() => {
                         if (longPressFiredRef.current) { longPressFiredRef.current = false; return }
                         void openSavedEvent(heroEvent.id, heroEvent.name, heroEvent.eventType, heroStatus === 'reserved' ? 'settlement' : undefined)
                       }}
-                      className="mt-5 w-full rounded-2xl bg-amber-500/15 py-3.5 text-[15px] font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
+                      className="mt-4 w-full rounded-2xl bg-black py-3.5 text-[15px] font-black text-brand transition hover:bg-black/80 active:scale-[0.98]"
                     >
                       {heroCfg.cta} →
                     </button>
                   </div>
                 </motion.div>
               ) : (
-                /* 進行中なし — 統合カード */
+                /* 進行中なし — 統合カード（グリーン背景・黒文字） */
                 <motion.button
                   type="button"
                   initial={{ opacity: 0, y: 8 }}
@@ -2322,22 +2320,18 @@ return (
                   transition={{ duration: 0.3, ease: 'easeOut' }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => { setEventName(''); void trackEvent('start_from_dates'); setStep('create') }}
-                  className="w-full overflow-hidden rounded-3xl text-white transition active:scale-[0.98]"
-                  style={{
-                    background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)',
-                    boxShadow: '0 6px 24px rgba(14,28,16,0.4)',
-                  }}
+                  className="w-full overflow-hidden rounded-3xl transition active:scale-[0.98]"
+                  style={{ background: 'var(--brand)' }}
                 >
-                  <div className="h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
                   <div className="flex flex-col items-center px-6 pt-7 pb-7 text-center">
-                    {/* イベントを作る */}
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15">
-                      <CalendarPlus size={22} className="text-emerald-400" strokeWidth={2} />
+                    {/* アイコン: 黒背景グリーンアイコン */}
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black">
+                      <CalendarPlus size={22} className="text-brand" strokeWidth={2} />
                     </div>
-                    <p className="mt-3 text-[20px] font-black tracking-tight">イベントを作る</p>
-                    <p className="mt-1 text-[12px] text-white/45">日程調整からスタート</p>
+                    <p className="mt-3 text-[20px] font-black tracking-tight text-black">イベントを作る</p>
+                    <p className="mt-1 text-[12px] text-black/50">日程調整からスタート</p>
 
-                    {/* ミニフロー（進行中イベントがないとき常時表示）*/}
+                    {/* ミニフロー */}
                     {mounted && (() => {
                       const reducedMotion = typeof window !== 'undefined'
                         ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -2353,16 +2347,17 @@ return (
                             {nodes.map((node, i) => (
                               <div key={i} className="flex items-center">
                                 <div className="flex flex-col items-center gap-1.5">
-                                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/8 text-white/40 ring-1 ring-white/10">
+                                  {/* 各ステップ: 黒背景グリーンアイコン */}
+                                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-black text-brand">
                                     {node.icon}
                                   </div>
-                                  <p className="text-[9px] font-bold text-white/25">{node.label}</p>
+                                  <p className="text-[9px] font-bold text-black/45">{node.label}</p>
                                 </div>
                                 {i < 2 && (
-                                  <div className="relative mx-2 mb-4 h-px w-8 bg-white/10">
+                                  <div className="relative mx-2 mb-4 h-px w-8 bg-black/20">
                                     {!reducedMotion && (
                                       <motion.div
-                                        className="absolute top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-amber-400/60"
+                                        className="absolute top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-black/50"
                                         animate={{ x: ['-6px', '38px'], opacity: [0, 1, 1, 0] }}
                                         transition={{
                                           duration: 1.0,
@@ -2378,7 +2373,7 @@ return (
                               </div>
                             ))}
                           </div>
-                          <p className="mt-3 text-[11px] font-bold text-white/30">
+                          <p className="mt-3 text-[11px] font-bold text-black/40">
                             入力は1回で、そのままつながる
                           </p>
                         </>
@@ -2433,8 +2428,8 @@ return (
                             <div className="flex items-center gap-2">
                               <p className="truncate text-[14px] font-black tracking-tight text-white/90">{ev.name}</p>
                               <span className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black ring-1 ${
-                                s === 'reserved' ? 'bg-emerald-500/15 text-emerald-400 ring-emerald-500/25'
-                                : s === 'store_confirmed' ? 'bg-amber-500/15 text-amber-400 ring-amber-500/25'
+                                s === 'reserved' ? 'bg-brand/12 text-brand ring-brand/20'
+                                : s === 'store_confirmed' ? 'bg-brand/12 text-brand ring-brand/20'
                                 : 'bg-white/8 text-white/35 ring-white/10'
                               }`}>{cfg.label}</span>
                             </div>
@@ -2512,7 +2507,7 @@ return (
           {showCreating && (
             <motion.div
               key="creating"
-              className="fixed inset-0 z-[9998] flex flex-col items-center justify-center bg-[#111111]"
+              className="fixed inset-0 z-[9998] flex flex-col items-center justify-center bg-[#000000]"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -3063,7 +3058,7 @@ return (
         )}
         {/* ── 会を作る sticky CTA ── */}
         {(step === 'create' || step === 'dates') && (
-          <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+          <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#000000] via-[#000000]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
             {!eventName.trim() && (
               <p className="mb-2 text-center text-[11px] text-stone-400">会の名前を入力してください</p>
             )}
@@ -3178,7 +3173,8 @@ return (
         }
         setStep('dashboard')
       }}
-      className="w-full rounded-2xl bg-amber-500/15 py-3 text-sm font-bold text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
+      className="w-full rounded-2xl py-3 text-sm font-bold text-white transition active:scale-[0.98]"
+      style={{ background: 'var(--brand)' }}
     >
       回答状況を見る →
     </button>
@@ -3230,7 +3226,7 @@ return (
           onClick={() => setShowPrioritySheet(true)}
           className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-bold ring-1 transition active:scale-95 ${
             mainGuestIds.length > 0
-              ? 'bg-emerald-500 text-white ring-emerald-500'
+              ? 'bg-brand text-black ring-brand'
               : 'bg-white text-stone-500 ring-stone-200 hover:bg-stone-50'
           }`}
         >
@@ -3268,190 +3264,135 @@ return (
       </div>
     ) : (
       <>
-        {/* 決定候補ヒーロー */}
+        {/* 決定候補ヒーロー — ブランドグリーン背景 */}
         <div
-          className="overflow-hidden rounded-3xl ring-1 ring-white/10"
-          style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
+          className="overflow-hidden rounded-3xl"
+          style={{ background: 'var(--brand)' }}
         >
-          {/* 上部ゴールドライン */}
-          <div className="h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
-
-          <div className="flex flex-col items-center px-6 pt-6 pb-5 text-center">
-            {/* ① ラベル */}
-            <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(214,175,60,0.65)' }}>
-              {heroIsBest ? 'Recommended Date' : 'Alternative Date'}
-            </p>
-            {/* ① 日付（主役・ゴールド） */}
-            <p className="mt-2 text-[32px] font-black leading-tight tracking-tight" style={{ color: '#d4af3c' }}>
-              {heroDate?.label}
-            </p>
-
-            {/* ② 参加者イニシャル横並び */}
-            {(heroYesParticipants.length > 0 || heroMaybeParticipants.length > 0) && (() => {
-              const MAX_VISIBLE = 5
-              const allVisible = [
-                ...heroYesParticipants.map(p => ({ ...p, type: 'yes' as const })),
-                ...heroMaybeParticipants.map(p => ({ ...p, type: 'maybe' as const })),
-              ]
-              const visible = allVisible.slice(0, MAX_VISIBLE)
-              const overflow = allVisible.length - MAX_VISIBLE
-              return (
-                <div className="mt-4 flex flex-col items-center gap-2">
-                  <div className="flex items-center -space-x-1.5">
-                    {visible.map((p) => (
-                      <div
-                        key={p.id}
-                        title={p.name}
-                        className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-black ring-2 ring-[#0e1c10] ${
-                          p.type === 'yes'
-                            ? 'bg-emerald-500/30 text-emerald-200'
-                            : 'bg-amber-500/25 text-amber-200'
-                        }`}
-                      >
-                        {p.name.slice(0, 1)}
-                      </div>
-                    ))}
-                    {overflow > 0 && (
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-[10px] font-black text-white/50 ring-2 ring-[#0e1c10]">
-                        +{overflow}
-                      </div>
-                    )}
-                  </div>
-                  {/* ③ 人数サマリ */}
-                  <div className="flex items-center gap-2 text-[12px] font-bold">
-                    {heroYesParticipants.length > 0 && (
-                      <span className="text-emerald-300/80">参加予定 {heroYesParticipants.length}人</span>
-                    )}
-                    {heroYesParticipants.length > 0 && heroMaybeParticipants.length > 0 && (
-                      <span className="text-white/20">·</span>
-                    )}
-                    {heroMaybeParticipants.length > 0 && (
-                      <span className="text-amber-300/70">調整中 {heroMaybeParticipants.length}人</span>
-                    )}
-                  </div>
-                </div>
-              )
-            })()}
+          {/* ── ヘッダー行: 候補バッジ / 回答カウント ── */}
+          <div className="flex items-center justify-between px-5 pt-5 pb-0">
+            {/* 第一候補: 黒背景グリーン文字 */}
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-black ${
+                heroIsBest ? 'bg-black text-brand' : 'bg-black/60 text-brand/70'
+              }`}
+            >
+              {heroIsBest && <Check size={10} strokeWidth={3} className="mr-0.5" />}
+              {heroIsBest ? '第一候補' : '代替候補'}
+            </span>
+            {/* 回答バッジ: 黒背景 KanjiMark + カウント */}
+            <span className="inline-flex items-center gap-1.5 rounded-xl bg-black px-2.5 py-1.5 text-[11px] font-bold text-brand">
+              <KanjiMark size={14} color="var(--brand)" />
+              回答 {answerCount}/{activeParticipants.length}
+            </span>
           </div>
 
-          {/* 区切り線 */}
-          <div className="mx-6 border-t border-white/8" />
+          {/* ── 日程（大見出し・黒） ── */}
+          <div className="px-5 pt-3 pb-2">
+            <p className="text-[44px] font-black leading-none tracking-tight text-black">
+              {heroDate?.label}
+            </p>
+          </div>
 
-          {/* ④ 理由セクション */}
+          {/* ── 区切り線 ── */}
+          <div className="mx-5 border-t border-black/12" />
+
+          {/* ── 参加者 ── */}
+          {(heroYesParticipants.length > 0 || heroMaybeParticipants.length > 0) && (() => {
+            const MAX_VISIBLE = 5
+            const allVisible = [
+              ...heroYesParticipants.map(p => ({ ...p, status: 'yes' as const })),
+              ...heroMaybeParticipants.map(p => ({ ...p, status: 'maybe' as const })),
+            ]
+            const visible = allVisible.slice(0, MAX_VISIBLE)
+            const overflow = allVisible.length - MAX_VISIBLE
+            return (
+              <div className="px-5 pt-3.5 pb-2">
+                <p className="mb-2.5 text-[11px] font-bold text-black/55">
+                  参加予定 {heroYesParticipants.length}人
+                  {heroMaybeParticipants.length > 0 && <span className="ml-1.5 text-black/35">· 調整中 {heroMaybeParticipants.length}人</span>}
+                </p>
+                {/* 参加者チップ: 黒ピルにグリーン文字 */}
+                <div className="flex flex-wrap gap-1.5">
+                  {visible.map((p) => (
+                    <span
+                      key={p.id}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-black px-3 py-1.5 text-[12px] font-black"
+                    >
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand text-[9px] font-black text-black">
+                        {p.name.slice(0, 1)}
+                      </span>
+                      <span className="text-white">{p.name}</span>
+                    </span>
+                  ))}
+                  {overflow > 0 && (
+                    <span className="inline-flex items-center rounded-full bg-black/50 px-3 py-1.5 text-[12px] font-black text-brand">
+                      +{overflow}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* ── 理由セクション ── */}
           {heroDateReasons.length > 0 && (
-            <div className="px-6 py-4 text-center">
-              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: 'rgba(74,222,128,0.45)' }}>
-                この日程が最適な理由
-              </p>
-              <ul className="space-y-1">
+            <div className="px-5 pb-2 pt-1">
+              <ul className="space-y-0.5">
                 {heroDateReasons.map((r, i) => (
-                  <li key={i} className="flex items-center justify-center gap-2 text-[12px] font-bold text-white/55">
-                    <span className="h-1 w-1 shrink-0 rounded-full bg-emerald-400/50" />
+                  <li key={i} className="flex items-center gap-2 text-[11px] font-bold text-black/50">
+                    <span className="h-1 w-1 shrink-0 rounded-full bg-black/25" />
                     {r}
                   </li>
                 ))}
               </ul>
-              {heroDateSummary && (
-                <p className="mt-3 text-[12px] font-bold text-white/75">{heroDateSummary}</p>
-              )}
             </div>
           )}
 
-          {/* 参加者詳細（展開） */}
-          <div className="border-t border-white/6">
+          {/* ── 決定CTA（黒背景グリーン文字） ── */}
+          <div className="px-4 pb-4 pt-3">
             <button
               type="button"
-              onClick={() => setShowHeroParticipants((v) => !v)}
-              className="flex w-full items-center justify-between px-6 py-3 transition hover:bg-white/4 active:bg-white/6"
+              onClick={decideRecommendedDate}
+              className="w-full rounded-2xl bg-black py-4 text-[15px] font-black text-brand transition hover:bg-black/80 active:scale-[0.98]"
             >
-              <span className="text-[11px] font-bold text-white/35">参加者の詳細を見る</span>
-              <ChevronDown
-                size={13}
-                className={`text-white/25 transition-transform duration-200 ${showHeroParticipants ? 'rotate-180' : ''}`}
-              />
+              この日程で決定 →
             </button>
-            {showHeroParticipants && (
-              <div className="space-y-2.5 px-6 pb-4">
-                <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/8">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400/70">参加予定</p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {heroYesParticipants.length > 0 ? (
-                      heroYesParticipants.map((p) => (
-                        <span key={p.id} className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
-                          {p.name}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-white/35">まだいません</span>
-                    )}
-                  </div>
-                </div>
-                <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/8">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400/70">調整中</p>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {heroMaybeParticipants.length > 0 ? (
-                      heroMaybeParticipants.map((p) => (
-                        <span key={p.id} className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
-                          {p.name}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-white/35">まだいません</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* ヒーロー直下 決定CTA */}
-        <button
-          type="button"
-          onClick={decideRecommendedDate}
-          className="w-full rounded-2xl bg-amber-500/15 py-4 text-[15px] font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
-        >
-          この日で決定 →
-        </button>
-
-        {/* ほかの日程（例外導線・リンクレベル） */}
+        {/* ほかの日程 */}
         {altDates.length > 0 && (
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => setShowAltDates((v) => !v)}
-              className="text-[12px] text-stone-400 underline underline-offset-2 transition hover:text-stone-600"
-            >
-              {showAltDates ? 'ほかの日程を閉じる' : `ほかの日程も見る（${Math.min(altDates.length, 3)}件）`}
-            </button>
-            {showAltDates && (
-              <div className="mt-3 space-y-2 text-left">
-                {altDates.slice(0, 3).map((d) => {
-                  const dYes = activeParticipants.filter((p) => p.availability?.[d.id] === 'yes').length
-                  const dMaybe = activeParticipants.filter((p) => p.availability?.[d.id] === 'maybe').length
-                  return (
-                    <button
-                      type="button"
-                      key={d.id}
-                      onClick={() => {
-                        setHeroBestDateId(d.id)
-                        setShowAltDates(false)
-                        setShowHeroParticipants(false)
-                      }}
-                      className="flex w-full items-center justify-between rounded-2xl bg-white px-4 py-3 text-left ring-1 ring-stone-100 transition hover:bg-stone-50 active:scale-[0.99]"
-                    >
-                      <p className="text-sm font-bold text-stone-700">{d.label}</p>
-                      <div className="ml-3 flex shrink-0 items-center gap-1.5">
-                        <span className="text-xs font-bold text-emerald-600">○{dYes}</span>
-                        <span className="text-xs font-bold text-amber-500">△{dMaybe}</span>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+          <div>
+            <p className="mb-2 px-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/25">ほかの候補</p>
+            <div className="space-y-1.5">
+              {altDates.slice(0, 3).map((d) => {
+                const dYes = activeParticipants.filter((p) => p.availability?.[d.id] === 'yes').length
+                const dMaybe = activeParticipants.filter((p) => p.availability?.[d.id] === 'maybe').length
+                return (
+                  <button
+                    type="button"
+                    key={d.id}
+                    onClick={() => {
+                      setHeroBestDateId(d.id)
+                      setShowHeroParticipants(false)
+                    }}
+                    className="flex w-full items-center justify-between rounded-2xl px-4 py-3.5 text-left transition hover:bg-white/5 active:scale-[0.99]"
+                    style={{ background: 'var(--ink-raise)' }}
+                  >
+                    <p className="text-sm font-bold text-white/70">{d.label}</p>
+                    <div className="ml-3 flex shrink-0 items-center gap-2">
+                      <span className="text-xs font-bold text-brand/80">○{dYes}</span>
+                      {dMaybe > 0 && <span className="text-xs font-bold text-white/35">△{dMaybe}</span>}
+                      <ChevronRight size={13} className="text-white/20" />
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
+
 
         {/* 回答テーブル（デフォルト非表示・詳細確認用） */}
         <div className="text-center">
@@ -3464,12 +3405,12 @@ return (
           </button>
         </div>
         {showResponseTable && (
-          <div className="overflow-hidden rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+          <div className="overflow-hidden rounded-3xl px-4 py-4 ring-1 ring-white/8" style={{ background: 'var(--ink-raise)' }}>
             <div className="overflow-x-auto">
-              <div className="min-w-[760px]">
+              <div className="min-w-[560px]">
                 <div
-                  className="grid items-center gap-2 text-xs font-bold text-stone-500"
-                  style={{ gridTemplateColumns: `92px repeat(${activeDates.length}, minmax(72px, 1fr))` }}
+                  className="grid items-center gap-2 text-[10px] font-black uppercase tracking-wide text-white/30"
+                  style={{ gridTemplateColumns: `80px repeat(${activeDates.length}, minmax(64px, 1fr))` }}
                 >
                   <div>参加者</div>
                   {activeDates.map((date) => {
@@ -3479,10 +3420,10 @@ return (
                         key={date.id}
                         type="button"
                         onClick={() => setHeroBestDateId(date.id)}
-                        className={`rounded-lg px-1 py-1 text-left text-xs font-bold transition active:scale-95 ${
+                        className={`rounded-lg px-1 py-1 text-left text-[10px] font-bold transition active:scale-95 ${
                           isSelected
-                            ? 'bg-emerald-600 text-white'
-                            : 'text-stone-500 hover:bg-stone-100 hover:text-stone-900'
+                            ? 'bg-brand/20 text-brand'
+                            : 'text-white/30 hover:bg-white/6 hover:text-white/60'
                         }`}
                       >
                         {date.label}
@@ -3490,14 +3431,14 @@ return (
                     )
                   })}
                 </div>
-                <div className="mt-3 space-y-2">
+                <div className="mt-3 space-y-1.5">
                   {activeParticipants.map((participant) => (
                     <div
                       key={participant.id}
                       className="grid items-center gap-2"
-                      style={{ gridTemplateColumns: `92px repeat(${activeDates.length}, minmax(72px, 1fr))` }}
+                      style={{ gridTemplateColumns: `80px repeat(${activeDates.length}, minmax(64px, 1fr))` }}
                     >
-                      <div className="truncate text-sm font-bold text-stone-900">
+                      <div className="truncate text-xs font-bold text-white/70">
                         {participant.name}
                       </div>
                       {activeDates.map((date) => {
@@ -3506,18 +3447,18 @@ return (
                         return (
                           <div
                             key={date.id}
-                            className={`flex h-9 items-center justify-center rounded-xl ring-1 ${
-                              isHero ? 'bg-stone-50 ring-stone-200' : 'bg-white ring-stone-100'
+                            className={`flex h-8 items-center justify-center rounded-xl ring-1 ${
+                              isHero ? 'bg-brand/8 ring-brand/20' : 'bg-white/4 ring-white/6'
                             }`}
                           >
                             {value === 'yes' ? (
-                              <span className="text-[15px] font-black leading-none text-emerald-500">○</span>
+                              <span className="text-[14px] font-black leading-none text-brand">○</span>
                             ) : value === 'maybe' ? (
-                              <span className="text-[15px] font-black leading-none text-amber-400">△</span>
+                              <span className="text-[14px] font-black leading-none text-white/40">△</span>
                             ) : value === 'no' ? (
-                              <span className="text-[14px] font-bold leading-none text-stone-300">×</span>
+                              <span className="text-[13px] font-bold leading-none text-white/20">×</span>
                             ) : (
-                              <span className="text-[11px] text-stone-300">—</span>
+                              <span className="text-[10px] text-white/15">—</span>
                             )}
                           </div>
                         )
@@ -3531,32 +3472,32 @@ return (
         )}
 
         {/* リマインド（折りたたみ） */}
-        <div className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-stone-100">
+        <div className="overflow-hidden rounded-3xl ring-1 ring-white/8" style={{ background: 'var(--ink-raise)' }}>
           <button
             type="button"
             onClick={() => setShowReminderPanel((v) => !v)}
             className="flex w-full items-center justify-between px-5 py-4"
           >
             <div className="flex items-center gap-1.5">
-              <MessageSquareQuote size={11} className="text-stone-400" strokeWidth={2.5} />
-              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-stone-400">リマインド</p>
+              <MessageSquareQuote size={11} className="text-white/30" strokeWidth={2.5} />
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30">リマインド</p>
             </div>
-            {showReminderPanel
-              ? <ChevronLeft size={14} className="rotate-90 text-stone-400" />
-              : <ChevronRight size={14} className="-rotate-90 text-stone-400" />
-            }
+            <ChevronDown
+              size={14}
+              className={`text-white/25 transition-transform duration-200 ${showReminderPanel ? 'rotate-180' : ''}`}
+            />
           </button>
           {showReminderPanel && (
-            <div className="space-y-3 border-t border-stone-100 px-5 pb-5 pt-4">
-              <div className="rounded-2xl bg-stone-50 px-4 py-3">
+            <div className="space-y-3 border-t border-white/6 px-5 pb-5 pt-4">
+              <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/8">
                 {urlOnlyReminder ? (
-                  <p className="text-sm text-stone-700">{shareUrl}</p>
+                  <p className="text-sm text-white/60">{shareUrl}</p>
                 ) : (
                   <textarea
                     ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' } }}
                     value={editableReminderText}
                     onChange={(e) => { setEditableReminderText(e.target.value); e.currentTarget.style.height = 'auto'; e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px' }}
-                    className="w-full resize-none overflow-hidden bg-transparent text-base leading-6 text-stone-700 outline-none"
+                    className="w-full resize-none overflow-hidden bg-transparent text-base leading-6 text-white/80 outline-none"
                   />
                 )}
               </div>
@@ -3565,9 +3506,9 @@ return (
                   type="checkbox"
                   checked={urlOnlyReminder}
                   onChange={(e) => setUrlOnlyReminder(e.target.checked)}
-                  className="h-4 w-4 rounded accent-stone-900"
+                  className="h-4 w-4 rounded accent-brand"
                 />
-                <span className="text-xs font-bold text-stone-500">URLのみ</span>
+                <span className="text-xs font-bold text-white/40">URLのみ</span>
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <button
@@ -3621,88 +3562,89 @@ return (
     </div>
 
     {/* 確定日程 ヒーロー */}
-    <div className="overflow-hidden rounded-3xl ring-1 ring-white/10" style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}>
-      <div className="h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
-      <div className="flex flex-col items-center px-6 py-6 text-center">
-        <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(214,175,60,0.65)' }}>確定日程</p>
-        <p className="mt-2 text-[32px] font-black leading-tight tracking-tight" style={{ color: '#d4af3c' }}>{heroDate?.label}</p>
-        <p className="mt-1.5 text-sm font-bold text-white/60">最大参加人数 {yesCount + maybeCount}人</p>
-        <button
-          type="button"
-          onClick={() => setShowHeroParticipants((v) => !v)}
-          className="mt-3 text-xs font-bold text-white/70 underline"
-        >
-          {showHeroParticipants ? '参加者を閉じる' : '参加者を見る'}
-        </button>
-        {showHeroParticipants && (
-          <div className="mt-4 space-y-3">
-            <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/80">参加予定</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {finalYesParticipants.length > 0 ? (
-                  finalYesParticipants.map((p) => (
-                    <span key={p.id} className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
-                      {p.name}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-white/40">まだいません</span>
-                )}
-              </div>
-            </div>
-            <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300/80">調整中</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {heroMaybeParticipants.length > 0 ? (
-                  heroMaybeParticipants.map((p) => (
-                    <span key={p.id} className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
-                      {p.name}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-white/40">まだいません</span>
-                )}
-              </div>
+    <div className="overflow-hidden rounded-3xl" style={{ background: 'var(--brand)' }}>
+      {/* ヘッダー行 */}
+      <div className="flex items-center justify-between px-5 pt-5 pb-0">
+        <span className="inline-flex items-center gap-1 rounded-full bg-black px-2.5 py-1 text-[10px] font-black text-brand">
+          <Check size={9} strokeWidth={3} />&nbsp;確定日程
+        </span>
+        <div className="flex flex-wrap gap-1.5">
+          {yesCount > 0 && (
+            <span className="rounded-full bg-black px-2.5 py-1 text-[10px] font-bold text-brand">参加予定 {yesCount}人</span>
+          )}
+          {maybeCount > 0 && (
+            <span className="rounded-full bg-black/20 px-2.5 py-1 text-[10px] font-bold text-black/60">調整中 {maybeCount}人</span>
+          )}
+        </div>
+      </div>
+      {/* 日付 */}
+      <div className="px-5 pt-3 pb-4">
+        <p className="text-[38px] font-black leading-none tracking-tight text-black">{heroDate?.label}</p>
+      </div>
+      {/* 区切り */}
+      <div className="mx-5 border-t border-black/15" />
+      {/* 参加者トグル */}
+      <button
+        type="button"
+        onClick={() => setShowHeroParticipants((v) => !v)}
+        className="flex w-full items-center justify-between px-5 py-3.5 transition hover:bg-black/10"
+      >
+        <span className="text-[11px] font-bold text-black/50">参加者を確認する</span>
+        <ChevronDown size={13} className={`text-black/30 transition-transform duration-200 ${showHeroParticipants ? 'rotate-180' : ''}`} />
+      </button>
+      {showHeroParticipants && (
+        <div className="space-y-2.5 px-5 pb-4">
+          <div className="rounded-2xl bg-black/10 px-4 py-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/50">参加予定</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {finalYesParticipants.length > 0 ? (
+                finalYesParticipants.map((p) => (
+                  <span key={p.id} className="rounded-full bg-black px-3 py-1 text-xs font-bold text-brand">
+                    {p.name}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-black/40">まだいません</span>
+              )}
             </div>
           </div>
-        )}
-      </div>
-      <div className="flex flex-wrap gap-2 bg-black/20 px-6 py-3.5">
-        <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
-          参加予定 {yesCount}人
-        </span>
-        <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
-          調整中 {maybeCount}人
-        </span>
-        {eventType && (
-          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/50">
-            {eventType}
-          </span>
-        )}
-      </div>
+          {heroMaybeParticipants.length > 0 && (
+            <div className="rounded-2xl bg-black/10 px-4 py-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/40">調整中</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {heroMaybeParticipants.map((p) => (
+                  <span key={p.id} className="rounded-full bg-black/20 px-3 py-1 text-xs font-bold text-black/60">
+                    {p.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
 
     {/* 参加者への連絡 — タブ切り替え */}
-    <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
-      <p className="mb-3 text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">参加者への連絡</p>
+    <div className="rounded-3xl px-5 py-5 ring-1 ring-white/8" style={{ background: 'var(--ink-raise)' }}>
+      <p className="mb-3 text-[10px] font-black tracking-[0.2em] text-white/30 uppercase">参加者への連絡</p>
 
       {/* タブ */}
-      <div className="flex gap-1 rounded-2xl bg-stone-100 p-1">
+      <div className="flex gap-1 rounded-2xl p-1" style={{ background: 'var(--ink-line)' }}>
         <button
           type="button"
           onClick={() => setDateShareTab('yes')}
-          className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold transition ${dateShareTab === 'yes' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500'}`}
+          className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold transition ${dateShareTab === 'yes' ? 'bg-brand/20 text-brand' : 'text-white/35'}`}
         >
           参加予定の方へ
         </button>
         <button
           type="button"
           onClick={() => setDateShareTab('maybe')}
-          className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold transition ${dateShareTab === 'maybe' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500'}`}
+          className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold transition ${dateShareTab === 'maybe' ? 'bg-brand/20 text-brand' : 'text-white/35'}`}
         >
           調整中の方へ
           {maybeCount > 0 && (
-            <span className="ml-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-white">
+            <span className="ml-1.5 rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-black text-white">
               {maybeCount}
             </span>
           )}
@@ -3711,12 +3653,12 @@ return (
 
       {dateShareTab === 'yes' && (
         <div className="mt-4">
-          <div className="rounded-2xl bg-stone-50 px-4 py-3">
+          <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/8">
             <textarea
               value={editableDateConfirmedText}
               onChange={(e) => setEditableDateConfirmedText(e.target.value)}
               rows={4}
-              className="w-full resize-none bg-transparent text-base leading-6 text-stone-700 outline-none"
+              className="w-full resize-none bg-transparent text-base leading-6 text-white/80 outline-none"
             />
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
@@ -3727,7 +3669,7 @@ return (
                 setDateCopied(true)
                 setTimeout(() => setDateCopied(false), 1600)
               }}
-              className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
+              className="inline-flex items-center justify-center rounded-2xl bg-white/8 px-4 py-3 text-sm font-bold text-white/70 ring-1 ring-white/12 transition hover:bg-white/12 active:scale-[0.98]"
             >
               {dateCopied ? 'コピーしました' : 'コピー'}
             </button>
@@ -3748,17 +3690,17 @@ return (
             <>
               <div className="mb-3 flex flex-wrap gap-1.5">
                 {maybeNames.map(name => (
-                  <span key={name} className="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 ring-1 ring-amber-200">
+                  <span key={name} className="rounded-full bg-white/8 px-3 py-1 text-xs font-bold text-white/50 ring-1 ring-white/10">
                     {name}さん
                   </span>
                 ))}
               </div>
-              <div className="rounded-2xl bg-stone-50 px-4 py-3">
+              <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/8">
                 <textarea
                   value={editableMaybeConfirmText}
                   onChange={(e) => setEditableMaybeConfirmText(e.target.value)}
                   rows={4}
-                  className="w-full resize-none bg-transparent text-base leading-6 text-stone-700 outline-none"
+                  className="w-full resize-none bg-transparent text-base leading-6 text-white/80 outline-none"
                 />
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
@@ -3769,7 +3711,7 @@ return (
                     setMaybeCopied(true)
                     setTimeout(() => setMaybeCopied(false), 1600)
                   }}
-                  className="inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-bold text-stone-700 ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.98]"
+                  className="inline-flex items-center justify-center rounded-2xl bg-white/8 px-4 py-3 text-sm font-bold text-white/70 ring-1 ring-white/12 transition hover:bg-white/12 active:scale-[0.98]"
                 >
                   {maybeCopied ? 'コピーしました' : 'コピー'}
                 </button>
@@ -3789,7 +3731,7 @@ return (
       )}
     </div>
 
-    <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+    <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#000000] via-[#000000]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
       <PrimaryBtn size="large" onClick={() => {
         if (skipStoreCondition && prefilledStore) {
           setStep('storeSuggestion')
@@ -3830,17 +3772,17 @@ return (
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.22, ease: 'easeOut' }}
-                className="rounded-2xl bg-amber-50 px-4 py-3.5 ring-1 ring-amber-200"
+                className="rounded-2xl bg-brand/8 px-4 py-3.5 ring-1 ring-brand/20"
               >
                 <div className="mb-2.5 flex items-center justify-between gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-amber-700">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/15 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-brand">
                     <Sparkles size={9} strokeWidth={2.5} />
                     この会の軸候補
                   </span>
                   <button
                     type="button"
                     onClick={() => setPrefilledStore(null)}
-                    className="text-[10px] text-stone-400 transition hover:text-stone-600"
+                    className="text-[10px] text-white/35 transition hover:text-white/60"
                   >
                     外す
                   </button>
@@ -3851,21 +3793,21 @@ return (
                       <img src={prefilledStore.image} alt={prefilledStore.name} className="h-full w-full object-cover" />
                     </div>
                   ) : (
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100">
-                      <UtensilsCrossed size={16} className="text-amber-500" />
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/15">
+                      <UtensilsCrossed size={16} className="text-brand" />
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-black tracking-tight text-stone-900">{prefilledStore.name}</p>
+                    <p className="truncate text-[14px] font-black tracking-tight text-white">{prefilledStore.name}</p>
                     {prefilledStore.access && (
-                      <p className="mt-0.5 flex items-center gap-1 text-[11px] text-stone-500">
+                      <p className="mt-0.5 flex items-center gap-1 text-[11px] text-white/45">
                         <Train size={9} className="shrink-0" />
                         <span className="line-clamp-1">{prefilledStore.access}</span>
                       </p>
                     )}
                   </div>
                 </div>
-                <p className="mt-2.5 text-[11px] leading-5 text-amber-700/70">
+                <p className="mt-2.5 text-[11px] leading-5 text-brand/60">
                   この店を前提に駅・ジャンル・価格帯を調整してください。
                 </p>
               </motion.div>
@@ -3886,7 +3828,7 @@ return (
                     {genreRanking.map(({ genre, count }, i) => (
                       <span key={genre} className={cx(
                         'rounded-full px-2.5 py-0.5 text-[11px] font-semibold',
-                        i === 0 ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-500'
+                        i === 0 ? 'bg-brand text-black' : 'bg-stone-100 text-stone-500'
                       )}>
                         {genre}
                         <span className="ml-1 opacity-50 font-normal">{count}</span>
@@ -3978,7 +3920,7 @@ return (
             </div>
 
             {/* CTA — sticky bottom */}
-            <div className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+            <div className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#000000] via-[#000000]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
               <PrimaryBtn size="large" onClick={startStoreSuggestion}>
                 {isLoadingStores ? '候補を探しています…' : 'この条件でお店を提案してもらう'}
               </PrimaryBtn>
@@ -4088,7 +4030,7 @@ return (
 
         {/* 軸候補モード CTA */}
         <motion.div
-          className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5"
+          className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#000000] via-[#000000]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.3 }}
@@ -4178,31 +4120,26 @@ return (
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="overflow-hidden rounded-3xl ring-1 ring-white/10"
-              style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
+              className="overflow-hidden rounded-3xl"
+              style={{ background: 'var(--brand)' }}
             >
-              {/* 上部ゴールドライン */}
-              <div className="h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
-
-              {/* 画像エリア */}
+              {/* 画像エリア（ある場合） */}
               {primaryStore.image && (
-                <div className="relative h-52 overflow-hidden sm:h-60">
+                <div className="relative h-44 overflow-hidden sm:h-52">
                   <img
                     src={primaryStore.image}
                     alt={primaryStore.name}
                     className="h-full w-full object-cover object-center"
-                    style={{ filter: 'brightness(0.45)' }}
+                    style={{ filter: 'brightness(0.75)' }}
                   />
-                  {/* グラデーションオーバーレイ（グリーン寄り） */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0e1c10]/90 via-[#0e1c10]/20 to-transparent" />
                   {/* Google評価（画像右下） */}
                   {primaryStore.googleRating && (
-                    <div className="absolute bottom-3 right-4 flex items-center gap-1 rounded-full bg-black/40 px-2.5 py-1 backdrop-blur-sm">
-                      <Star size={10} className="fill-amber-400 text-amber-400" />
-                      <span className="text-[11px] font-bold text-white">
+                    <div className="absolute bottom-3 right-4 flex items-center gap-1 rounded-full bg-black px-2.5 py-1">
+                      <Star size={10} className="fill-brand text-brand" />
+                      <span className="text-[11px] font-bold text-brand">
                         {primaryStore.googleRating.toFixed(1)}
                         {primaryStore.googleRatingCount
-                          ? <span className="ml-0.5 font-normal text-white/60">（{primaryStore.googleRatingCount.toLocaleString()}件）</span>
+                          ? <span className="ml-0.5 font-normal text-brand/70">（{primaryStore.googleRatingCount.toLocaleString()}件）</span>
                           : null}
                       </span>
                     </div>
@@ -4211,61 +4148,62 @@ return (
               )}
 
               {/* テキスト + 情報 */}
-              <div className="px-6 pt-5 pb-4">
-                {/* Best Choice ラベル */}
-                <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(214,175,60,0.65)' }}>
+              <div className="px-5 pt-5 pb-4">
+                {/* Best Choice ラベル: 黒チップ */}
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-black px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-brand">
                   <Sparkles size={9} strokeWidth={2.5} />
                   Best Choice
-                </p>
+                </span>
                 {/* 店名 */}
-                <h3 className="mt-2 text-[22px] font-black tracking-tight text-white leading-snug">
+                <h3 className="mt-3 text-[22px] font-black tracking-tight text-black leading-snug">
                   {primaryStore.name}
                 </h3>
                 {/* アクセス */}
                 {primaryStore.access && (
                   <div className="mt-1.5 flex items-start gap-1.5">
-                    <Train size={11} className="mt-0.5 shrink-0 text-white/35" />
-                    <p className="text-xs leading-5 text-white/40">{primaryStore.access}</p>
+                    <Train size={11} className="mt-0.5 shrink-0 text-black/40" />
+                    <p className="text-xs leading-5 text-black/50">{primaryStore.access}</p>
                   </div>
                 )}
 
-                {/* ── 理由セクション ────────────────────────────── */}
+                {/* 理由セクション */}
                 {storeReasons.length > 0 && (
-                  <div className="mt-5">
-                    <p className="mb-2.5 text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: 'rgba(74,222,128,0.55)' }}>
+                  <div className="mt-4">
+                    <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-black/40">
                       この条件に合う理由
                     </p>
-                    <ul className="space-y-1.5">
+                    <ul className="space-y-1">
                       {storeReasons.map((r, i) => (
                         <li key={i} className="flex items-start gap-2">
-                          <span className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400/65" />
-                          <span className="text-[13px] leading-[1.45] text-white/72">{r}</span>
+                          <span className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-black/30" />
+                          <span className="text-[13px] leading-[1.45] text-black/65">{r}</span>
                         </li>
                       ))}
                     </ul>
-                    {/* まとめ文 */}
-                    <p className="mt-3.5 text-[13px] font-bold leading-5 text-white/88">{storeSummary}</p>
+                    {storeSummary && (
+                      <p className="mt-3 text-[13px] font-bold leading-5 text-black/80">{storeSummary}</p>
+                    )}
                   </div>
                 )}
               </div>
 
-              {/* チップ（補助情報・最小限） */}
+              {/* チップ: 黒背景グリーン文字 */}
               {storeChips.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 px-6 pb-5">
+                <div className="flex flex-wrap gap-1.5 px-5 pb-4">
                   {storeChips.map(chip => (
-                    <span key={chip} className="rounded-full bg-white/8 px-2.5 py-0.5 text-[11px] font-semibold text-white/42 ring-1 ring-white/8">
+                    <span key={chip} className="rounded-full bg-black/15 px-2.5 py-0.5 text-[11px] font-semibold text-black/60">
                       {chip}
                     </span>
                   ))}
                 </div>
               )}
 
-              {/* リンク — store_only は「詳細確認」、full は「予約」 */}
+              {/* リンクボタン: 黒背景グリーン文字 */}
               {primaryStore.link && (
-                <div className="px-6 pb-6 space-y-1.5">
+                <div className="px-5 pb-5 space-y-1.5">
                   <StoreExternalLink
                     href={primaryStore.link}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3.5 text-sm font-black text-stone-900 transition hover:opacity-90 active:scale-[0.98]"
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-3.5 text-sm font-black text-brand transition hover:bg-black/80 active:scale-[0.98]"
                   >
                     <ExternalLink size={14} strokeWidth={2.5} />
                     {appMode === 'store_only' ? 'お店の詳細を確認する' : 'ホットペッパーから予約する'}
@@ -4282,7 +4220,7 @@ return (
           <button
             type="button"
             onClick={() => { void loadFinalDecisionView() }}
-            className="w-full rounded-2xl bg-amber-500/15 py-4 text-[15px] font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
+            className="w-full rounded-2xl py-4 text-[15px] font-black text-black transition active:scale-[0.98]" style={{ background: 'var(--brand)' }}
           >
             この店で決める →
           </button>
@@ -4376,7 +4314,7 @@ return (
         {/* store_only CTA — sticky bottom（full モードは非表示） */}
         {appMode === 'store_only' && (
           <motion.div
-            className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5"
+            className="sticky bottom-0 -mx-4 space-y-2 bg-gradient-to-t from-[#000000] via-[#000000]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.25, duration: 0.3 }}
@@ -4569,7 +4507,7 @@ return (
                         onClick={() => selectManualSearchResult(item)}
                         className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left ring-1 transition active:scale-[0.98] ${
                           isSelected
-                            ? 'bg-emerald-600 ring-emerald-600'
+                            ? 'bg-brand ring-brand'
                             : 'bg-stone-50 ring-stone-100 hover:ring-stone-300'
                         }`}
                       >
@@ -4636,7 +4574,7 @@ return (
             </div>
 
             {/* CTA — sticky bottom */}
-            <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4">
+            <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-t from-[#000000] via-[#000000]/95 to-transparent px-4 pb-6 pt-4">
               <div className="mx-auto max-w-xl space-y-2">
                 {/* Hot Pepper URL のときだけ表示 — LinkSwitch により自動アフィリエイト変換される */}
                 {manualStoreUrl && /hotpepper\.jp/i.test(manualStoreUrl) && (
@@ -4707,34 +4645,34 @@ ${finalStore?.link ?? ''}`
       return (
         <div className="space-y-4">
           {/* 決定内容 */}
-          <div className="overflow-hidden rounded-3xl bg-stone-900">
+          <div className="overflow-hidden rounded-3xl" style={{ background: 'var(--brand)' }}>
             <div className="px-6 py-6">
-              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">Final Summary</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-black/40">Final Summary</p>
               <div className="mt-4 space-y-4">
                 <div>
-                  <p className="text-xs font-bold text-white/40">日程</p>
-                  <p className="mt-1 text-2xl font-black text-white">
+                  <p className="text-xs font-bold text-black/50">日程</p>
+                  <p className="mt-1 text-2xl font-black text-black">
                     {finalSelectedDate?.label ?? heroDate?.label ?? '未設定'}
                   </p>
-                  <p className="mt-1 text-sm font-bold text-white/60">
+                  <p className="mt-1 text-sm font-bold text-black/55">
                     最大参加人数 {finalYesParticipants.length + finalMaybeParticipants.length}人
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-white/40">お店</p>
+                  <p className="text-xs font-bold text-black/50">お店</p>
                   {isManualStore && !manualStoreName ? (
                     <div>
-                      <p className="mt-1 text-base font-bold text-white/50">お店は未登録です</p>
-                      <p className="mt-0.5 text-xs text-white/30">あとで追記できます</p>
+                      <p className="mt-1 text-base font-bold text-black/50">お店は未登録です</p>
+                      <p className="mt-0.5 text-xs text-black/35">あとで追記できます</p>
                     </div>
                   ) : (
                     <>
-                      <p className="mt-1 text-xl font-black text-white">{finalStore?.name ?? '未設定'}</p>
+                      <p className="mt-1 text-xl font-black text-black">{finalStore?.name ?? '未設定'}</p>
                       {finalStore?.area && (
-                        <p className="mt-0.5 text-sm text-white/50">{finalStore.area}</p>
+                        <p className="mt-0.5 text-sm text-black/55">{finalStore.area}</p>
                       )}
                       {isManualStore && manualStoreMemo && (
-                        <p className="mt-0.5 text-xs text-white/40">{manualStoreMemo}</p>
+                        <p className="mt-0.5 text-xs text-black/45">{manualStoreMemo}</p>
                       )}
                     </>
                   )}
@@ -4743,15 +4681,15 @@ ${finalStore?.link ?? ''}`
               <button
   type="button"
   onClick={() => setShowHeroParticipants((v) => !v)}
-  className="mt-3 text-xs font-bold text-white/70 underline"
+  className="mt-3 text-xs font-bold text-black/60 underline"
 >
   {showHeroParticipants ? '参加者を閉じる' : '参加者を見る'}
 </button>
 
 {showHeroParticipants && (
   <div className="mt-4 space-y-3">
-    <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300/80">
+    <div className="rounded-2xl bg-black/10 px-4 py-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/50">
         参加予定
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
@@ -4759,19 +4697,19 @@ ${finalStore?.link ?? ''}`
           finalYesParticipants.map((p) => (
             <span
               key={p.id}
-              className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20"
+              className="rounded-full bg-black px-3 py-1 text-xs font-bold text-brand"
             >
               {p.name}
             </span>
           ))
         ) : (
-          <span className="text-xs text-white/40">まだいません</span>
+          <span className="text-xs text-black/40">まだいません</span>
         )}
       </div>
     </div>
 
-    <div className="rounded-2xl bg-white/5 px-4 py-3 ring-1 ring-white/10">
-      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300/80">
+    <div className="rounded-2xl bg-black/10 px-4 py-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-black/40">
         調整中
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
@@ -4779,33 +4717,33 @@ ${finalStore?.link ?? ''}`
           finalMaybeParticipants.map((p) => (
             <span
               key={p.id}
-              className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20"
+              className="rounded-full bg-black/20 px-3 py-1 text-xs font-bold text-black/60"
             >
               {p.name}
             </span>
           ))
         ) : (
-          <span className="text-xs text-white/40">まだいません</span>
+          <span className="text-xs text-black/40">まだいません</span>
         )}
       </div>
     </div>
   </div>
 )}
             </div>
-            <div className="flex flex-wrap gap-2 bg-white/[0.06] px-6 py-4">
-              <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 ring-1 ring-emerald-400/20">
+            <div className="flex flex-wrap gap-2 bg-black/10 px-6 py-4">
+              <span className="rounded-full bg-black px-3 py-1 text-xs font-bold text-brand">
                 参加予定 {finalYesParticipants.length}人
               </span>
-              <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 ring-1 ring-amber-400/20">
+              <span className="rounded-full bg-black/20 px-3 py-1 text-xs font-bold text-black/60">
                 調整中 {finalMaybeParticipants.length}人
               </span>
               {eventType && (
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
+                <span className="rounded-full bg-black/15 px-3 py-1 text-xs font-semibold text-black/55">
                   {eventType}
                 </span>
               )}
               {effectiveTags.map((tag) => (
-                <span key={tag} className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/60">
+                <span key={tag} className="rounded-full bg-black/15 px-3 py-1 text-xs font-semibold text-black/55">
                   {tag}
                 </span>
               ))}
@@ -4819,9 +4757,9 @@ ${finalStore?.link ?? ''}`
             return isReserved ? (
               <>
                 {/* 予約完了バッジ */}
-                <div className="flex items-center gap-2 rounded-2xl bg-emerald-500/10 px-4 py-3.5 ring-1 ring-emerald-500/25">
-                  <CheckCircle2 size={14} className="shrink-0 text-emerald-400" strokeWidth={2.5} />
-                  <p className="text-[12px] font-black text-emerald-300">予約完了しました</p>
+                <div className="flex items-center gap-2 rounded-2xl bg-brand/10 px-4 py-3.5 ring-1 ring-brand/25">
+                  <CheckCircle2 size={14} className="shrink-0 text-brand" strokeWidth={2.5} />
+                  <p className="text-[12px] font-black text-brand">予約完了しました</p>
                 </div>
 
                 {/* 共有文 */}
@@ -4858,11 +4796,11 @@ ${finalStore?.link ?? ''}`
                 </div>
 
                 {/* 精算CTA */}
-                <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+                <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#000000] via-[#000000]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
                   <button
                     type="button"
                     onClick={() => setStep('settlement')}
-                    className="inline-flex w-full items-center justify-center rounded-2xl bg-amber-500/15 px-4 py-3.5 text-sm font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
+                    className="inline-flex w-full items-center justify-center rounded-2xl px-4 py-3.5 text-sm font-black text-black transition active:scale-[0.98]" style={{ background: 'var(--brand)' }}
                   >
                     会計をまとめる（清算）→
                   </button>
@@ -4870,7 +4808,7 @@ ${finalStore?.link ?? ''}`
               </>
             ) : (
               /* 未予約 → 予約確認パネルのみ（共有・精算は非表示） */
-              <div className="sticky bottom-0 -mx-4 space-y-3 bg-gradient-to-t from-[#111111] via-[#111111]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
+              <div className="sticky bottom-0 -mx-4 space-y-3 bg-gradient-to-t from-[#000000] via-[#000000]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
                 {finalStore?.link && (
                   <StoreExternalLink
                     href={finalStore.link}
@@ -4889,7 +4827,7 @@ ${finalStore?.link ?? ''}`
                         const id = createdEventId || finalEvent?.id
                         if (id) updateEventStatus(id, 'reserved')
                       }}
-                      className="flex-1 rounded-xl bg-emerald-500/15 py-2.5 text-[13px] font-black text-emerald-300 ring-1 ring-emerald-500/30 transition hover:bg-emerald-500/20 active:scale-[0.98]"
+                      className="flex-1 rounded-xl bg-brand/15 py-2.5 text-[13px] font-black text-brand ring-1 ring-brand/30 transition hover:bg-brand/20 active:scale-[0.98]"
                     >
                       予約しました
                     </button>
@@ -5064,7 +5002,7 @@ ${finalStore?.link ?? ''}`
                         <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[10px] font-black text-stone-500">{store.eventType}</span>
                         <span className="text-[11px] text-stone-400">{store.area}</span>
                         {store.rating === '◎' && (
-                          <span className="text-[10px] font-black text-emerald-600">また使いたい</span>
+                          <span className="text-[10px] font-black text-brand">また使いたい</span>
                         )}
                       </div>
                       <p className="text-base font-black text-stone-900 tracking-tight">{store.name}</p>
@@ -5198,7 +5136,7 @@ ${finalStore?.link ?? ''}`
                       }
                       className={`rounded-full px-4 py-2 text-sm font-bold ring-1 transition active:scale-95 ${
                         selected
-                          ? 'bg-emerald-500 text-white ring-emerald-500'
+                          ? 'bg-brand text-black ring-brand'
                           : 'bg-stone-50 text-stone-600 ring-stone-200 hover:bg-stone-100'
                       }`}
                     >
@@ -5336,7 +5274,7 @@ ${finalStore?.link ?? ''}`
                 <div className="px-5 space-y-5">
                   {/* 見出し */}
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-400/70">作成完了</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.25em] text-brand/70">作成完了</p>
                     <h3 className="mt-1 text-xl font-black tracking-tight text-white">会を作りました</h3>
                     <p className="mt-1 text-sm text-white/45">参加者にリンクを送って回答を集めましょう。</p>
                   </div>
@@ -5351,7 +5289,7 @@ ${finalStore?.link ?? ''}`
                     <button
                       type="button"
                       onClick={() => { setDecisionSheet(null); setStep('dashboard') }}
-                      className="w-full rounded-2xl bg-amber-500/15 py-3 text-sm font-bold text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
+                      className="w-full rounded-2xl py-3 text-sm font-bold text-black transition active:scale-[0.98]" style={{ background: 'var(--brand)' }}
                     >
                       回答状況を見る →
                     </button>
@@ -5374,10 +5312,10 @@ ${finalStore?.link ?? ''}`
                     className="overflow-hidden rounded-2xl ring-1 ring-white/10"
                     style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
                   >
-                    <div className="h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+                    <div className="h-px bg-gradient-to-r from-transparent via-brand/40 to-transparent" />
                     <div className="px-5 py-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.25em]" style={{ color: 'rgba(214,175,60,0.65)' }}>日程が決まりました</p>
-                      <p className="mt-1.5 text-2xl font-black" style={{ color: '#d4af3c' }}>{decisionSheet.dateLabel}</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em]" style={{ color: 'rgba(60,197,90,0.70)' }}>日程が決まりました</p>
+                      <p className="mt-1.5 text-2xl font-black" style={{ color: '#3CC55A' }}>{decisionSheet.dateLabel}</p>
                     </div>
                   </div>
                   {/* 送り分けタブ */}
@@ -5417,7 +5355,7 @@ ${finalStore?.link ?? ''}`
                           setStep('organizerConditions')
                         }
                       }}
-                      className="w-full rounded-2xl bg-amber-500/15 py-3.5 text-[15px] font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
+                      className="w-full rounded-2xl py-3.5 text-[15px] font-black text-black transition active:scale-[0.98]" style={{ background: 'var(--brand)' }}
                     >
                       お店を決める →
                     </button>
@@ -5439,15 +5377,16 @@ ${finalStore?.link ?? ''}`
                   <div className="px-5 space-y-5">
                     {/* 決定内容 */}
                     <div
-                      className="overflow-hidden rounded-2xl ring-1 ring-white/10"
-                      style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
+                      className="overflow-hidden rounded-2xl"
+                      style={{ background: 'var(--brand)' }}
                     >
-                      <div className="h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
                       <div className="px-5 py-4">
-                        <p className="text-[10px] font-black uppercase tracking-[0.25em]" style={{ color: 'rgba(214,175,60,0.65)' }}>お店が決まりました</p>
-                        <p className="mt-1.5 text-xl font-black text-white leading-snug">{decisionSheet.storeName}</p>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-black px-2.5 py-1 text-[10px] font-black text-brand">
+                          <Check size={9} strokeWidth={3} />&nbsp;お店が決まりました
+                        </span>
+                        <p className="mt-2 text-xl font-black text-black leading-snug">{decisionSheet.storeName}</p>
                         {heroDate && (
-                          <p className="mt-1 text-sm text-white/45">{heroDate.label}</p>
+                          <p className="mt-1 text-sm text-black/55">{heroDate.label}</p>
                         )}
                       </div>
                     </div>
@@ -5456,9 +5395,9 @@ ${finalStore?.link ?? ''}`
                       /* ── 予約完了後 ── */
                       <>
                         {/* 完了バッジ */}
-                        <div className="flex items-center gap-2 rounded-2xl bg-emerald-500/10 px-4 py-3.5 ring-1 ring-emerald-500/25">
-                          <CheckCircle2 size={14} className="shrink-0 text-emerald-400" strokeWidth={2.5} />
-                          <p className="text-[12px] font-black text-emerald-300">予約完了しました</p>
+                        <div className="flex items-center gap-2 rounded-2xl bg-brand/10 px-4 py-3.5 ring-1 ring-brand/25">
+                          <CheckCircle2 size={14} className="shrink-0 text-brand" strokeWidth={2.5} />
+                          <p className="text-[12px] font-black text-brand">予約完了しました</p>
                         </div>
                         {/* 共有パネル */}
                         <SharePanel
@@ -5472,7 +5411,8 @@ ${finalStore?.link ?? ''}`
                           <button
                             type="button"
                             onClick={() => { setDecisionSheet(null); setStep('settlement') }}
-                            className="w-full rounded-2xl bg-amber-500/15 py-3.5 text-sm font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
+                            className="w-full rounded-2xl py-3.5 text-sm font-black text-black transition active:scale-[0.98]"
+                            style={{ background: 'var(--brand)' }}
                           >
                             精算へ進む →
                           </button>
@@ -5508,7 +5448,7 @@ ${finalStore?.link ?? ''}`
                                 const id = createdEventId || finalEvent?.id
                                 if (id) updateEventStatus(id, 'reserved')
                               }}
-                              className="flex-1 rounded-xl bg-emerald-500/15 py-2.5 text-[13px] font-black text-emerald-300 ring-1 ring-emerald-500/30 transition hover:bg-emerald-500/20 active:scale-[0.98]"
+                              className="flex-1 rounded-xl bg-brand/15 py-2.5 text-[13px] font-black text-brand ring-1 ring-brand/30 transition hover:bg-brand/20 active:scale-[0.98]"
                             >
                               予約しました
                             </button>
@@ -5648,7 +5588,8 @@ ${finalStore?.link ?? ''}`
                             <button
                               type="button"
                               onClick={goHome}
-                              className="w-full rounded-2xl bg-amber-500/15 py-3.5 text-sm font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
+                              className="w-full rounded-2xl py-3.5 text-sm font-black text-black transition active:scale-[0.98]"
+                              style={{ background: 'var(--brand)' }}
                             >
                               このお店をお気に入り登録
                             </button>
@@ -5727,21 +5668,21 @@ function FlowProgress({ step }: { step: Step }) {
             <div className="flex items-center gap-1.5">
               <div className={cx(
                 'flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors duration-300',
-                done ? 'bg-emerald-900/60 text-emerald-400'
-                  : active ? 'bg-emerald-500/20 text-emerald-300'
+                done ? 'bg-brand/20 text-brand'
+                  : active ? 'bg-brand/15 text-brand/70'
                   : 'bg-white/6 text-white/20'
               )}>
                 {PHASE_ICONS[p]}
               </div>
               <div className={cx(
                 'h-[3px] flex-1 rounded-full transition-all duration-500',
-                done ? 'bg-emerald-500' : active ? 'bg-emerald-400' : 'bg-white/12'
+                done ? 'bg-brand' : active ? 'bg-brand/60' : 'bg-white/12'
               )} />
             </div>
             {/* ラベル */}
             <p className={cx(
               'pl-0.5 text-[9px] font-black tracking-[0.14em] transition-colors duration-300',
-              done || active ? 'text-emerald-400/70' : 'text-white/20'
+              done || active ? 'text-brand/70' : 'text-white/20'
             )}>
               {PHASE_LABELS[p]}
             </p>
@@ -5868,8 +5809,9 @@ function PrimaryBtn({
         size === 'large' ? 'py-4 text-[15px]' : 'py-3 text-sm',
         disabled
           ? 'cursor-not-allowed bg-white/10 text-white/30'
-          : 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/40 hover:bg-amber-500/20'
+          : 'text-black'
       )}
+      style={disabled ? undefined : { background: 'var(--brand)' }}
     >
       {children}
     </motion.button>
@@ -6008,15 +5950,15 @@ function CalendarPicker({
               onClick={() => onDayClick(dateKeyValue)}
               className={cx(
                 'relative flex h-10 w-10 flex-col items-center justify-center rounded-xl text-sm font-bold transition-all duration-150',
-                isSelected && 'scale-[1.08] bg-emerald-500 text-white ring-1 ring-emerald-400 shadow-[0_0_10px_rgba(34,197,94,0.4)]',
-                !isSelected && isToday && !isDisabledBefore && 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-300',
+                isSelected && 'scale-[1.08] bg-brand text-black ring-1 ring-brand shadow-[0_0_10px_rgba(60,197,90,0.4)]',
+                !isSelected && isToday && !isDisabledBefore && 'bg-brand/10 text-brand ring-1 ring-brand/30',
                 !isSelected && !isToday && !isDisabledBefore && !isWeekend && 'bg-white text-stone-700 ring-1 ring-stone-200 hover:bg-stone-50',
                 !isSelected && !isToday && !isDisabledBefore && isWeekend && 'bg-stone-50 text-stone-400 ring-1 ring-stone-200 hover:bg-stone-100',
                 isDisabledBefore && 'cursor-not-allowed bg-stone-50 text-stone-300 ring-1 ring-stone-100'
               )}
             >
               {date.getDate()}
-              {isToday && <span className="absolute bottom-0.5 text-[7px] font-black leading-none text-emerald-500">今日</span>}
+              {isToday && <span className="absolute bottom-0.5 text-[7px] font-black leading-none text-brand">今日</span>}
             </button>
           )
         })}

@@ -1,40 +1,63 @@
 @import "tailwindcss";
 
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   KANJI Design Tokens
+   Black × Brand Green — 金・暖色は使わない
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 :root {
-  --background: #111111;
-  --foreground: #ffffff;
+  /* Backgrounds */
+  --background:   #000000;
+  --ink-soft:     #0B0D0B;
+  --ink-raise:    #141714;
+  --ink-line:     #1F2420;
+
+  /* Brand green */
+  --brand:        #3CC55A;
+  --brand-deep:   #1F7A38;
+  --brand-light:  #4FD16A;
+  --brand-glow:   #7FE89A;
+
+  /* Text */
+  --foreground:   #FFFFFF;
+  --text-mute:    rgba(255,255,255,0.62);
+  --text-faint:   rgba(255,255,255,0.38);
+  --text-ghost:   rgba(255,255,255,0.16);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background:  #000000;
+  --color-foreground:  #ffffff;
+  --color-brand:       #3CC55A;
+  --color-brand-deep:  #1F7A38;
+  --color-brand-light: #4FD16A;
+  --color-brand-glow:  #7FE89A;
+  --font-sans: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", system-ui, sans-serif;
+  --font-num:  "Inter", "Helvetica Neue", "Hiragino Kaku Gothic ProN", sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", system-ui, sans-serif;
 }
 
-/* ── Dark theme overrides (unlayered = higher cascade than @layer utilities) ── */
-/* ベースはニュートラルグレー。BESTヒーローカード(bg-stone-900)のみ森林グリーン。 */
-
-.bg-white        { background-color: #1d1d1d !important; }
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Stone → Ink dark overrides
+   （Tailwind の stone-* を ink パレットに差し替え）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.bg-white        { background-color: var(--ink-raise) !important; }
 .bg-stone-50     { background-color: rgba(255,255,255,0.04) !important; }
-.bg-stone-100    { background-color: rgba(255,255,255,0.07) !important; }
-.bg-stone-200    { background-color: rgba(255,255,255,0.11) !important; }
-.bg-stone-300    { background-color: rgba(255,255,255,0.18) !important; }
-/* bg-stone-900 はBESTカード/ヒーローカード用。森林グリーンを残す。 */
-.bg-stone-900    { background-color: #1b3320 !important; }
-.bg-stone-800    { background-color: rgba(255,255,255,0.11) !important; }
+.bg-stone-100    { background-color: rgba(255,255,255,0.06) !important; }
+.bg-stone-200    { background-color: rgba(255,255,255,0.10) !important; }
+.bg-stone-300    { background-color: rgba(255,255,255,0.16) !important; }
+.bg-stone-900    { background-color: var(--ink-raise) !important; }
+.bg-stone-800    { background-color: rgba(255,255,255,0.10) !important; }
 
-.hover\:bg-stone-900:hover { background-color: #1e3822 !important; }
-.hover\:bg-stone-800:hover { background-color: rgba(255,255,255,0.15) !important; }
-.hover\:bg-white:hover  { background-color: #252525 !important; }
-.hover\:bg-stone-50:hover { background-color: rgba(255,255,255,0.07) !important; }
-.hover\:bg-stone-100:hover { background-color: rgba(255,255,255,0.1) !important; }
+.hover\:bg-stone-900:hover  { background-color: #1a1f1b !important; }
+.hover\:bg-stone-800:hover  { background-color: rgba(255,255,255,0.14) !important; }
+.hover\:bg-white:hover      { background-color: #1c201d !important; }
+.hover\:bg-stone-50:hover   { background-color: rgba(255,255,255,0.07) !important; }
+.hover\:bg-stone-100:hover  { background-color: rgba(255,255,255,0.09) !important; }
 
 .text-stone-900  { color: #ffffff !important; }
 .text-stone-800  { color: rgba(255,255,255,0.90) !important; }
@@ -48,17 +71,79 @@ body {
 .hover\:text-stone-700:hover { color: rgba(255,255,255,0.75) !important; }
 .hover\:text-stone-600:hover { color: rgba(255,255,255,0.60) !important; }
 
-.ring-stone-100  { --tw-ring-color: rgba(255,255,255,0.08) !important; }
-.ring-stone-200  { --tw-ring-color: rgba(255,255,255,0.12) !important; }
-.ring-stone-300  { --tw-ring-color: rgba(255,255,255,0.18) !important; }
-.ring-stone-900  { --tw-ring-color: rgba(255,255,255,0.25) !important; }
+.ring-stone-100  { --tw-ring-color: rgba(255,255,255,0.07) !important; }
+.ring-stone-200  { --tw-ring-color: rgba(255,255,255,0.11) !important; }
+.ring-stone-300  { --tw-ring-color: rgba(255,255,255,0.16) !important; }
+.ring-stone-900  { --tw-ring-color: rgba(255,255,255,0.22) !important; }
 
-.border-stone-100 { border-color: rgba(255,255,255,0.08) !important; }
-.border-stone-200 { border-color: rgba(255,255,255,0.12) !important; }
-.border-stone-300 { border-color: rgba(255,255,255,0.18) !important; }
+.border-stone-100 { border-color: rgba(255,255,255,0.07) !important; }
+.border-stone-200 { border-color: rgba(255,255,255,0.11) !important; }
+.border-stone-300 { border-color: rgba(255,255,255,0.16) !important; }
 
-.divide-stone-100 > * + * { border-color: rgba(255,255,255,0.08) !important; }
-.divide-stone-200 > * + * { border-color: rgba(255,255,255,0.12) !important; }
+.divide-stone-100 > * + * { border-color: rgba(255,255,255,0.07) !important; }
+.divide-stone-200 > * + * { border-color: rgba(255,255,255,0.11) !important; }
 
-.shadow-sm { box-shadow: 0 1px 4px rgba(0,0,0,0.45) !important; }
-.shadow-md { box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important; }
+.shadow-sm { box-shadow: 0 1px 4px rgba(0,0,0,0.55) !important; }
+.shadow-md { box-shadow: 0 4px 12px rgba(0,0,0,0.60) !important; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Amber → Brand Green overrides
+   金・暖色をブランドグリーンに全置換
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+
+/* テキスト */
+.text-amber-300  { color: var(--brand) !important; }
+.text-amber-400  { color: var(--brand-light) !important; }
+.text-amber-500  { color: var(--brand) !important; }
+.text-amber-600  { color: var(--brand) !important; }
+.text-amber-800  { color: var(--brand-deep) !important; }
+
+.hover\:text-amber-300:hover { color: var(--brand) !important; }
+.text-amber-700  { color: var(--brand-deep) !important; }
+.text-amber-200  { color: var(--brand-glow) !important; }
+
+/* opacity 修飾子バリアント */
+.text-amber-300\/80  { color: rgba(60,197,90,0.80) !important; }
+.text-amber-300\/70  { color: rgba(60,197,90,0.70) !important; }
+.text-amber-400\/70  { color: rgba(60,197,90,0.70) !important; }
+.text-amber-500\/80  { color: rgba(60,197,90,0.80) !important; }
+
+/* 背景（透明度バリアント）*/
+.bg-amber-50          { background-color: rgba(60,197,90,0.07) !important; }
+.bg-amber-100         { background-color: rgba(60,197,90,0.10) !important; }
+.bg-amber-500\/15     { background-color: rgba(60,197,90,0.12) !important; }
+.bg-amber-500\/20     { background-color: rgba(60,197,90,0.16) !important; }
+.bg-amber-500\/25     { background-color: rgba(60,197,90,0.18) !important; }
+
+.hover\:bg-amber-500\/20:hover { background-color: rgba(60,197,90,0.18) !important; }
+
+/* リング */
+.ring-amber-100       { --tw-ring-color: rgba(60,197,90,0.10) !important; }
+.ring-amber-200       { --tw-ring-color: rgba(60,197,90,0.16) !important; }
+.ring-amber-400\/20   { --tw-ring-color: rgba(60,197,90,0.20) !important; }
+.ring-amber-500\/25   { --tw-ring-color: rgba(60,197,90,0.25) !important; }
+.ring-amber-500\/30   { --tw-ring-color: rgba(60,197,90,0.30) !important; }
+.ring-amber-500\/40   { --tw-ring-color: rgba(60,197,90,0.40) !important; }
+
+/* グラデーション経由色 */
+.via-amber-500\/40    { --tw-gradient-via: rgba(60,197,90,0.40) !important; }
+.via-amber-500\/50    { --tw-gradient-via: rgba(60,197,90,0.50) !important; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Brand Green utilities
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.bg-brand          { background-color: var(--brand) !important; }
+.text-brand        { color: var(--brand) !important; }
+.border-brand      { border-color: var(--brand) !important; }
+.ring-brand        { --tw-ring-color: var(--brand) !important; }
+.shadow-cta        { box-shadow: 0 14px 36px -10px rgba(60,197,90,0.55) !important; }
+.shadow-hero-green { box-shadow: 0 24px 60px -22px rgba(60,197,90,0.45) !important; }
+
+/* fill */
+.fill-amber-400 { fill: var(--brand) !important; }
+
+/* via-brand/40 — ヒーローカードのグラデーションライン */
+.via-brand\/40 {
+  --tw-gradient-via: rgba(60,197,90,0.40) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to) !important;
+}
