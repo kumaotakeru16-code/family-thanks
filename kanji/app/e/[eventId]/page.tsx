@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { createClient } from '@supabase/supabase-js'
-import { CalendarDays, ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -192,6 +192,13 @@ export default function EventParticipantPage() {
     return label.split(' ')[0]
   }
 
+  // "4/29（水）19:00" → { dayPart: "4/29", weekday: "水", time: "19:00" }
+  function parseDateLabelParts(label: string): { dayPart: string; weekday: string; time: string } {
+    const m = label.match(/^(\d+\/\d+)（(.)）(.+)$/)
+    if (!m) return { dayPart: label, weekday: '', time: '' }
+    return { dayPart: m[1], weekday: m[2], time: m[3].trim() }
+  }
+
   const { topDateLabels, showSummary } = useMemo(() => {
     if (responses.length < 3 || dateStats.length === 0) return { topDateLabels: [] as string[], showSummary: false }
     const sorted = [...dateStats].sort((a, b) => {
@@ -267,19 +274,18 @@ export default function EventParticipantPage() {
         <div className="space-y-4">
           {/* 完了カード */}
           <div
-            className="overflow-hidden rounded-3xl ring-1 ring-white/10"
-            style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
+            className="overflow-hidden rounded-3xl"
+            style={{ background: 'var(--brand)' }}
           >
-            <div className="h-px bg-gradient-to-r from-transparent via-brand/40 to-transparent" />
             <div className="px-6 py-8">
-              <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(60,197,90,0.70)' }}>Thanks</p>
-              <h1 className="mt-2 text-[26px] font-black tracking-tight text-white">
+              <p className="text-[10px] font-black uppercase tracking-[0.28em] text-black/50">Thanks</p>
+              <h1 className="mt-2 text-[26px] font-black tracking-tight text-black">
                 回答ありがとうございます
               </h1>
-              <p className="mt-3 text-sm leading-6 text-white/55">
+              <p className="mt-3 text-sm leading-6 text-black/55">
                 幹事がみんなの回答を見て、日程を調整します。
               </p>
-              <p className="mt-3 text-xs leading-5 text-white/35">
+              <p className="mt-3 text-xs leading-5 text-black/40">
                 予定が変わっても大丈夫です。同じ端末・同じブラウザでこのページを開けば、回答をあとから修正できます。
               </p>
             </div>
@@ -290,14 +296,16 @@ export default function EventParticipantPage() {
             <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-white/35">
               この会の幹事が使っているアプリ
             </p>
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-stone-900">
-                <div className="flex flex-col items-center gap-0">
-                  <CalendarDays size={13} className="text-white/80" strokeWidth={1.8} />
-                  <span className="text-[7px] font-black leading-none tracking-tight text-white">幹事</span>
-                </div>
-              </div>
-              <span className="text-sm font-black tracking-wide text-white">KANJI</span>
+            <div className="flex items-center gap-3">
+              <img
+                src="/brand/kanji-app-icon.png"
+                alt="KANJI"
+                width={40}
+                height={40}
+                style={{ objectFit: 'contain', borderRadius: 10 }}
+                draggable={false}
+              />
+              <span className="text-base font-black tracking-wide text-white">KANJI</span>
             </div>
             <p className="mt-2.5 text-xs leading-5 text-white/40">
               幹事のやることを、まとめて進められます
@@ -328,19 +336,26 @@ export default function EventParticipantPage() {
       {isDateConfirmed && (
         <div className="space-y-4 pb-4">
           <div
-            className="overflow-hidden rounded-3xl ring-1 ring-white/10"
-            style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
+            className="overflow-hidden rounded-3xl"
+            style={{ background: 'var(--brand)' }}
           >
-            <div className="h-px bg-gradient-to-r from-transparent via-brand/40 to-transparent" />
-            <div className="px-6 py-7">
-              <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(60,197,90,0.70)' }}>Confirmed</p>
-              <h2 className="mt-2 text-[22px] font-black tracking-tight text-white">日程が確定しました</h2>
-              {confirmedDateLabel && (
-                <p className="mt-3 text-[26px] font-black leading-tight" style={{ color: '#d4af3c' }}>
-                  {confirmedDateLabel}
-                </p>
-              )}
-              <p className="mt-3 text-sm leading-6 text-white/45">
+            <div className="px-6 pt-5 pb-7">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-black px-3 py-1 text-[11px] font-black text-brand">
+                ✓ 確定
+              </span>
+              {confirmedDateLabel && (() => {
+                const { dayPart, weekday, time } = parseDateLabelParts(confirmedDateLabel)
+                return (
+                  <div className="mt-4">
+                    <div className="flex items-end gap-1">
+                      <span className="text-[72px] font-black leading-none tracking-tight text-black">{dayPart}</span>
+                      {weekday && <span className="mb-2.5 text-xl font-bold text-black/60">（{weekday}）</span>}
+                    </div>
+                    {time && <p className="mt-2 text-[22px] font-bold text-black/80">{time}〜</p>}
+                  </div>
+                )
+              })()}
+              <p className="mt-4 text-sm leading-6 text-black/55">
                 回答受付は終了しました。詳細は幹事からの案内をお待ちください。
               </p>
             </div>
@@ -355,36 +370,35 @@ export default function EventParticipantPage() {
           {/* 現時点の状況サマリー（Recommended Date ヒーロー） */}
           {showSummary && (
             <div
-              className="overflow-hidden rounded-3xl ring-1 ring-white/10"
-              style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
+              className="overflow-hidden rounded-3xl"
+              style={{ background: 'var(--brand)' }}
             >
-              <div className="h-px bg-gradient-to-r from-transparent via-brand/40 to-transparent" />
-              <div className="px-6 py-6">
-                <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(60,197,90,0.70)' }}>
-                  Recommended Date
-                </p>
-                {topDateLabels.length === 1 ? (
-                  <>
-                    <p className="mt-2 text-[26px] font-black leading-tight tracking-tight" style={{ color: '#d4af3c' }}>
-                      {topDateLabels[0]}
-                    </p>
-                    <p className="mt-2 text-sm leading-5 text-white/50">
-                      現時点で最も回答が集まっている日程です
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <div className="mt-2 space-y-1">
-                      {topDateLabels.map((label) => (
-                        <p key={label} className="text-[20px] font-black leading-snug tracking-tight" style={{ color: '#d4af3c' }}>
-                          {label}
-                        </p>
-                      ))}
+              <div className="px-6 pt-5 pb-7">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-black px-3 py-1 text-[11px] font-black text-brand">
+                  ✓ 第一候補
+                </span>
+                {topDateLabels.length === 1 ? (() => {
+                  const { dayPart, weekday, time } = parseDateLabelParts(topDateLabels[0])
+                  return (
+                    <div className="mt-4">
+                      <div className="flex items-end gap-1">
+                        <span className="text-[72px] font-black leading-none tracking-tight text-black">{dayPart}</span>
+                        {weekday && <span className="mb-2.5 text-xl font-bold text-black/60">（{weekday}）</span>}
+                      </div>
+                      {time && <p className="mt-2 text-[22px] font-bold text-black/80">{time}〜</p>}
                     </div>
-                    <p className="mt-2 text-sm leading-5 text-white/50">
+                  )
+                })() : (
+                  <div className="mt-4 space-y-1">
+                    {topDateLabels.map((label) => (
+                      <p key={label} className="text-[22px] font-black leading-snug tracking-tight text-black">
+                        {label}
+                      </p>
+                    ))}
+                    <p className="mt-2 text-sm text-black/55">
                       上記の日程に同程度で回答が集まっています
                     </p>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
@@ -594,11 +608,8 @@ export default function EventParticipantPage() {
               type="button"
               onClick={submitResponse}
               disabled={submitting}
-              className="w-full rounded-2xl py-4 text-base font-black text-white transition active:scale-[0.98] disabled:opacity-40"
-              style={{
-                background: 'linear-gradient(180deg, #22c55e 0%, #14532d 100%)',
-                boxShadow: '0 6px 24px rgba(20,83,45,0.55), inset 0 1px 0 rgba(255,255,255,0.14)',
-              }}
+              className="w-full rounded-2xl py-4 text-base font-black text-black transition active:scale-[0.98] disabled:opacity-40"
+              style={{ background: 'var(--brand)' }}
             >
               {submitting ? '送信中…' : hasSavedResponse ? '回答を更新' : '回答を送信'}
             </button>

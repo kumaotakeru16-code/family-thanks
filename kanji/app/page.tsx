@@ -19,7 +19,7 @@ import {
   ArrowRight,
   CalendarDays,
   Users,
-  Receipt,
+
   CalendarPlus,
   ChevronRight,
   ChevronLeft,
@@ -47,6 +47,8 @@ import { StoreExternalLink, AffiliateNote } from '@/app/components/StoreExternal
 import { SharePanel } from '@/app/components/ui'
 import KanjiLogo from '@/app/components/KanjiLogo'
 import KanjiMark from '@/app/components/KanjiMark'
+import { FeatureIcon } from '@/app/components/brand/FeatureIcon'
+import { RatingIcon } from '@/app/components/brand/RatingIcon'
 import {
   type SettlementConfig,
   type SettlementResult,
@@ -2118,9 +2120,16 @@ return (
           initial={{ scale: 0.82, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
-          className="mb-6 flex h-24 w-24 items-center justify-center rounded-[28px] bg-[#0e1c10] ring-1 ring-white/10"
+          className="mb-6"
         >
-          <KanjiLogo size={36} />
+          <img
+            src="/brand/kanji-app-icon.png"
+            alt="KANJI"
+            width={96}
+            height={96}
+            style={{ objectFit: 'contain' }}
+            draggable={false}
+          />
         </motion.div>
         {/* アプリ名 */}
         <motion.p
@@ -2165,7 +2174,13 @@ return (
               onClick={navigateHome}
               className="transition active:opacity-70"
             >
-              <KanjiLogo size={18} />
+              <img
+                src="/brand/kanji-logo.png"
+                alt="KANJI"
+                height={22}
+                style={{ height: 22, width: 'auto', objectFit: 'contain' }}
+                draggable={false}
+              />
             </button>
 
             {/* 右: ホームアイコン */}
@@ -2228,7 +2243,13 @@ return (
               {/* ── ヘッダー ───────────────────────────────────── */}
               <div className="flex items-center justify-between pt-2">
                 <div className="flex items-center gap-2">
-                  <KanjiLogo size={24} />
+                  <img
+                    src="/brand/kanji-logo.png"
+                    alt="KANJI"
+                    height={26}
+                    style={{ height: 26, width: 'auto', objectFit: 'contain' }}
+                    draggable={false}
+                  />
                 </div>
                 <button
                   type="button"
@@ -2267,31 +2288,31 @@ return (
                     {/* 説明 */}
                     <p className="mt-1.5 text-[12px] font-bold text-black/50">{heroCfg.desc}</p>
 
-                    {/* ステップバー */}
-                    <div className="mt-5 flex w-full items-center">
+                    {/* ステップバー — アイコンメイン大型 */}
+                    <div className="mt-5 flex w-full items-end justify-center gap-0">
                       {([
-                        { phase: 1, icon: <CalendarDays size={11} strokeWidth={2.5} />, label: '日程調整' },
-                        { phase: 2, icon: <UtensilsCrossed size={11} strokeWidth={2.5} />, label: 'お店選び' },
-                        { phase: 3, icon: <Receipt size={11} strokeWidth={2.5} />, label: '精算' },
-                      ] as const).map(({ phase, icon, label }, i) => {
+                        { phase: 1, iconType: 'schedule'    as const, label: '日程調整' },
+                        { phase: 2, iconType: 'store'       as const, label: 'お店選び' },
+                        { phase: 3, iconType: 'settlement'  as const, label: '精算' },
+                      ]).map(({ phase, iconType, label }, i) => {
                         const done = heroCfg.phase > phase
                         const active = heroCfg.phase === phase
                         return (
                           <div key={phase} className="flex flex-1 items-center">
-                            <div className="flex flex-1 flex-col items-center gap-1">
-                              <div className={`flex h-7 w-7 items-center justify-center rounded-full transition ${
-                                done   ? 'bg-black/20 text-black/60'
-                                : active ? 'bg-black text-brand'
-                                : 'bg-black/10 text-black/25'
+                            <div className="flex flex-1 flex-col items-center gap-1.5">
+                              <div className={`flex h-12 w-12 items-center justify-center rounded-2xl transition ${
+                                done   ? 'bg-black/50'
+                                : active ? 'bg-black'
+                                : 'bg-black/35'
                               }`}>
-                                {done ? <CheckCircle2 size={12} strokeWidth={2.5} /> : icon}
+                                <FeatureIcon type={iconType} size={26} style={{ opacity: done ? 0.55 : active ? 1 : 0.45 }} />
                               </div>
-                              <p className={`text-[9px] font-black tracking-wide ${
-                                done ? 'text-black/35' : active ? 'text-black/70' : 'text-black/20'
+                              <p className={`text-[10px] font-black tracking-wide ${
+                                done ? 'text-black/40' : active ? 'text-black/70' : 'text-black/30'
                               }`}>{label}</p>
                             </div>
                             {i < 2 && (
-                              <div className={`mb-4 h-px w-6 shrink-0 ${done ? 'bg-black/25' : 'bg-black/12'}`} />
+                              <div className={`mb-6 h-px w-5 shrink-0 ${done ? 'bg-black/25' : 'bg-black/12'}`} />
                             )}
                           </div>
                         )
@@ -2323,47 +2344,40 @@ return (
                   className="w-full overflow-hidden rounded-3xl transition active:scale-[0.98]"
                   style={{ background: 'var(--brand)' }}
                 >
-                  <div className="flex flex-col items-center px-6 pt-7 pb-7 text-center">
-                    {/* アイコン: 黒背景グリーンアイコン */}
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black">
-                      <CalendarPlus size={22} className="text-brand" strokeWidth={2} />
-                    </div>
-                    <p className="mt-3 text-[20px] font-black tracking-tight text-black">イベントを作る</p>
-                    <p className="mt-1 text-[12px] text-black/50">日程調整からスタート</p>
-
-                    {/* ミニフロー */}
+                  <div className="flex flex-col items-center px-6 pt-8 pb-7 text-center">
+                    {/* ミニフロー — アイコンメイン */}
                     {mounted && (() => {
                       const reducedMotion = typeof window !== 'undefined'
                         ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
                         : false
-                      const nodes = [
-                        { icon: <Users size={14} strokeWidth={2} />, label: '参加者' },
-                        { icon: <UtensilsCrossed size={14} strokeWidth={2} />, label: 'お店' },
-                        { icon: <Receipt size={14} strokeWidth={2} />, label: '精算' },
+                      const nodes: { iconType: 'schedule' | 'store' | 'settlement'; label: string }[] = [
+                        { iconType: 'schedule',    label: '日程' },
+                        { iconType: 'store',       label: 'お店' },
+                        { iconType: 'settlement',  label: '精算' },
                       ]
                       return (
                         <>
-                          <div className="mt-6 flex items-center justify-center">
+                          <div className="mt-6 flex items-end justify-center">
                             {nodes.map((node, i) => (
                               <div key={i} className="flex items-center">
-                                <div className="flex flex-col items-center gap-1.5">
-                                  {/* 各ステップ: 黒背景グリーンアイコン */}
-                                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-black text-brand">
-                                    {node.icon}
+                                <div className="flex flex-col items-center gap-2">
+                                  {/* 各ステップ: 黒背景ブランドアイコン — 大型 */}
+                                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-black">
+                                    <FeatureIcon type={node.iconType} size={32} />
                                   </div>
-                                  <p className="text-[9px] font-bold text-black/45">{node.label}</p>
+                                  <p className="text-[10px] font-bold text-black/50">{node.label}</p>
                                 </div>
                                 {i < 2 && (
-                                  <div className="relative mx-2 mb-4 h-px w-8 bg-black/20">
+                                  <div className="relative mx-2 mb-6 h-px w-6 bg-black/25">
                                     {!reducedMotion && (
                                       <motion.div
                                         className="absolute top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-black/50"
-                                        animate={{ x: ['-6px', '38px'], opacity: [0, 1, 1, 0] }}
+                                        animate={{ x: ['-4px', '28px'], opacity: [0, 1, 1, 0] }}
                                         transition={{
                                           duration: 1.0,
                                           repeat: Infinity,
                                           repeatDelay: 2.0,
-                                          delay: i * 0.55,
+                                          delay: i * 0.5,
                                           ease: 'easeInOut',
                                         }}
                                       />
@@ -2373,7 +2387,8 @@ return (
                               </div>
                             ))}
                           </div>
-                          <p className="mt-3 text-[11px] font-bold text-black/40">
+                          <p className="mt-5 text-[22px] font-black tracking-tight text-black">イベントを作る</p>
+                          <p className="mt-1 text-[11px] font-bold text-black/40">
                             入力は1回で、そのままつながる
                           </p>
                         </>
@@ -2453,11 +2468,9 @@ return (
                   <button
                     type="button"
                     onClick={() => { void trackEvent('start_from_store'); startStoreOnlyFlow() }}
-                    className="flex flex-col items-start gap-3 rounded-2xl bg-stone-900 px-4 py-4 ring-1 ring-white/8 transition hover:bg-stone-800 active:scale-95"
+                    className="flex flex-col items-center gap-3 rounded-2xl bg-stone-900 px-4 py-5 text-center ring-1 ring-white/8 transition hover:bg-stone-800 active:scale-95"
                   >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/8">
-                      <UtensilsCrossed size={15} className="text-white/60" strokeWidth={2} />
-                    </div>
+                    <FeatureIcon type="store" size={48} />
                     <div>
                       <p className="text-[13px] font-black tracking-tight text-white/80">お店を探す</p>
                       <p className="mt-0.5 text-[10px] text-white/35">条件を入れてAI提案</p>
@@ -2466,11 +2479,9 @@ return (
                   <button
                     type="button"
                     onClick={() => startSettlementOnlyTool()}
-                    className="flex flex-col items-start gap-3 rounded-2xl bg-stone-900 px-4 py-4 ring-1 ring-white/8 transition hover:bg-stone-800 active:scale-95"
+                    className="flex flex-col items-center gap-3 rounded-2xl bg-stone-900 px-4 py-5 text-center ring-1 ring-white/8 transition hover:bg-stone-800 active:scale-95"
                   >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/8">
-                      <Receipt size={15} className="text-white/60" strokeWidth={2} />
-                    </div>
+                    <FeatureIcon type="settlement" size={48} />
                     <div>
                       <p className="text-[13px] font-black tracking-tight text-white/80">会計を試算する</p>
                       <p className="mt-0.5 text-[10px] text-white/35">傾斜・均等で割り勘</p>
@@ -2974,29 +2985,29 @@ return (
             transition={{ duration: 0.25, ease: 'easeOut' }}
           >
           <div className="px-0.5">
-            <h2 className="text-[22px] font-black tracking-tight text-stone-900">候補日を選ぶ</h2>
+            <h2 className="text-[22px] font-black tracking-tight text-white">候補日を選ぶ</h2>
           </div>
           <Card>
 
             <div>
-              <FieldLabel>イベント名</FieldLabel>
+              <p className="text-sm font-bold text-white/50">イベント名</p>
               <input
                 value={eventName}
                 onChange={e => setEventName(e.target.value)}
                 placeholder="例：歓迎会 / ごはん会"
-                className="mt-2 w-full rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3.5 text-base text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-300 focus:bg-white"
+                className="mt-2 w-full rounded-2xl bg-white/8 px-4 py-3.5 text-base text-white outline-none ring-1 ring-white/12 transition placeholder:text-white/25 focus:ring-brand/50"
               />
             </div>
 
             {/* 候補日選択 */}
-            <div className="mt-6 border-t border-stone-100 pt-5">
-              <div className="mt-3 rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
-                <p className="text-xs font-bold text-stone-600">開始時間</p>
+            <div className="mt-6 border-t border-white/8 pt-5">
+              <div className="mt-3 rounded-2xl bg-white/6 px-4 py-4 ring-1 ring-white/10">
+                <p className="text-xs font-bold text-white/45">開始時間</p>
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <select
                     value={selectedHour}
                     onChange={(e) => setSelectedHour(e.target.value)}
-                    className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-base font-bold text-stone-700 outline-none transition focus:border-stone-400"
+                    className="w-full rounded-2xl bg-white/8 px-3 py-3 text-base font-bold text-white outline-none ring-1 ring-white/12 transition focus:ring-brand/40"
                   >
                     {['17', '18', '19', '20', '21', '22', '23'].map((hour) => (
                       <option key={hour} value={hour}>{hour}時</option>
@@ -3005,7 +3016,7 @@ return (
                   <select
                     value={selectedMinute}
                     onChange={(e) => setSelectedMinute(e.target.value)}
-                    className="w-full rounded-2xl border border-stone-200 bg-white px-3 py-3 text-base font-bold text-stone-700 outline-none transition focus:border-stone-400"
+                    className="w-full rounded-2xl bg-white/8 px-3 py-3 text-base font-bold text-white outline-none ring-1 ring-white/12 transition focus:ring-brand/40"
                   >
                     {['00', '15', '30', '45'].map((minute) => (
                       <option key={minute} value={minute}>{minute}分</option>
@@ -3017,7 +3028,7 @@ return (
               <div className="mt-4 space-y-3">
                 <div className="flex items-center justify-end">
                   <button type="button" onClick={() => setSelectedDateIds([])}
-                    className="text-xs font-bold text-stone-500 underline underline-offset-2">
+                    className="text-xs font-bold text-white/35 underline underline-offset-2 hover:text-white/55">
                     すべて外す
                   </button>
                 </div>
@@ -3060,10 +3071,10 @@ return (
         {(step === 'create' || step === 'dates') && (
           <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#000000] via-[#000000]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">
             {!eventName.trim() && (
-              <p className="mb-2 text-center text-[11px] text-stone-400">会の名前を入力してください</p>
+              <p className="mb-2 text-center text-[11px] text-white/40">会の名前を入力してください</p>
             )}
             {eventName.trim() && selectedDateIds.length === 1 && (
-              <p className="mb-2 text-center text-[11px] text-stone-400">候補日は2日以上選んでください</p>
+              <p className="mb-2 text-center text-[11px] text-white/40">候補日は2日以上選んでください</p>
             )}
             <PrimaryBtn
               size="large"
@@ -3149,9 +3160,9 @@ return (
     transition={{ duration: 0.25, ease: 'easeOut' }}
   >
     <div className="px-0.5">
-      <h2 className="text-[22px] font-black tracking-tight text-stone-900">日程調整を送る</h2>
+      <h2 className="text-[22px] font-black tracking-tight text-white">日程調整を送る</h2>
     </div>
-    <div className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100">
+    <div className="rounded-3xl px-5 py-5 ring-1 ring-white/10" style={{ background: 'var(--ink-raise)' }}>
       <SharePanel
         shareText={editableShareMessage}
         shareUrl={shareUrl}
@@ -3269,9 +3280,8 @@ return (
           className="overflow-hidden rounded-3xl"
           style={{ background: 'var(--brand)' }}
         >
-          {/* ── ヘッダー行: 候補バッジ / 回答カウント ── */}
-          <div className="flex items-center justify-between px-5 pt-5 pb-0">
-            {/* 第一候補: 黒背景グリーン文字 */}
+          {/* ── Row1: チップ（左） ── */}
+          <div className="px-5 pt-5">
             <span
               className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-black ${
                 heroIsBest ? 'bg-black text-brand' : 'bg-black/60 text-brand/70'
@@ -3280,24 +3290,51 @@ return (
               {heroIsBest && <Check size={10} strokeWidth={3} className="mr-0.5" />}
               {heroIsBest ? '第一候補' : '代替候補'}
             </span>
-            {/* 回答バッジ: 黒背景 KanjiMark + カウント */}
-            <span className="inline-flex items-center gap-1.5 rounded-xl bg-black px-2.5 py-1.5 text-[11px] font-bold text-brand">
-              <KanjiMark size={14} color="var(--brand)" />
-              回答 {answerCount}/{activeParticipants.length}
-            </span>
           </div>
 
-          {/* ── 日程（大見出し・黒） ── */}
-          <div className="px-5 pt-3 pb-2">
-            <p className="text-[44px] font-black leading-none tracking-tight text-black">
-              {heroDate?.label}
-            </p>
+          {/* ── Row2: 日付（左）＋ 箇条書き（右）の2カラム — 全体を中央寄せ ── */}
+          <div className="flex items-start justify-center gap-6 px-5 pt-3 pb-2">
+            {/* 左: 日付 */}
+            <div className="shrink-0">
+              {heroDate && (() => {
+                const m = heroDate.label.match(/^(\d+\/\d+)（(.)）(.+)$/)
+                if (!m) return (
+                  <p className="text-[52px] font-black leading-none tracking-tight text-black">{heroDate.label}</p>
+                )
+                const [, dayPart, weekday, time] = m
+                return (
+                  <div>
+                    <div className="flex items-end gap-1">
+                      <span className="text-[56px] font-black leading-none tracking-tight text-black">{dayPart}</span>
+                      <span className="mb-1 text-[20px] font-bold text-black/60">（{weekday}）</span>
+                    </div>
+                    <p className="mt-1 text-[22px] font-bold text-black/75">{time}〜</p>
+                  </div>
+                )
+              })()}
+            </div>
+            {/* 右: 箇条書き */}
+            {heroDateReasons.length > 0 && (
+              <ul className="shrink-0 space-y-1.5 pt-2">
+                {heroDateReasons.map((r, i) => (
+                  <li key={i} className="flex items-center gap-1.5 text-[12px] font-bold text-black/65">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-black/35" />
+                    {r}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
+
+          {/* ── Row3: 総括文（中央） ── */}
+          {heroDateSummary && (
+            <p className="px-5 pb-3 text-center text-[13px] font-bold text-black/60">{heroDateSummary}</p>
+          )}
 
           {/* ── 区切り線 ── */}
           <div className="mx-5 border-t border-black/12" />
 
-          {/* ── 参加者 ── */}
+          {/* ── 参加者（中央） ── */}
           {(heroYesParticipants.length > 0 || heroMaybeParticipants.length > 0) && (() => {
             const MAX_VISIBLE = 5
             const allVisible = [
@@ -3307,13 +3344,12 @@ return (
             const visible = allVisible.slice(0, MAX_VISIBLE)
             const overflow = allVisible.length - MAX_VISIBLE
             return (
-              <div className="px-5 pt-3.5 pb-2">
+              <div className="px-5 pt-4 pb-2 text-center">
                 <p className="mb-2.5 text-[11px] font-bold text-black/55">
                   参加予定 {heroYesParticipants.length}人
                   {heroMaybeParticipants.length > 0 && <span className="ml-1.5 text-black/35">· 調整中 {heroMaybeParticipants.length}人</span>}
                 </p>
-                {/* 参加者チップ: 黒ピルにグリーン文字 */}
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap justify-center gap-1.5">
                   {visible.map((p) => (
                     <span
                       key={p.id}
@@ -3335,22 +3371,23 @@ return (
             )
           })()}
 
-          {/* ── 理由セクション ── */}
-          {heroDateReasons.length > 0 && (
-            <div className="px-5 pb-2 pt-1">
-              <ul className="space-y-0.5">
-                {heroDateReasons.map((r, i) => (
-                  <li key={i} className="flex items-center gap-2 text-[11px] font-bold text-black/50">
-                    <span className="h-1 w-1 shrink-0 rounded-full bg-black/25" />
-                    {r}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {/* ── 回答状況ボタン（カード内・黒/15） ── */}
+          <div className="px-4 pb-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowResponseTable((v) => !v)}
+              className="flex w-full items-center justify-center gap-1.5 rounded-2xl bg-black/15 py-3 text-[13px] font-bold text-black/70 transition active:scale-[0.98]"
+            >
+              回答状況を見る
+              <ChevronDown
+                size={13}
+                className={`transition-transform duration-200 ${showResponseTable ? 'rotate-180' : ''}`}
+              />
+            </button>
+          </div>
 
           {/* ── 決定CTA（黒背景グリーン文字） ── */}
-          <div className="px-4 pb-4 pt-3">
+          <div className="px-4 pb-4 pt-1">
             <button
               type="button"
               onClick={decideRecommendedDate}
@@ -3392,18 +3429,6 @@ return (
             </div>
           </div>
         )}
-
-
-        {/* 回答テーブル（デフォルト非表示・詳細確認用） */}
-        <div className="text-center">
-          <button
-            type="button"
-            onClick={() => setShowResponseTable((v) => !v)}
-            className="text-[12px] text-stone-400 underline underline-offset-2 transition hover:text-stone-600"
-          >
-            {showResponseTable ? '回答テーブルを閉じる' : '回答テーブルを見る'}
-          </button>
-        </div>
         {showResponseTable && (
           <div className="overflow-hidden rounded-3xl px-4 py-4 ring-1 ring-white/8" style={{ background: 'var(--ink-raise)' }}>
             <div className="overflow-x-auto">
@@ -3816,14 +3841,14 @@ return (
             {/* 参加者希望タグ（補助情報） */}
             {genreRanking.length > 0 && (
               <motion.div
-                className="flex items-start gap-3 rounded-2xl bg-stone-50 px-4 py-3.5 ring-1 ring-stone-100"
+                className="flex items-start gap-3 rounded-2xl bg-white/5 px-4 py-3.5 ring-1 ring-white/8"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.2, delay: 0.05 }}
               >
-                <UtensilsCrossed size={13} className="mt-0.5 shrink-0 text-stone-400" />
+                <UtensilsCrossed size={13} className="mt-0.5 shrink-0 text-white/35" />
                 <div className="min-w-0">
-                  <p className="mb-1.5 text-[10px] font-bold tracking-[0.12em] text-stone-400 uppercase">参加者の希望</p>
+                  <p className="mb-1.5 text-[10px] font-bold tracking-[0.12em] text-white/35 uppercase">参加者の希望</p>
                   <div className="flex flex-wrap gap-1.5">
                     {genreRanking.map(({ genre, count }, i) => (
                       <span key={genre} className={cx(
@@ -3840,13 +3865,13 @@ return (
             )}
 
             {/* 条件リスト */}
-            <div className="divide-y divide-stone-100 rounded-2xl bg-white ring-1 ring-stone-200/80 shadow-sm">
+            <div className="divide-y divide-white/8 rounded-2xl ring-1 ring-white/10" style={{ background: 'var(--ink-raise)' }}>
 
               {/* 駅 */}
               <div className="px-4 py-4">
                 <div className="mb-3 flex items-center gap-2">
-                  <MapPin size={13} className="text-stone-400" />
-                  <p className="text-[11px] font-bold tracking-wide text-stone-500 uppercase">駅</p>
+                  <MapPin size={13} className="text-white/35" />
+                  <p className="text-[11px] font-bold tracking-wide text-white/45 uppercase">駅</p>
                 </div>
                 <StationInput
                   single
@@ -3866,9 +3891,9 @@ return (
               {/* ジャンル */}
               <div className="px-4 py-4">
                 <div className="mb-3 flex items-center gap-2">
-                  <UtensilsCrossed size={13} className="text-stone-400" />
-                  <p className="text-[11px] font-bold tracking-wide text-stone-500 uppercase">ジャンル</p>
-                  <span className="text-[10px] text-stone-300">（任意）</span>
+                  <UtensilsCrossed size={13} className="text-white/35" />
+                  <p className="text-[11px] font-bold tracking-wide text-white/45 uppercase">ジャンル</p>
+                  <span className="text-[10px] text-white/25">（任意）</span>
                 </div>
                 {/* 主ジャンル */}
                 <div className="flex flex-wrap gap-2">
@@ -3887,8 +3912,8 @@ return (
               {/* 価格帯 */}
               <div className="px-4 py-4">
                 <div className="mb-3 flex items-center gap-2">
-                  <Wallet size={13} className="text-stone-400" />
-                  <p className="text-[11px] font-bold tracking-wide text-stone-500 uppercase">価格帯</p>
+                  <Wallet size={13} className="text-white/35" />
+                  <p className="text-[11px] font-bold tracking-wide text-white/45 uppercase">価格帯</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {HP_BUDGET_OPTIONS.map(v => (
@@ -3903,8 +3928,8 @@ return (
               {/* 個室 */}
               <div className="px-4 py-4">
                 <div className="mb-3 flex items-center gap-2">
-                  <DoorClosed size={13} className="text-stone-400" />
-                  <p className="text-[11px] font-bold tracking-wide text-stone-500 uppercase">個室</p>
+                  <DoorClosed size={13} className="text-white/35" />
+                  <p className="text-[11px] font-bold tracking-wide text-white/45 uppercase">個室</p>
                 </div>
                 <div className="flex gap-2">
                   {(['どちらでも', 'あり'] as const).map(v => (
@@ -3928,7 +3953,7 @@ return (
                 <button
                   type="button"
                   onClick={enterManualStoreStep}
-                  className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3 text-[13px] font-bold text-stone-500 transition hover:bg-stone-50 active:scale-[0.98]"
+                  className="w-full rounded-2xl bg-white/6 px-4 py-3 text-[13px] font-bold text-white/45 ring-1 ring-white/10 transition hover:bg-white/10 active:scale-[0.98]"
                 >
                   自分でお店を探す
                 </button>
@@ -5309,13 +5334,12 @@ ${finalStore?.link ?? ''}`
                 <div className="px-5 space-y-5">
                   {/* 決定内容 */}
                   <div
-                    className="overflow-hidden rounded-2xl ring-1 ring-white/10"
-                    style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
+                    className="overflow-hidden rounded-2xl"
+                    style={{ background: 'var(--brand)' }}
                   >
-                    <div className="h-px bg-gradient-to-r from-transparent via-brand/40 to-transparent" />
                     <div className="px-5 py-4">
-                      <p className="text-[10px] font-black uppercase tracking-[0.25em]" style={{ color: 'rgba(60,197,90,0.70)' }}>日程が決まりました</p>
-                      <p className="mt-1.5 text-2xl font-black" style={{ color: '#3CC55A' }}>{decisionSheet.dateLabel}</p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-black/50">日程が決まりました</p>
+                      <p className="mt-1.5 text-2xl font-black text-black">{decisionSheet.dateLabel}</p>
                     </div>
                   </div>
                   {/* 送り分けタブ */}
@@ -5534,33 +5558,38 @@ ${finalStore?.link ?? ''}`
                     <div className="px-5 py-6 space-y-6 text-center">
                       {settlementFeedbackChoice === null ? (
                         <>
-                          <div className="space-y-1.5">
-                            <p className="text-xl font-black text-stone-900">会計が完了しました</p>
-                            <p className="text-sm text-stone-400">いい会になりましたか？</p>
+                          <div className="space-y-3">
+                            <div className="flex justify-center">
+                              <FeatureIcon type="thanks" size={52} />
+                            </div>
+                            <div className="space-y-1.5">
+                              <p className="text-xl font-black text-stone-900">会計が完了しました</p>
+                              <p className="text-sm text-stone-400">いい会になりましたか？</p>
+                            </div>
                           </div>
                           <div className="flex justify-center gap-3">
                             <button
                               type="button"
                               onClick={() => handleFeedback('good')}
-                              className="flex flex-col items-center gap-1.5 rounded-2xl bg-stone-50 px-5 py-3.5 text-2xl ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-95"
+                              className="flex flex-col items-center gap-1.5 rounded-2xl bg-stone-50 px-5 py-3.5 ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-95"
                             >
-                              <span>👍</span>
+                              <RatingIcon type="good" size={32} />
                               <span className="text-[11px] font-bold text-stone-500">よかった</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => handleFeedback('normal')}
-                              className="flex flex-col items-center gap-1.5 rounded-2xl bg-stone-50 px-5 py-3.5 text-2xl ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-95"
+                              className="flex flex-col items-center gap-1.5 rounded-2xl bg-stone-50 px-5 py-3.5 ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-95"
                             >
-                              <span>😐</span>
+                              <RatingIcon type="normal" size={32} />
                               <span className="text-[11px] font-bold text-stone-500">ふつう</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => handleFeedback('bad')}
-                              className="flex flex-col items-center gap-1.5 rounded-2xl bg-stone-50 px-5 py-3.5 text-2xl ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-95"
+                              className="flex flex-col items-center gap-1.5 rounded-2xl bg-stone-50 px-5 py-3.5 ring-1 ring-stone-100 transition hover:bg-stone-100 active:scale-95"
                             >
-                              <span>👎</span>
+                              <RatingIcon type="bad" size={32} />
                               <span className="text-[11px] font-bold text-stone-500">いまいち</span>
                             </button>
                           </div>
@@ -5649,10 +5678,10 @@ const PHASE_LABELS: Record<1 | 2 | 3, string> = {
   3: '会計精算',
 }
 
-const PHASE_ICONS: Record<1 | 2 | 3, React.ReactNode> = {
-  1: <CalendarDays size={12} strokeWidth={2.5} />,
-  2: <UtensilsCrossed size={12} strokeWidth={2.5} />,
-  3: <Receipt size={12} strokeWidth={2.5} />,
+const PHASE_ICON_TYPE: Record<1 | 2 | 3, 'schedule' | 'store' | 'settlement'> = {
+  1: 'schedule',
+  2: 'store',
+  3: 'settlement',
 }
 
 function FlowProgress({ step }: { step: Step }) {
@@ -5667,19 +5696,23 @@ function FlowProgress({ step }: { step: Step }) {
             {/* アイコン + バー */}
             <div className="flex items-center gap-1.5">
               <div className={cx(
-                'flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors duration-300',
-                done ? 'bg-brand/20 text-brand'
-                  : active ? 'bg-brand/15 text-brand/70'
-                  : 'bg-white/6 text-white/20'
+                'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors duration-300',
+                done   ? 'bg-brand/20'
+                : active ? 'bg-brand/20'
+                : 'bg-white/6'
               )}>
-                {PHASE_ICONS[p]}
+                <FeatureIcon
+                  type={PHASE_ICON_TYPE[p]}
+                  size={18}
+                  style={{ opacity: done || active ? 1 : 0.2 }}
+                />
               </div>
               <div className={cx(
                 'h-[3px] flex-1 rounded-full transition-all duration-500',
                 done ? 'bg-brand' : active ? 'bg-brand/60' : 'bg-white/12'
               )} />
             </div>
-            {/* ラベル */}
+            {/* ラベル — サブテキスト */}
             <p className={cx(
               'pl-0.5 text-[9px] font-black tracking-[0.14em] transition-colors duration-300',
               done || active ? 'text-brand/70' : 'text-white/20'
@@ -5775,7 +5808,7 @@ function StoreLoadingOverlay() {
             ))}
           </div>
         </div>
-        <p className="mt-3 text-center text-[11px] text-stone-400">少し時間がかかることがあります</p>
+        <p className="mt-3 text-center text-[11px] text-white/40">少し時間がかかることがあります</p>
       </motion.div>
     </div>
   )
@@ -5818,29 +5851,6 @@ function PrimaryBtn({
   )
 }
 
-function PaneCard({
-  title,
-  sub,
-  children,
-}: {
-  title: React.ReactNode
-  sub?: React.ReactNode
-  children: React.ReactNode
-}) {
-  return (
-    <section className="rounded-3xl bg-white px-5 py-5 shadow-sm ring-1 ring-stone-100 md:px-6 md:py-6">
-      <div className="mb-4">
-        <h3 className="text-base font-black tracking-tight text-stone-900 md:text-lg">
-          {title}
-        </h3>
-        {sub ? (
-          <p className="mt-1 text-sm leading-6 text-stone-400">{sub}</p>
-        ) : null}
-      </div>
-      {children}
-    </section>
-  )
-}
 
 
 
@@ -5851,8 +5861,8 @@ function Chip({ children, active, onClick }: { children: React.ReactNode; active
       className={cx(
         'rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition duration-150 active:scale-95',
         active
-          ? 'bg-stone-900 text-white shadow-sm'
-          : 'bg-white text-stone-500 ring-1 ring-stone-200 hover:ring-stone-300 hover:text-stone-700'
+          ? 'bg-brand text-black shadow-sm'
+          : 'bg-white/6 text-white/50 ring-1 ring-white/12 hover:ring-white/25 hover:text-white/70'
       )}
     >
       {children}
