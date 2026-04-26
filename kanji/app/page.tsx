@@ -2193,177 +2193,319 @@ return (
         {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             ① ホーム
         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-        {step === 'home' && (
-          <motion.div
-            className="space-y-6 pb-10"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-          >
-            {/* ── ヘッダー ─────────────────────────────────────── */}
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900">
-                  <CalendarDays size={17} className="text-white" strokeWidth={2.5} />
-                </div>
-                <span className="text-[13px] font-black tracking-[0.25em] text-stone-900 uppercase">Kanji</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setStep('settings')}
-                className="-mr-1 flex h-9 w-9 items-center justify-center rounded-xl text-stone-400 transition hover:text-stone-700 active:scale-95"
-                aria-label="設定"
-              >
-                <Settings size={17} strokeWidth={2} />
-              </button>
-            </div>
+        {step === 'home' && (() => {
+          // ── 優先イベント選定 ──────────────────────────────────────────────
+          // tier: reserved/store_confirmed=1, store_pending=2, date_pending=3
+          function evTier(s: string): number {
+            if (s === 'reserved' || s === 'store_confirmed') return 1
+            if (s === 'store_pending') return 2
+            return 3
+          }
+          const sortedEvents = [...savedEvents].sort((a, b) =>
+            evTier(a.status ?? 'date_pending') - evTier(b.status ?? 'date_pending')
+          )
+          const heroEvent = sortedEvents[0] ?? null
+          const restEvents = sortedEvents.slice(1)
 
-            {/* ── イベントを作る（主導線）────────────────────────── */}
-            <motion.button
-              type="button"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
+          // ── ステータス設定ヘルパー ────────────────────────────────────────
+          function getStatusCfg(s: string) {
+            if (s === 'reserved')       return { label: '会計準備中', desc: '会が終わったら精算します',           cta: '精算する',       phase: 3 }
+            if (s === 'store_confirmed') return { label: '予約調整中', desc: 'まだ予約が完了していません',         cta: '予約を確認する', phase: 2 }
+            if (s === 'store_pending')   return { label: 'お店未決定', desc: 'まだお店が決まっていません',         cta: 'お店を決める',   phase: 2 }
+            return                              { label: '日程調整中', desc: '回答状況を確認しましょう',           cta: '状況を確認する', phase: 1 }
+          }
+
+          const heroStatus = heroEvent?.status ?? 'date_pending'
+          const heroCfg = getStatusCfg(heroStatus)
+
+          return (
+            <motion.div
+              className="space-y-5 pb-12"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               transition={{ duration: 0.3, ease: 'easeOut' }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => { setEventName(''); void trackEvent('start_from_dates'); setStep('create') }}
-              className="flex w-full items-center gap-4 rounded-3xl px-5 py-5 text-left text-white transition active:scale-[0.98]"
-              style={{
-                background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)',
-                boxShadow: '0 6px 24px rgba(14,28,16,0.5)',
-              }}
             >
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15">
-                <CalendarPlus size={22} className="text-emerald-400" strokeWidth={2} />
-              </div>
-              <div className="flex-1">
-                <p className="text-[18px] font-black tracking-tight">イベントを作る</p>
-                <p className="mt-0.5 text-[12px] text-white/50">日程調整からスタート</p>
-              </div>
-              <ChevronRight size={18} className="shrink-0 text-white/30" />
-            </motion.button>
-
-            {/* ── 進行中の会 ─────────────────────────────────────── */}
-            <section>
-              <div className="mb-3 flex items-center gap-2">
-                <CircleDashed size={12} className="text-stone-400" strokeWidth={2.5} />
-                <p className="text-[11px] font-black tracking-[0.2em] text-stone-400 uppercase">進行中</p>
-              </div>
-              {savedEvents.length > 0 ? (
-                <div className="space-y-2.5">
-                  {savedEvents.map((ev, idx) => {
-                    const s = ev.status ?? 'date_pending'
-                    const statusCfg =
-                      s === 'reserved'
-                        ? { label: '会計準備中', cls: 'bg-emerald-500/12 text-emerald-600 ring-emerald-400/30', Icon: CheckCircle2 }
-                        : s === 'store_confirmed'
-                        ? { label: '予約調整中', cls: 'bg-amber-500/15 text-amber-500 ring-amber-500/25', Icon: CalendarDays }
-                        : s === 'store_pending'
-                        ? { label: 'お店未決定', cls: 'bg-stone-100 text-stone-500 ring-stone-300', Icon: CircleDashed }
-                        : { label: '日程調整中', cls: 'bg-stone-50 text-stone-500 ring-stone-200', Icon: Clock }
-                    const { Icon: StatusIcon } = statusCfg
-                    return (
-                      <motion.button
-                        type="button"
-                        key={ev.id}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2, delay: idx * 0.05, ease: 'easeOut' }}
-                        whileTap={{ scale: 0.982 }}
-                        {...makeLongPressHandlers(() => setDeleteTarget({ type: 'ongoing', id: ev.id, name: ev.name }))}
-                        onClick={() => {
-                          if (longPressFiredRef.current) { longPressFiredRef.current = false; return }
-                          void openSavedEvent(ev.id, ev.name, ev.eventType, s === 'reserved' ? 'settlement' : undefined)
-                        }}
-                        className="group flex w-full items-center justify-between rounded-2xl bg-white px-4 py-4 text-left shadow-sm ring-1 ring-stone-100/80 transition-shadow hover:shadow-md"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${s === 'reserved' ? 'bg-emerald-50 ring-emerald-100' : 'bg-stone-50 ring-stone-100'}`}>
-                            {s === 'reserved'
-                              ? <CheckCircle2 size={15} className="text-emerald-500" strokeWidth={2} />
-                              : <CalendarDays size={15} className="text-stone-500" strokeWidth={2} />
-                            }
-                          </div>
-                          <div className="min-w-0">
-                            <p className="truncate text-[15px] font-black tracking-tight text-stone-900">{ev.name}</p>
-                          </div>
-                        </div>
-                        <div className="ml-3 flex shrink-0 items-center gap-2">
-                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold ring-1 ${statusCfg.cls}`}>
-                            <StatusIcon size={9} strokeWidth={2.5} />
-                            {statusCfg.label}
-                          </span>
-                          <ChevronRight size={14} className="text-stone-300 transition-transform group-hover:translate-x-0.5" />
-                        </div>
-                      </motion.button>
-                    )
-                  })}
+              {/* ── ヘッダー ───────────────────────────────────── */}
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900">
+                    <CalendarDays size={17} className="text-white" strokeWidth={2.5} />
+                  </div>
+                  <span className="text-[13px] font-black tracking-[0.25em] text-stone-900 uppercase">Kanji</span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setStep('settings')}
+                  className="-mr-1 flex h-9 w-9 items-center justify-center rounded-xl text-stone-400 transition hover:text-stone-700 active:scale-95"
+                  aria-label="設定"
+                >
+                  <Settings size={17} strokeWidth={2} />
+                </button>
+              </div>
+
+              {/* ── 次にやることカード ─────────────────────────── */}
+              {heroEvent ? (
+                <motion.div
+                  key={heroEvent.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeOut' }}
+                  {...makeLongPressHandlers(() => setDeleteTarget({ type: 'ongoing', id: heroEvent.id, name: heroEvent.name }))}
+                  className="overflow-hidden rounded-3xl ring-1 ring-white/8"
+                  style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}
+                >
+                  <div className="h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+                  <div className="flex flex-col items-center px-6 pt-7 pb-7 text-center">
+                    {/* ラベル */}
+                    <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/35">次にやること</p>
+                    {/* イベント名 */}
+                    <p className="mt-3 text-[24px] font-black leading-snug tracking-tight text-white">{heroEvent.name}</p>
+                    {/* 状態バッジ */}
+                    <div className="mt-3">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-3 py-1 text-[10px] font-black text-emerald-300 ring-1 ring-emerald-500/25">
+                        {heroCfg.label}
+                      </span>
+                    </div>
+                    {/* 説明 */}
+                    <p className="mt-2 text-[13px] font-bold text-white/45">{heroCfg.desc}</p>
+
+                    {/* ステップバー */}
+                    <div className="mt-6 flex w-full items-center">
+                      {([
+                        { phase: 1, icon: <CalendarDays size={11} strokeWidth={2.5} />, label: '日程調整' },
+                        { phase: 2, icon: <UtensilsCrossed size={11} strokeWidth={2.5} />, label: 'お店選び' },
+                        { phase: 3, icon: <Receipt size={11} strokeWidth={2.5} />, label: '精算' },
+                      ] as const).map(({ phase, icon, label }, i) => {
+                        const done = heroCfg.phase > phase
+                        const active = heroCfg.phase === phase
+                        return (
+                          <div key={phase} className="flex flex-1 items-center">
+                            <div className="flex flex-1 flex-col items-center gap-1">
+                              <div className={`flex h-7 w-7 items-center justify-center rounded-full transition ${
+                                done   ? 'bg-emerald-500/25 text-emerald-400'
+                                : active ? 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/40'
+                                : 'bg-white/8 text-white/25'
+                              }`}>
+                                {done ? <CheckCircle2 size={12} strokeWidth={2.5} /> : icon}
+                              </div>
+                              <p className={`text-[9px] font-black tracking-wide ${
+                                done ? 'text-emerald-400/60' : active ? 'text-amber-300/80' : 'text-white/20'
+                              }`}>{label}</p>
+                            </div>
+                            {i < 2 && (
+                              <div className={`mb-4 h-px w-6 shrink-0 ${done ? 'bg-emerald-500/30' : 'bg-white/10'}`} />
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* 主CTA */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (longPressFiredRef.current) { longPressFiredRef.current = false; return }
+                        void openSavedEvent(heroEvent.id, heroEvent.name, heroEvent.eventType, heroStatus === 'reserved' ? 'settlement' : undefined)
+                      }}
+                      className="mt-5 w-full rounded-2xl bg-amber-500/15 py-3.5 text-[15px] font-black text-amber-300 ring-1 ring-amber-500/40 transition hover:bg-amber-500/20 active:scale-[0.98]"
+                    >
+                      {heroCfg.cta} →
+                    </button>
+                  </div>
+                </motion.div>
               ) : (
-                <div className="rounded-2xl border-2 border-dashed border-stone-200 px-6 py-8 text-center">
-                  <p className="text-sm font-bold text-stone-400">進行中の会はありません</p>
-                </div>
+                /* 進行中なし — 統合カード */
+                <motion.button
+                  type="button"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeOut' }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => { setEventName(''); void trackEvent('start_from_dates'); setStep('create') }}
+                  className="w-full overflow-hidden rounded-3xl text-white transition active:scale-[0.98]"
+                  style={{
+                    background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)',
+                    boxShadow: '0 6px 24px rgba(14,28,16,0.4)',
+                  }}
+                >
+                  <div className="h-px bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+                  <div className="flex flex-col items-center px-6 pt-7 pb-7 text-center">
+                    {/* イベントを作る */}
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15">
+                      <CalendarPlus size={22} className="text-emerald-400" strokeWidth={2} />
+                    </div>
+                    <p className="mt-3 text-[20px] font-black tracking-tight">イベントを作る</p>
+                    <p className="mt-1 text-[12px] text-white/45">日程調整からスタート</p>
+
+                    {/* ミニフロー（進行中イベントがないとき常時表示）*/}
+                    {mounted && (() => {
+                      const reducedMotion = typeof window !== 'undefined'
+                        ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
+                        : false
+                      const nodes = [
+                        { icon: <Users size={14} strokeWidth={2} />, label: '参加者' },
+                        { icon: <UtensilsCrossed size={14} strokeWidth={2} />, label: 'お店' },
+                        { icon: <Receipt size={14} strokeWidth={2} />, label: '精算' },
+                      ]
+                      return (
+                        <>
+                          <div className="mt-6 flex items-center justify-center">
+                            {nodes.map((node, i) => (
+                              <div key={i} className="flex items-center">
+                                <div className="flex flex-col items-center gap-1.5">
+                                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/8 text-white/40 ring-1 ring-white/10">
+                                    {node.icon}
+                                  </div>
+                                  <p className="text-[9px] font-bold text-white/25">{node.label}</p>
+                                </div>
+                                {i < 2 && (
+                                  <div className="relative mx-2 mb-4 h-px w-8 bg-white/10">
+                                    {!reducedMotion && (
+                                      <motion.div
+                                        className="absolute top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-amber-400/60"
+                                        animate={{ x: ['-6px', '38px'], opacity: [0, 1, 1, 0] }}
+                                        transition={{
+                                          duration: 1.0,
+                                          repeat: Infinity,
+                                          repeatDelay: 2.0,
+                                          delay: i * 0.55,
+                                          ease: 'easeInOut',
+                                        }}
+                                      />
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          <p className="mt-3 text-[11px] font-bold text-white/30">
+                            入力は1回で、そのままつながる
+                          </p>
+                        </>
+                      )
+                    })()}
+                  </div>
+                </motion.button>
               )}
-            </section>
 
-            {/* ── ツール ─────────────────────────────────────────── */}
-            <section>
-              <div className="mb-3 flex items-center gap-2">
-                <Wallet size={12} className="text-stone-400" strokeWidth={2.5} />
-                <p className="text-[11px] font-black tracking-[0.2em] text-stone-400 uppercase">ツール</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {/* お店を探す */}
+              {/* ── イベントを作る（進行中がある場合はコンパクト表示）── */}
+              {heroEvent && (
                 <button
                   type="button"
-                  onClick={() => { void trackEvent('start_from_store'); startStoreOnlyFlow() }}
-                  className="flex flex-col items-start gap-3 rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100 transition active:scale-95 hover:bg-stone-100"
+                  onClick={() => { setEventName(''); void trackEvent('start_from_dates'); setStep('create') }}
+                  className="flex w-full items-center justify-between rounded-2xl bg-stone-900 px-4 py-3.5 text-left ring-1 ring-white/8 transition hover:bg-stone-800 active:scale-[0.98]"
                 >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900">
-                    <UtensilsCrossed size={16} className="text-white" strokeWidth={2} />
+                  <div className="flex items-center gap-2.5">
+                    <CalendarPlus size={14} className="text-white/40" strokeWidth={2} />
+                    <span className="text-[13px] font-bold text-white/60">新しいイベントを作る</span>
                   </div>
-                  <div>
-                    <p className="text-[14px] font-black tracking-tight text-stone-900">お店を探す</p>
-                    <p className="mt-0.5 text-[11px] text-stone-400">条件を入れてAI提案</p>
-                  </div>
+                  <ChevronRight size={14} className="text-white/25" />
                 </button>
-                {/* 会計を試算する */}
-                <button
-                  type="button"
-                  onClick={() => startSettlementOnlyTool()}
-                  className="flex flex-col items-start gap-3 rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100 transition active:scale-95 hover:bg-stone-100"
-                >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900">
-                    <Receipt size={16} className="text-white" strokeWidth={2} />
-                  </div>
-                  <div>
-                    <p className="text-[14px] font-black tracking-tight text-stone-900">会計を試算する</p>
-                    <p className="mt-0.5 text-[11px] text-stone-400">傾斜・均等で割り勘</p>
-                  </div>
-                </button>
-              </div>
-            </section>
+              )}
 
-            {/* ── 完了済みの会（リンクのみ）────────────────────── */}
-            {mounted && (
-              <button
-                type="button"
-                onClick={() => setStep('pastEvents')}
-                className="flex w-full items-center justify-between rounded-2xl bg-stone-100 px-4 py-3.5 ring-1 ring-stone-200 transition hover:bg-stone-150 active:scale-[0.99]"
-              >
-                <div className="flex items-center gap-2.5">
-                  <CheckCircle2 size={14} className="text-stone-500" strokeWidth={2} />
-                  <span className="text-[13px] font-bold text-stone-700">完了済みの会を見る</span>
-                  {userSettings.pastEventRecords.length > 0 && (
-                    <span className="rounded-full bg-stone-200 px-2 py-0.5 text-[10px] font-bold text-stone-600">
-                      {userSettings.pastEventRecords.length}件
-                    </span>
-                  )}
+              {/* ── 他の進行中イベント ─────────────────────────── */}
+              {restEvents.length > 0 && (
+                <section>
+                  <div className="mb-3 flex items-center gap-2">
+                    <CircleDashed size={11} className="text-stone-400" strokeWidth={2.5} />
+                    <p className="text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">進行中のイベント</p>
+                  </div>
+                  <div className="space-y-2">
+                    {restEvents.map((ev, idx) => {
+                      const s = ev.status ?? 'date_pending'
+                      const cfg = getStatusCfg(s)
+                      return (
+                        <motion.button
+                          type="button"
+                          key={ev.id}
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.18, delay: idx * 0.05, ease: 'easeOut' }}
+                          whileTap={{ scale: 0.982 }}
+                          {...makeLongPressHandlers(() => setDeleteTarget({ type: 'ongoing', id: ev.id, name: ev.name }))}
+                          onClick={() => {
+                            if (longPressFiredRef.current) { longPressFiredRef.current = false; return }
+                            void openSavedEvent(ev.id, ev.name, ev.eventType, s === 'reserved' ? 'settlement' : undefined)
+                          }}
+                          className="group flex w-full items-center justify-between rounded-2xl bg-stone-900 px-4 py-3.5 text-left ring-1 ring-white/8 transition hover:bg-stone-800"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate text-[14px] font-black tracking-tight text-white/90">{ev.name}</p>
+                              <span className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black ring-1 ${
+                                s === 'reserved' ? 'bg-emerald-500/15 text-emerald-400 ring-emerald-500/25'
+                                : s === 'store_confirmed' ? 'bg-amber-500/15 text-amber-400 ring-amber-500/25'
+                                : 'bg-white/8 text-white/35 ring-white/10'
+                              }`}>{cfg.label}</span>
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-white/35">{cfg.desc}</p>
+                          </div>
+                          <ChevronRight size={13} className="ml-3 shrink-0 text-white/20 transition-transform group-hover:translate-x-0.5" />
+                        </motion.button>
+                      )
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* ── ツール ─────────────────────────────────────── */}
+              <section>
+                <div className="mb-3 flex items-center gap-2">
+                  <Wallet size={11} className="text-stone-400" strokeWidth={2.5} />
+                  <p className="text-[10px] font-black tracking-[0.2em] text-stone-400 uppercase">ツール</p>
                 </div>
-                <ChevronRight size={14} className="text-stone-400" />
-              </button>
-            )}
-          </motion.div>
-        )}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => { void trackEvent('start_from_store'); startStoreOnlyFlow() }}
+                    className="flex flex-col items-start gap-3 rounded-2xl bg-stone-900 px-4 py-4 ring-1 ring-white/8 transition hover:bg-stone-800 active:scale-95"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/8">
+                      <UtensilsCrossed size={15} className="text-white/60" strokeWidth={2} />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-black tracking-tight text-white/80">お店を探す</p>
+                      <p className="mt-0.5 text-[10px] text-white/35">条件を入れてAI提案</p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => startSettlementOnlyTool()}
+                    className="flex flex-col items-start gap-3 rounded-2xl bg-stone-900 px-4 py-4 ring-1 ring-white/8 transition hover:bg-stone-800 active:scale-95"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/8">
+                      <Receipt size={15} className="text-white/60" strokeWidth={2} />
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-black tracking-tight text-white/80">会計を試算する</p>
+                      <p className="mt-0.5 text-[10px] text-white/35">傾斜・均等で割り勘</p>
+                    </div>
+                  </button>
+                </div>
+              </section>
+
+              {/* ── 完了済みの会 ─────────────────────────────── */}
+              {mounted && (
+                <button
+                  type="button"
+                  onClick={() => setStep('pastEvents')}
+                  className="flex w-full items-center justify-between rounded-2xl bg-stone-900 px-4 py-3.5 ring-1 ring-white/8 transition hover:bg-stone-800 active:scale-[0.99]"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle2 size={13} className="text-white/30" strokeWidth={2} />
+                    <span className="text-[13px] font-bold text-white/50">完了済みの会を見る</span>
+                    {userSettings.pastEventRecords.length > 0 && (
+                      <span className="rounded-full bg-white/8 px-2 py-0.5 text-[10px] font-bold text-white/35">
+                        {userSettings.pastEventRecords.length}件
+                      </span>
+                    )}
+                  </div>
+                  <ChevronRight size={13} className="text-white/20" />
+                </button>
+              )}
+            </motion.div>
+          )
+        })()}
 
         {/* 会作成 開始感オーバーレイ */}
         <AnimatePresence>
@@ -3134,13 +3276,13 @@ return (
           {/* 上部ゴールドライン */}
           <div className="h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
 
-          <div className="px-6 pt-5 pb-4">
+          <div className="flex flex-col items-center px-6 pt-6 pb-5 text-center">
             {/* ① ラベル */}
             <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(214,175,60,0.65)' }}>
               {heroIsBest ? 'Recommended Date' : 'Alternative Date'}
             </p>
             {/* ① 日付（主役・ゴールド） */}
-            <p className="mt-1.5 text-[32px] font-black leading-tight tracking-tight" style={{ color: '#d4af3c' }}>
+            <p className="mt-2 text-[32px] font-black leading-tight tracking-tight" style={{ color: '#d4af3c' }}>
               {heroDate?.label}
             </p>
 
@@ -3154,7 +3296,7 @@ return (
               const visible = allVisible.slice(0, MAX_VISIBLE)
               const overflow = allVisible.length - MAX_VISIBLE
               return (
-                <div className="mt-4 flex items-center gap-2">
+                <div className="mt-4 flex flex-col items-center gap-2">
                   <div className="flex items-center -space-x-1.5">
                     {visible.map((p) => (
                       <div
@@ -3197,20 +3339,20 @@ return (
 
           {/* ④ 理由セクション */}
           {heroDateReasons.length > 0 && (
-            <div className="px-6 py-4">
+            <div className="px-6 py-4 text-center">
               <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em]" style={{ color: 'rgba(74,222,128,0.45)' }}>
                 この日程が最適な理由
               </p>
               <ul className="space-y-1">
                 {heroDateReasons.map((r, i) => (
-                  <li key={i} className="flex items-center gap-2 text-[12px] font-bold text-white/55">
+                  <li key={i} className="flex items-center justify-center gap-2 text-[12px] font-bold text-white/55">
                     <span className="h-1 w-1 shrink-0 rounded-full bg-emerald-400/50" />
                     {r}
                   </li>
                 ))}
               </ul>
               {heroDateSummary && (
-                <p className="mt-3 text-[12px] font-bold text-white/75">→ {heroDateSummary}</p>
+                <p className="mt-3 text-[12px] font-bold text-white/75">{heroDateSummary}</p>
               )}
             </div>
           )}
@@ -3481,7 +3623,7 @@ return (
     {/* 確定日程 ヒーロー */}
     <div className="overflow-hidden rounded-3xl ring-1 ring-white/10" style={{ background: 'linear-gradient(160deg, #1e3a22 0%, #0e1c10 100%)' }}>
       <div className="h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
-      <div className="px-6 py-6">
+      <div className="flex flex-col items-center px-6 py-6 text-center">
         <p className="text-[10px] font-black uppercase tracking-[0.28em]" style={{ color: 'rgba(214,175,60,0.65)' }}>確定日程</p>
         <p className="mt-2 text-[32px] font-black leading-tight tracking-tight" style={{ color: '#d4af3c' }}>{heroDate?.label}</p>
         <p className="mt-1.5 text-sm font-bold text-white/60">最大参加人数 {yesCount + maybeCount}人</p>
