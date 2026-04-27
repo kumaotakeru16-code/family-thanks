@@ -82,28 +82,32 @@ export const saveDecision = async ({
   selectedDateId,
   selectedStoreId,
   organizerConditions,
+  storeName,
+  storeUrl,
+  storeArea,
+  storeMemo,
 }: {
   eventId: string
   selectedDateId: string
   selectedStoreId?: string | null
   organizerConditions: string[]
+  storeName?: string
+  storeUrl?: string
+  storeArea?: string
+  storeMemo?: string
 }) => {
-  const payload: {
-    event_id: string
-    selected_date_id: string
-    selected_store_id?: string | null
-    organizer_conditions: string[]
-    updated_at: string
-  } = {
+  const payload: Record<string, unknown> = {
     event_id: eventId,
     selected_date_id: selectedDateId,
     organizer_conditions: organizerConditions,
     updated_at: new Date().toISOString(),
   }
 
-  if (selectedStoreId !== undefined) {
-    payload.selected_store_id = selectedStoreId
-  }
+  if (selectedStoreId !== undefined) payload.selected_store_id = selectedStoreId
+  if (storeName   !== undefined)    payload.store_name  = storeName
+  if (storeUrl    !== undefined)    payload.store_url   = storeUrl
+  if (storeArea   !== undefined)    payload.store_area  = storeArea
+  if (storeMemo   !== undefined)    payload.store_memo  = storeMemo
 
   const { data, error } = await supabase
     .from('decisions')

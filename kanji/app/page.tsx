@@ -1109,6 +1109,10 @@ const heroMaybeParticipants = heroDate
   ? activeParticipants.filter((p) => p.availability?.[heroDate.id] === 'maybe')
   : []
 
+const heroNoParticipants = heroDate
+  ? activeParticipants.filter((p) => p.availability?.[heroDate.id] === 'no')
+  : []
+
   const selectedMainGuests = activeParticipants.filter((p) => mainGuestIds.includes(p.id))
 
 const heroMaybeCount = heroDate
@@ -2006,8 +2010,33 @@ async function loadFinalDecisionView(storeOverride?: StoreCandidate) {
     setPrefilledStore(null)
 
     void trackEvent('confirm_store')
-    // 店決定後ボトムシートを表示（フルページ遷移しない）
+
+    // ── 店情報を decisions テーブルに保存 ──
     const resolvedStore = storeOverride ?? selectedStore
+    const selectedDateId = (decisionResult?.decision ?? decisionResult)?.selected_date_id ?? heroDate?.id ?? ''
+    if (selectedDateId) {
+      const storePayload = isManualStore && !storeOverride
+        ? {
+            eventId: currentEventId,
+            selectedDateId,
+            organizerConditions,
+            storeName: manualStoreName,
+            storeUrl: manualStoreUrl || undefined,
+            storeMemo: manualStoreMemo || undefined,
+          }
+        : {
+            eventId: currentEventId,
+            selectedDateId,
+            organizerConditions,
+            selectedStoreId: resolvedStore?.id || undefined,
+            storeName: resolvedStore?.name ?? '',
+            storeUrl: resolvedStore?.link || undefined,
+            storeArea: resolvedStore?.area || undefined,
+          }
+      await saveDecision(storePayload)
+    }
+
+    // 店決定後ボトムシートを表示（フルページ遷移しない）
     const storeShareText = resolvedStore
       ? `${eventName}の日程と場所が決まりました！\n\n日程：${heroDate?.label ?? '未定'}\nお店：${resolvedStore.name}${resolvedStore.link ? `\n${resolvedStore.link}` : ''}`
       : ''
@@ -3292,38 +3321,24 @@ return (
             </span>
           </div>
 
-          {/* ── Row2: 日付（左）＋ 箇条書き（右）の2カラム — 全体を中央寄せ ── */}
-          <div className="flex items-start justify-center gap-6 px-5 pt-3 pb-2">
-            {/* 左: 日付 */}
-            <div className="shrink-0">
-              {heroDate && (() => {
-                const m = heroDate.label.match(/^(\d+\/\d+)（(.)）(.+)$/)
-                if (!m) return (
-                  <p className="text-[52px] font-black leading-none tracking-tight text-black">{heroDate.label}</p>
-                )
-                const [, dayPart, weekday, time] = m
-                return (
-                  <div>
-                    <div className="flex items-end gap-1">
-                      <span className="text-[56px] font-black leading-none tracking-tight text-black">{dayPart}</span>
-                      <span className="mb-1 text-[20px] font-bold text-black/60">（{weekday}）</span>
-                    </div>
-                    <p className="mt-1 text-[22px] font-bold text-black/75">{time}〜</p>
+          {/* ── Row2: 日付（中央） ── */}
+          <div className="flex justify-center px-5 pt-3 pb-2">
+            {heroDate && (() => {
+              const m = heroDate.label.match(/^(\d+\/\d+)（(.)）(.+)$/)
+              if (!m) return (
+                <p className="text-[52px] font-black leading-none tracking-tight text-black">{heroDate.label}</p>
+              )
+              const [, dayPart, weekday, time] = m
+              return (
+                <div className="text-center">
+                  <div className="flex items-end justify-center gap-1">
+                    <span className="text-[64px] font-black leading-none tracking-tight text-black">{dayPart}</span>
+                    <span className="mb-1.5 text-[22px] font-bold text-black/60">（{weekday}）</span>
                   </div>
-                )
-              })()}
-            </div>
-            {/* 右: 箇条書き */}
-            {heroDateReasons.length > 0 && (
-              <ul className="shrink-0 space-y-1.5 pt-2">
-                {heroDateReasons.map((r, i) => (
-                  <li key={i} className="flex items-center gap-1.5 text-[12px] font-bold text-black/65">
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-black/35" />
-                    {r}
-                  </li>
-                ))}
-              </ul>
-            )}
+                  <p className="mt-1 text-[24px] font-bold text-black/75">{time}〜</p>
+                </div>
+              )
+            })()}
           </div>
 
           {/* ── Row3: 総括文（中央） ── */}
@@ -3334,42 +3349,60 @@ return (
           {/* ── 区切り線 ── */}
           <div className="mx-5 border-t border-black/12" />
 
-          {/* ── 参加者（中央） ── */}
-          {(heroYesParticipants.length > 0 || heroMaybeParticipants.length > 0) && (() => {
-            const MAX_VISIBLE = 5
-            const allVisible = [
-              ...heroYesParticipants.map(p => ({ ...p, status: 'yes' as const })),
-              ...heroMaybeParticipants.map(p => ({ ...p, status: 'maybe' as const })),
-            ]
-            const visible = allVisible.slice(0, MAX_VISIBLE)
-            const overflow = allVisible.length - MAX_VISIBLE
-            return (
-              <div className="px-5 pt-4 pb-2 text-center">
-                <p className="mb-2.5 text-[11px] font-bold text-black/55">
-                  参加予定 {heroYesParticipants.length}人
-                  {heroMaybeParticipants.length > 0 && <span className="ml-1.5 text-black/35">· 調整中 {heroMaybeParticipants.length}人</span>}
-                </p>
-                <div className="flex flex-wrap justify-center gap-1.5">
-                  {visible.map((p) => (
-                    <span
-                      key={p.id}
-                      className="inline-flex items-center gap-1.5 rounded-full bg-black px-3 py-1.5 text-[12px] font-black"
-                    >
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand text-[9px] font-black text-black">
-                        {p.name.slice(0, 1)}
+          {/* ── 参加者（縦並び・状態ラベル付き） ── */}
+          {(heroYesParticipants.length > 0 || heroMaybeParticipants.length > 0 || heroNoParticipants.length > 0) && (
+            <div className="px-5 pt-4 pb-2 space-y-2.5">
+
+              {/* 参加予定 — 黒ソリッドチップ */}
+              {heroYesParticipants.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="w-12 shrink-0 text-right text-[11px] font-bold text-black/55">参加</span>
+                  <span className="w-7 shrink-0 text-[11px] font-bold text-black/55">{heroYesParticipants.length}人</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {heroYesParticipants.map((p) => (
+                      <span key={p.id} className="inline-flex items-center gap-1 rounded-full bg-black px-2.5 py-1 text-[11px] font-black">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[8px] font-black text-black">{p.name.slice(0, 1)}</span>
+                        <span className="text-white">{p.name}</span>
                       </span>
-                      <span className="text-white">{p.name}</span>
-                    </span>
-                  ))}
-                  {overflow > 0 && (
-                    <span className="inline-flex items-center rounded-full bg-black/50 px-3 py-1.5 text-[12px] font-black text-brand">
-                      +{overflow}
-                    </span>
-                  )}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )
-          })()}
+              )}
+
+              {/* 調整中 — 枠線チップ */}
+              {heroMaybeParticipants.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="w-12 shrink-0 text-right text-[11px] font-bold text-black/55">調整中</span>
+                  <span className="w-7 shrink-0 text-[11px] font-bold text-black/55">{heroMaybeParticipants.length}人</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {heroMaybeParticipants.map((p) => (
+                      <span key={p.id} className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold text-black/55 ring-1 ring-black/30">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full ring-1 ring-black/25 text-[8px] font-bold text-black/45">{p.name.slice(0, 1)}</span>
+                        {p.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 不可 — グレー背景チップ */}
+              {heroNoParticipants.length > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="w-12 shrink-0 text-right text-[11px] font-bold text-black/55">不可</span>
+                  <span className="w-7 shrink-0 text-[11px] font-bold text-black/55">{heroNoParticipants.length}人</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {heroNoParticipants.map((p) => (
+                      <span key={p.id} className="inline-flex items-center gap-1 rounded-full bg-black/10 px-2.5 py-1 text-[11px] font-bold text-black/30">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-black/10 text-[8px] font-bold text-black/25">{p.name.slice(0, 1)}</span>
+                        {p.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
 
           {/* ── 回答状況ボタン（カード内・黒/15） ── */}
           <div className="px-4 pb-2 pt-2">
