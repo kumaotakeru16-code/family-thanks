@@ -156,7 +156,7 @@ export async function loadPastEventsCloud(): Promise<PastEventRecord[]> {
   const { data, error } = await supabase
     .from('past_events')
     .select(
-      'event_id, title, event_date, store_name, store_id, store_link, store_area, store_genre, participants, memo, has_photo, photo_url, created_at',
+      'event_id, title, event_date, store_name, store_id, store_link, store_area, store_genre, participants, memo, has_photo, photo_url, settlement_results, payment_info, created_at',
     )
     .eq('anon_user_id', anonId)
     .order('created_at', { ascending: false })
@@ -179,6 +179,8 @@ export async function loadPastEventsCloud(): Promise<PastEventRecord[]> {
     // 表示時は photoUrl → getPastEventPhotoSignedUrl() で signed URL を生成する
     photoUrl: (r.photo_url as string | null) ?? undefined,
     photoDataUrl: undefined,
+    settlementResults: (r.settlement_results as { name: string; total: number }[] | null) ?? undefined,
+    paymentInfo: (r.payment_info as PastEventRecord['paymentInfo'] | null) ?? undefined,
     createdAt: (r.created_at as string) ?? '',
   }))
 }
@@ -224,7 +226,9 @@ export async function insertPastEventCloud(record: PastEventRecord): Promise<voi
       participants: record.participants ?? [],
       memo: record.memo,
       has_photo: record.hasPhoto,
-      photo_url: photoStoragePath, // Storage path または null（base64 は保存しない）
+      photo_url: photoStoragePath,
+      settlement_results: record.settlementResults ?? null,
+      payment_info: record.paymentInfo ?? null,
       created_at: record.createdAt,
     },
     { onConflict: 'event_id' },

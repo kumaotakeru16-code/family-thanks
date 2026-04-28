@@ -147,3 +147,12 @@ body {
   --tw-gradient-via: rgba(60,197,90,0.40) !important;
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-via), var(--tw-gradient-to) !important;
 }
+
+/* scrollbar-hide — 横スクロールバーを非表示 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

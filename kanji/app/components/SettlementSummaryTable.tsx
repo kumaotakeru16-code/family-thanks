@@ -4,7 +4,7 @@ import { useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Copy, Check, Smartphone, Landmark,
-  Sparkles, Heart, ChevronDown, ChevronUp,
+  Heart, ChevronDown, ChevronUp,
   ImagePlus, X, AlertCircle,
 } from 'lucide-react'
 import { type SettlementResult, type SettlementConfig, formatYen } from '@/app/lib/settlement'
@@ -37,6 +37,8 @@ type Props = {
   eventDate?: string
   /** ツールモード（独立会計試算）: メモ/完了ボタンを非表示 */
   isToolMode?: boolean
+  /** URLのみ共有用（settlement_only 以外のみ） */
+  shareUrl?: string
   onBack: () => void
   onShare: (text: string) => void
   /**
@@ -61,26 +63,28 @@ export function SettlementSummaryTable({
   result, config, message, organizerSettings,
   storeName, storeId: _storeId, storeLink: _storeLink, storeArea, storeGenre: _storeGenre,
   eventName: _eventName, eventDate: _eventDate,
-  isToolMode = false,
+  isToolMode = false, shareUrl,
   onBack, onShare, onComplete, onCompleted,
 }: Props) {
   const [editableMessage, setEditableMessage] = useState(message)
+  const [urlOnly, setUrlOnly] = useState(false)
   const [copied, setCopied] = useState(false)
   const [showMemo, setShowMemo] = useState(false)
   const [memoText, setMemoText] = useState('')
   const [isFavorite, setIsFavorite] = useState(false)
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null)
   const [photoLoading, setPhotoLoading] = useState(false)
-  const [showCongrats, setShowCongrats] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const hasMultiParty =
     result.partyResults.filter((pr) => pr.totalAmount > 0).length > 1
 
+  const sharePayload = urlOnly && shareUrl ? shareUrl : editableMessage
+
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(editableMessage)
+      await navigator.clipboard.writeText(sharePayload)
       setCopied(true)
       setTimeout(() => setCopied(false), 1800)
     } catch {
@@ -125,52 +129,11 @@ export function SettlementSummaryTable({
     }
 
     // 'ok' または 'photo_failed' — レコードは保存済み
-    setShowCongrats(true)
-    setTimeout(() => onCompleted(), 1400)
+    onCompleted()
   }
 
   return (
     <>
-      {/* ── 労いオーバーレイ ─────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {showCongrats && (
-          <motion.div
-            key="congrats"
-            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center"
-            style={{ background: '#1C1917' }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <motion.div
-              initial={{ scale: 0.7, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.1, duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}
-              className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/15 ring-1 ring-emerald-400/30"
-            >
-              <Sparkles size={28} className="text-emerald-400" strokeWidth={1.8} />
-            </motion.div>
-            <motion.p
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25, duration: 0.3 }}
-              className="text-xl font-black tracking-tight text-white"
-            >
-              幹事お疲れさまでした！
-            </motion.p>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.45, duration: 0.3 }}
-              className="mt-2 text-[13px] text-white/40"
-            >
-              お会計お疲れさまです
-            </motion.p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <div className="space-y-4">
         {/* ヘッダー */}
         <div className="px-1">
@@ -301,13 +264,33 @@ export function SettlementSummaryTable({
 
         {/* 共有文（編集可能） */}
         <div className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-stone-100">
-          <p className="mb-2 text-xs font-black uppercase tracking-wider text-stone-500">共有文</p>
-          <textarea
-            value={editableMessage}
-            onChange={(e) => setEditableMessage(e.target.value)}
-            rows={10}
-            className="w-full resize-none rounded-xl bg-stone-50 px-4 py-3 text-base leading-7 text-stone-700 outline-none transition focus:bg-white focus:ring-1 focus:ring-stone-300"
-          />
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-black uppercase tracking-wider text-stone-500">共有文</p>
+            {shareUrl && (
+              <label className="flex cursor-pointer items-center gap-1.5">
+                <span className="text-[11px] font-bold text-stone-400">URLのみ</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={urlOnly}
+                  onClick={() => setUrlOnly(v => !v)}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${urlOnly ? 'bg-stone-700' : 'bg-stone-200'}`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${urlOnly ? 'translate-x-4' : 'translate-x-1'}`} />
+                </button>
+              </label>
+            )}
+          </div>
+          {urlOnly && shareUrl ? (
+            <p className="rounded-xl bg-stone-50 px-4 py-3 text-sm font-bold text-stone-700 break-all">{shareUrl}</p>
+          ) : (
+            <textarea
+              value={editableMessage}
+              onChange={(e) => setEditableMessage(e.target.value)}
+              rows={5}
+              className="w-full resize-none rounded-xl bg-stone-50 px-4 py-3 text-sm leading-6 text-stone-700 outline-none transition focus:bg-white focus:ring-1 focus:ring-stone-300"
+            />
+          )}
         </div>
 
         {/* 補足文 */}
@@ -327,7 +310,7 @@ export function SettlementSummaryTable({
           </button>
           <button
             type="button"
-            onClick={() => onShare(editableMessage)}
+            onClick={() => onShare(sharePayload)}
             className="inline-flex items-center justify-center rounded-2xl bg-[#06C755] px-4 py-3.5 text-sm font-black text-white transition hover:opacity-90 active:scale-[0.98]"
           >
             LINEで送る

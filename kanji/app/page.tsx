@@ -66,6 +66,7 @@ import {
   saveUserSettings,
   loadUserSettingsCloud,
   removePastEventCloud,
+  getPhotoSignedUrl,
 } from '@/app/lib/user-settings'
 import {
   type SavedEvent,
@@ -469,6 +470,24 @@ function buildDateSummary(params: {
   return '現時点での第一候補です'
 }
 
+/** 参加者向けの日程選定理由（幹事用 buildDateSummary の参加者フレンドリー版） */
+function buildParticipantDateReason(params: {
+  yesCount: number
+  maybeCount: number
+  noCount: number
+  maxAltYesCount: number
+  minAltNoCount: number
+}): string {
+  const { yesCount, maybeCount, noCount, maxAltYesCount, minAltNoCount } = params
+  if (yesCount === 0 && maybeCount === 0) return ''
+  if (noCount === 0 && yesCount > maxAltYesCount) return '不可ゼロ・参加予定も最多の日程です'
+  if (noCount === 0) return '全員が参加できる日程です'
+  if (yesCount > maxAltYesCount && noCount <= minAltNoCount) return '参加予定が最多・不可が最少の日程です'
+  if (yesCount > maxAltYesCount) return '参加予定が最も多い日程です'
+  if (noCount < minAltNoCount) return '参加できない方が最も少ない日程です'
+  return '参加予定の方が多い日程です'
+}
+
 /** 箇条書き理由を最大5個生成（意思決定の根拠として機能する順序で） */
 function buildStoreReasons(params: {
   store: StoreCandidate
@@ -756,11 +775,22 @@ export default function Page() {
   const [reminderCopied, setReminderCopied] = useState(false)
   const [showReminderPanel, setShowReminderPanel] = useState(false)
   const [editableFinalShareText, setEditableFinalShareText] = useState('')
-  // 会作成中の開始感演出
-  const [showCreating, setShowCreating] = useState(false)
   // 完了済みの会 詳細モーダル
   const [completedEventDetail, setCompletedEventDetail] = useState<import('@/app/lib/user-settings').PastEventRecord | null>(null)
+  const [completedEventPhotoUrl, setCompletedEventPhotoUrl] = useState<string | null>(null)
   const [showDetailParticipants, setShowDetailParticipants] = useState(false)
+
+  // モーダルが開いたとき Storage path → signed URL に変換（base64 がない場合のみ）
+  useEffect(() => {
+    setCompletedEventPhotoUrl(null)
+    if (!completedEventDetail?.hasPhoto) return
+    if (completedEventDetail.photoDataUrl) return  // base64 は JSX で直接使う
+    if (completedEventDetail.photoUrl) {
+      void getPhotoSignedUrl(completedEventDetail.photoUrl).then((url) => {
+        if (url) setCompletedEventPhotoUrl(url)
+      })
+    }
+  }, [completedEventDetail])
   // manual store お気に入りパネル
   const [showFavoritePicker, setShowFavoritePicker] = useState(false)
   const [urlOnly, setUrlOnly] = useState(false)
@@ -1122,11 +1152,22 @@ const heroMaybeCount = heroDate
 // 選択中の日程が BEST候補かどうか
 const heroIsBest = heroBestDateId === null || heroDate?.id === recommendedDate?.date?.id
 
+// 他候補との相対比較用（decideRecommendedDate でも使用）
+const heroAltDates = heroDate ? activeDates.filter(d => d.id !== heroDate.id) : []
+const heroMaxAltYesCount = heroDate
+  ? heroAltDates.reduce((max, d) => Math.max(max, activeParticipants.filter(p => p.availability?.[d.id] === 'yes').length), 0)
+  : 0
+const heroMinAltNoCount = heroDate
+  ? (heroAltDates.length > 0
+      ? heroAltDates.reduce((min, d) => Math.min(min, activeParticipants.filter(p => p.availability?.[d.id] === 'no').length), Infinity)
+      : heroNoParticipants.length + 1)
+  : 0
+
 const { heroDateReasons, heroDateSummary } = (() => {
   if (!heroDate) return { heroDateReasons: [] as string[], heroDateSummary: '' }
-  const hYes = activeParticipants.filter(p => p.availability?.[heroDate.id] === 'yes').length
-  const hMaybe = activeParticipants.filter(p => p.availability?.[heroDate.id] === 'maybe').length
-  const hNo = activeParticipants.filter(p => p.availability?.[heroDate.id] === 'no').length
+  const hYes = heroYesCount
+  const hMaybe = heroMaybeCount
+  const hNo = heroNoParticipants.length
   if (hYes === 0 && hMaybe === 0) return { heroDateReasons: [] as string[], heroDateSummary: '' }
 
   let heroMga: Availability | null = null
@@ -1141,22 +1182,12 @@ const { heroDateReasons, heroDateSummary } = (() => {
     }
   }
 
-  // 他候補との相対比較用
-  const altDatesForReason = activeDates.filter(d => d.id !== heroDate.id)
-  const maxAltYesCount = altDatesForReason.reduce((max, d) => {
-    const cnt = activeParticipants.filter(p => p.availability?.[d.id] === 'yes').length
-    return Math.max(max, cnt)
-  }, 0)
-  const maxAltMaybeCount = altDatesForReason.reduce((max, d) => {
+  const maxAltYesCount = heroMaxAltYesCount
+  const maxAltMaybeCount = heroAltDates.reduce((max, d) => {
     const cnt = activeParticipants.filter(p => p.availability?.[d.id] === 'maybe').length
     return Math.max(max, cnt)
   }, 0)
-  const minAltNoCount = altDatesForReason.length > 0
-    ? altDatesForReason.reduce((min, d) => {
-        const cnt = activeParticipants.filter(p => p.availability?.[d.id] === 'no').length
-        return Math.min(min, cnt)
-      }, Infinity)
-    : hNo + 1 // 候補が1つしかない場合は自分より多く設定しておく
+  const minAltNoCount = heroMinAltNoCount
 
   return {
     heroDateReasons: buildDateReasons({
@@ -1659,11 +1690,16 @@ async function decideRecommendedDate() {
   }
 
   try {
-const data = await saveDecision({
-  eventId: currentEventId,
-  selectedDateId: heroDate.id,
-  organizerConditions,
-})
+    const dateReason = buildParticipantDateReason({
+      yesCount: heroYesCount,
+      maybeCount: heroMaybeCount,
+      noCount: heroNoParticipants.length,
+      maxAltYesCount: heroMaxAltYesCount,
+      minAltNoCount: heroMinAltNoCount,
+    })
+    // date_reason カラムが未作成の場合は fallback（スキーマキャッシュエラー対策）
+    let data = await saveDecision({ eventId: currentEventId, selectedDateId: heroDate.id, organizerConditions, dateReason })
+      .catch(() => saveDecision({ eventId: currentEventId, selectedDateId: heroDate.id, organizerConditions }))
 
     setFinalDecision(data)
     // 日程決定後ボトムシートを表示（フルページ遷移しない）
@@ -2015,6 +2051,10 @@ async function loadFinalDecisionView(storeOverride?: StoreCandidate) {
     const resolvedStore = storeOverride ?? selectedStore
     const selectedDateId = (decisionResult?.decision ?? decisionResult)?.selected_date_id ?? heroDate?.id ?? ''
     if (selectedDateId) {
+      // 参加者向けのお店理由（最大2つ）
+      const participantStoreReason = !isManualStore && storeReasons.length > 0
+        ? storeReasons.slice(0, 2).join('・')
+        : undefined
       const storePayload = isManualStore && !storeOverride
         ? {
             eventId: currentEventId,
@@ -2032,14 +2072,16 @@ async function loadFinalDecisionView(storeOverride?: StoreCandidate) {
             storeName: resolvedStore?.name ?? '',
             storeUrl: resolvedStore?.link || undefined,
             storeArea: resolvedStore?.area || undefined,
+            storeReason: participantStoreReason,
+            storeImage: resolvedStore?.image || undefined,
+            storeAccess: resolvedStore?.access || undefined,
+            storeChips: storeChips.length > 0 ? storeChips : undefined,
           }
-      await saveDecision(storePayload)
+      try { await saveDecision(storePayload) } catch { /* DB migration 未実施の場合は無視 */ }
     }
 
     // 店決定後ボトムシートを表示（フルページ遷移しない）
-    const storeShareText = resolvedStore
-      ? `${eventName}の日程と場所が決まりました！\n\n日程：${heroDate?.label ?? '未定'}\nお店：${resolvedStore.name}${resolvedStore.link ? `\n${resolvedStore.link}` : ''}`
-      : ''
+    const storeShareText = `${eventName}のお店が決まりました\n\n詳細はこちら↓\n${shareUrl}`
     setDecisionSheet({
       type: 'storeDecided',
       storeName: resolvedStore?.name ?? '',
@@ -2085,23 +2127,22 @@ const shareUrl =
     ? `${window.location.origin}/e/${createdEventId}`
     : ''
 
-const shareMessage = `${eventName || '会'}の日程調整をお願いします！
-以下のリンクから回答してください🙏
+const shareMessage = `${eventName || '会'}の日程を回答してください
 
+詳細はこちら↓
 ${shareUrl}`
 
-const reminderText = `${eventName || 'この会'}の日程調整、まだの方だけ回答お願いします🙏
-1分くらいで終わります！
+const reminderText = `${eventName || '会'}の日程調整、回答がまだの方はこちらから
 
+詳細はこちら↓
 ${shareUrl}`
 
-const dateConfirmedShareText =
-  heroDate
-    ? `${eventName || 'この会'}の日程が決まりました👇\n\n日程：${heroDate.label}`
-    : ''
+const dateConfirmedShareText = heroDate
+  ? `${eventName || '会'}の日程が決まりました\n\n詳細はこちら↓\n${shareUrl}`
+  : ''
 
 const maybeConfirmText = heroDate
-  ? `${eventName || 'この会'}の日程ですが、この日で進めようと思っています！\n問題なさそうなら確定したいです🙏\n\n日程：${heroDate.label}`
+  ? `${eventName || '会'}の日程を確認してください\n\n詳細はこちら↓\n${shareUrl}`
   : ''
 
 // 編集可能メッセージの同期（ベーステキストが変わったらリセット）
@@ -2542,33 +2583,6 @@ return (
           )
         })()}
 
-        {/* 会作成 開始感オーバーレイ */}
-        <AnimatePresence>
-          {showCreating && (
-            <motion.div
-              key="creating"
-              className="fixed inset-0 z-[9998] flex flex-col items-center justify-center bg-[#000000]"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              <motion.div
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05, duration: 0.18, ease: 'easeOut' }}
-                className="flex flex-col items-center gap-3"
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-stone-900">
-                  <CalendarPlus size={20} className="text-white" strokeWidth={2} />
-                </div>
-                <p className="text-[15px] font-black tracking-tight text-stone-900">会を作成しました</p>
-                <p className="text-[12px] text-stone-400">準備を始めましょう</p>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* 完了済みの会 詳細モーダル */}
         <AnimatePresence>
           {completedEventDetail && (
@@ -2957,11 +2971,11 @@ return (
                         </div>
                       )}
                       {completedEventDetail.hasPhoto && (
-                        completedEventDetail.photoDataUrl ? (
+                        (completedEventDetail.photoDataUrl || completedEventPhotoUrl) ? (
                           <div>
                             <p className="mb-2 text-[10px] font-black uppercase tracking-wider text-stone-400">写真</p>
                             <img
-                              src={completedEventDetail.photoDataUrl}
+                              src={completedEventDetail.photoDataUrl ?? completedEventPhotoUrl!}
                               alt="会の写真"
                               className="w-full max-h-60 rounded-2xl object-contain ring-1 ring-stone-100"
                             />
@@ -3117,7 +3131,7 @@ return (
                   setDecisionSheet({
                     type: 'eventCreated',
                     shareUrl: existingUrl,
-                    shareText: editableShareMessage || `${eventName}の日程調整をお願いします！\n以下のリンクから回答してください🙏\n\n${existingUrl}`,
+                    shareText: editableShareMessage || `${eventName}の日程調整をお願いします！\n\n${existingUrl}`,
                   })
                   return
                 }
@@ -3135,9 +3149,6 @@ return (
                 setDates(selectedDates)
                 setGeneratedDates(selectedDates)
 
-                // 開始感演出
-                setShowCreating(true)
-
                 const eventId = await createEvent(
                   eventName,
                   eventType,
@@ -3147,21 +3158,16 @@ return (
                 saveCurrentEventProgress(eventId, eventName, eventType)
                 void trackEvent('create_event')
 
-                // 作成完了 → dashboard へ遷移してからボトムシートを表示
-                // dashboard に移動することで、シートを閉じた後もcreate/datesには戻らない
-                setTimeout(() => {
-                  setShowCreating(false)
-                  setStep('dashboard')
-                  const newShareUrl = typeof window !== 'undefined'
-                    ? `${window.location.origin}/e/${eventId}`
-                    : ''
-                  const inviteText = `${eventName}の日程調整をお願いします！\n以下のリンクから回答してください🙏\n\n${newShareUrl}`
-                  setDecisionSheet({
-                    type: 'eventCreated',
-                    shareUrl: newShareUrl,
-                    shareText: inviteText,
-                  })
-                }, 200)
+                setStep('dashboard')
+                const newShareUrl = typeof window !== 'undefined'
+                  ? `${window.location.origin}/e/${eventId}`
+                  : ''
+                const inviteText = `${eventName}の日程調整をお願いします！\n\n${newShareUrl}`
+                setDecisionSheet({
+                  type: 'eventCreated',
+                  shareUrl: newShareUrl,
+                  shareText: inviteText,
+                })
               }}
             >
               {selectedDateIds.length === 0
@@ -3294,7 +3300,7 @@ return (
               setDecisionSheet({
                 type: 'eventCreated',
                 shareUrl: url,
-                shareText: editableShareMessage || `${eventName}の日程調整をお願いします！\n以下のリンクから回答してください🙏\n\n${url}`,
+                shareText: editableShareMessage || `${eventName}の日程調整をお願いします！\n\n${url}`,
               })
             }
           }}>
@@ -4003,20 +4009,18 @@ return (
     {/* 「候補を入れ替える」再取得中も同じローディングUIを使う */}
     {isLoadingStores && <StoreLoadingOverlay />}
 
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, ease: 'easeOut' }}
-      className="px-0.5"
-    >
-      <h2 className="text-[22px] font-black tracking-tight text-stone-900">
-        {(skipStoreCondition && prefilledStore) ? 'この店で始めますか？' : 'お店を選ぶ'}
-      </h2>
-    </motion.div>
-
     {(skipStoreCondition && prefilledStore) ? (
       /* ── 軸候補のみ表示（skip モード） ─────────────────────────── */
       <>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+          className="px-0.5"
+        >
+          <h2 className="text-[22px] font-black tracking-tight text-stone-900">この店で始めますか？</h2>
+        </motion.div>
+
         <motion.div
           key={prefilledStore.id}
           initial={{ opacity: 0, y: 10 }}
@@ -4129,47 +4133,52 @@ return (
           </div>
         )}
 
-        {/* 条件チップ + 候補入れ替え / 戻るボタン */}
-        <div className="flex items-center justify-between gap-2 px-0.5">
-          <motion.div
-            className="flex flex-wrap items-center gap-1.5"
-            initial="hidden"
-            animate="visible"
-            variants={{ visible: { transition: { staggerChildren: 0.05 } } }}
-          >
-            {organizerConditions.map(c => (
-              <motion.span
-                key={c}
-                variants={{ hidden: { opacity: 0, scale: 0.88 }, visible: { opacity: 1, scale: 1 } }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}
-                className="inline-flex items-center rounded-full bg-stone-800 px-3 py-1 text-[11px] font-bold text-white/80"
-              >
-                {c}
-              </motion.span>
-            ))}
-          </motion.div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {previousStores.length > 0 && (
+        {/* ヘッダー: タイトル + 条件チップ + 操作ボタン */}
+        <motion.div
+          className="space-y-3"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-[22px] font-black tracking-tight text-stone-900">
+              お店のご提案 ✨
+            </h2>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {previousStores.length > 0 && (
+                <button
+                  type="button"
+                  onClick={restorePreviousStores}
+                  className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-stone-500 shadow-sm ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-95"
+                >
+                  1つ前に戻る
+                </button>
+              )}
               <button
                 type="button"
-                onClick={restorePreviousStores}
-                className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-stone-500 shadow-sm ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-95"
+                onClick={isLoadingStores ? undefined : refreshStores}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-95"
+                aria-label="候補を入れ替える"
               >
-                1つ前に戻る
+                <RefreshCw size={14} className="text-stone-500" strokeWidth={2} />
               </button>
-            )}
-            <button
-              type="button"
-              onClick={isLoadingStores ? undefined : refreshStores}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-95"
-              aria-label="候補を入れ替える"
-            >
-              <RefreshCw size={14} className="text-stone-500" strokeWidth={2} />
-            </button>
+            </div>
           </div>
-        </div>
+          {organizerConditions.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {organizerConditions.map(c => (
+                <span
+                  key={c}
+                  className="inline-flex items-center rounded-full bg-stone-800 px-3 py-1 text-[11px] font-bold text-white/80"
+                >
+                  {c}
+                </span>
+              ))}
+            </div>
+          )}
+        </motion.div>
 
-        {/* Best候補 — selectedStoreId が変わると AnimatePresence で自然に入れ替わる */}
+        {/* BEST CHOICE カード（ダーク） */}
         <AnimatePresence mode="wait">
           {primaryStore && (
             <motion.div
@@ -4178,187 +4187,172 @@ return (
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="overflow-hidden rounded-3xl"
-              style={{ background: 'var(--brand)' }}
+              className="overflow-hidden rounded-3xl bg-stone-900 shadow-xl shadow-stone-900/30"
             >
-              {/* 画像エリア（ある場合） */}
-              {primaryStore.image && (
-                <div className="relative h-44 overflow-hidden sm:h-52">
-                  <img
-                    src={primaryStore.image}
-                    alt={primaryStore.name}
-                    className="h-full w-full object-cover object-center"
-                    style={{ filter: 'brightness(0.75)' }}
-                  />
-                  {/* Google評価（画像右下） */}
-                  {primaryStore.googleRating && (
-                    <div className="absolute bottom-3 right-4 flex items-center gap-1 rounded-full bg-black px-2.5 py-1">
-                      <Star size={10} className="fill-brand text-brand" />
-                      <span className="text-[11px] font-bold text-brand">
+              {/* 画像左 / 情報右 — スマホでも横並び */}
+              <div className="flex gap-3 p-4">
+                {/* 画像（左・スクエア固定・47%） */}
+                {primaryStore.image ? (
+                  <div className="w-[47%] shrink-0">
+                    <img
+                      src={primaryStore.image}
+                      alt={primaryStore.name}
+                      className="aspect-square w-full rounded-2xl object-cover object-center"
+                      style={{ filter: 'brightness(0.92)' }}
+                    />
+                  </div>
+                ) : (
+                  <div className="flex w-[47%] shrink-0 items-center justify-center rounded-2xl bg-white/10">
+                    <UtensilsCrossed size={28} className="text-white/20" />
+                  </div>
+                )}
+
+                {/* 情報（右） */}
+                <div className="min-w-0 flex-1 space-y-2.5">
+                  {/* BEST CHOICE バッジ + 評価 */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-white/70 ring-1 ring-white/15">
+                      <Sparkles size={7} strokeWidth={2.5} />
+                      BEST CHOICE
+                    </span>
+                    {primaryStore.googleRating && (
+                      <span className="inline-flex items-center gap-0.5 rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-bold text-white/55 ring-1 ring-white/10">
+                        <Star size={8} className="fill-amber-400 text-amber-400" />
                         {primaryStore.googleRating.toFixed(1)}
-                        {primaryStore.googleRatingCount
-                          ? <span className="ml-0.5 font-normal text-brand/70">（{primaryStore.googleRatingCount.toLocaleString()}件）</span>
-                          : null}
                       </span>
+                    )}
+                  </div>
+
+                  {/* 店名 */}
+                  <h3 className="text-[17px] font-black tracking-tight text-white leading-snug">
+                    {primaryStore.name}
+                  </h3>
+
+                  {/* この店にした理由（店名直後） */}
+                  {storeHighlightReason && (
+                    <div className="rounded-xl bg-white/[0.07] px-3 py-2.5 ring-1 ring-white/10">
+                      <p className="mb-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/28">
+                        この店にした理由
+                      </p>
+                      <p className="line-clamp-1 text-[13px] font-black leading-snug text-white">
+                        {storeHighlightReason}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* アクセス（1行） */}
+                  {primaryStore.access && (
+                    <div className="flex items-start gap-1">
+                      <Train size={10} className="mt-[3px] shrink-0 text-white/35" />
+                      <p className="line-clamp-1 text-[11px] leading-5 text-white/45">{primaryStore.access}</p>
+                    </div>
+                  )}
+
+                  {/* 補足チップ（最大3個） */}
+                  {(() => {
+                    const chips: string[] = []
+                    if (primaryStore.walkMinutes != null) chips.push(`徒歩${primaryStore.walkMinutes}分`)
+                    storeChips.slice(0, 2).forEach(c => chips.push(c))
+                    return chips.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {chips.slice(0, 3).map(chip => (
+                          <span key={chip} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/50">
+                            {chip}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null
+                  })()}
+
+                  {/* 条件チェック（最大2件） */}
+                  {storeReasons.length > 0 && (
+                    <div className="space-y-1">
+                      {storeReasons.slice(0, 2).map((r, i) => (
+                        <div key={i} className="flex items-start gap-1">
+                          <CheckCircle2 size={10} className="mt-[3px] shrink-0 text-brand" strokeWidth={2.5} />
+                          <span className="line-clamp-1 text-[11px] leading-[1.4] text-white/55">{r}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
-              )}
-
-              {/* テキスト + 情報 */}
-              <div className="px-5 pt-5 pb-4">
-                {/* Best Choice ラベル: 黒チップ */}
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-black px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-brand">
-                  <Sparkles size={9} strokeWidth={2.5} />
-                  Best Choice
-                </span>
-                {/* 店名 */}
-                <h3 className="mt-3 text-[22px] font-black tracking-tight text-black leading-snug">
-                  {primaryStore.name}
-                </h3>
-                {/* アクセス */}
-                {primaryStore.access && (
-                  <div className="mt-1.5 flex items-start gap-1.5">
-                    <Train size={11} className="mt-0.5 shrink-0 text-black/40" />
-                    <p className="text-xs leading-5 text-black/50">{primaryStore.access}</p>
-                  </div>
-                )}
-
-                {/* 理由セクション */}
-                {storeReasons.length > 0 && (
-                  <div className="mt-4">
-                    <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-black/40">
-                      この条件に合う理由
-                    </p>
-                    <ul className="space-y-1">
-                      {storeReasons.map((r, i) => (
-                        <li key={i} className="flex items-start gap-2">
-                          <span className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full bg-black/30" />
-                          <span className="text-[13px] leading-[1.45] text-black/65">{r}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    {storeSummary && (
-                      <p className="mt-3 text-[13px] font-bold leading-5 text-black/80">{storeSummary}</p>
-                    )}
-                  </div>
-                )}
               </div>
 
-              {/* チップ: 黒背景グリーン文字 */}
-              {storeChips.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 px-5 pb-4">
-                  {storeChips.map(chip => (
-                    <span key={chip} className="rounded-full bg-black/15 px-2.5 py-0.5 text-[11px] font-semibold text-black/60">
-                      {chip}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* リンクボタン: 黒背景グリーン文字 */}
-              {primaryStore.link && (
-                <div className="px-5 pb-5 space-y-1.5">
-                  <StoreExternalLink
-                    href={primaryStore.link}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-4 py-3.5 text-sm font-black text-brand transition hover:bg-black/80 active:scale-[0.98]"
+              {/* CTA — フル幅（画像右列に閉じ込めない） */}
+              <div className="space-y-2 px-4 pb-4">
+                {primaryStore.link && (
+                  <>
+                    <StoreExternalLink
+                      href={primaryStore.link}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white/[0.07] px-4 py-3.5 text-sm font-black text-white ring-1 ring-brand/50 transition hover:bg-white/10 active:scale-[0.98]"
+                    >
+                      <ExternalLink size={14} strokeWidth={2.5} />
+                      {appMode === 'store_only' ? 'お店の詳細を確認する' : 'ホットペッパーで予約する'}
+                    </StoreExternalLink>
+                    <AffiliateNote />
+                  </>
+                )}
+                {appMode !== 'store_only' && (
+                  <button
+                    type="button"
+                    onClick={() => { void loadFinalDecisionView() }}
+                    className="w-full rounded-2xl py-4 text-[15px] font-black text-black transition active:scale-[0.98]"
+                    style={{ background: 'var(--brand)' }}
                   >
-                    <ExternalLink size={14} strokeWidth={2.5} />
-                    {appMode === 'store_only' ? 'お店の詳細を確認する' : 'ホットペッパーから予約する'}
-                  </StoreExternalLink>
-                  <AffiliateNote />
-                </div>
-              )}
+                    このお店に決める →
+                  </button>
+                )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* ベスト直下インラインCTA（full モードのみ） */}
-        {appMode !== 'store_only' && primaryStore && (
-          <button
-            type="button"
-            onClick={() => { void loadFinalDecisionView() }}
-            className="w-full rounded-2xl py-4 text-[15px] font-black text-black transition active:scale-[0.98]" style={{ background: 'var(--brand)' }}
-          >
-            この店で決める →
-          </button>
-        )}
-
-        {/* 他の候補（サブ扱い） */}
+        {/* 他の候補 — 3件・3カラムグリッド */}
         {secondaryStores.length > 0 && (
-          <div className="space-y-2">
-            <div className="px-0.5">
-              <p className="text-[10px] font-black tracking-[0.15em] text-stone-400 uppercase">他の候補</p>
-            </div>
-
-            <motion.div
-              className="space-y-2"
-              initial="hidden"
-              animate="visible"
-              variants={{ visible: { transition: { staggerChildren: 0.07, delayChildren: 0.1 } } }}
-            >
-              {secondaryStores.map((store: StoreCandidate) => (
-                /* タップでこの店を選択 → selectedStoreId 更新で primaryStore が入れ替わる */
-                <motion.button
+          <div className="space-y-3">
+            <p className="px-0.5 text-[10px] font-black uppercase tracking-[0.15em] text-stone-400">他の候補</p>
+            <div className="grid grid-cols-3 gap-2">
+              {secondaryStores.slice(0, 3).map((store: StoreCandidate) => (
+                <button
                   type="button"
                   key={store.id}
-                  variants={{ hidden: { opacity: 0, x: -6 }, visible: { opacity: 1, x: 0 } }}
-                  transition={{ duration: 0.2, ease: 'easeOut' }}
-                  whileTap={{ scale: 0.985 }}
                   onClick={() => setSelectedStoreId(store.id)}
-                  className="group flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3.5 text-left shadow-sm ring-1 ring-stone-100 transition-shadow hover:shadow-md hover:ring-stone-200"
+                  className="flex flex-col gap-1.5 rounded-2xl bg-white p-2 text-left shadow-sm ring-1 ring-stone-100 transition hover:shadow-md active:scale-[0.97]"
                 >
-                  {/* サムネイル or アイコン */}
                   {store.image ? (
-                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl">
+                    <div className="h-[60px] w-full overflow-hidden rounded-xl">
                       <img src={store.image} alt={store.name} className="h-full w-full object-cover" />
                     </div>
                   ) : (
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-stone-100">
-                      <UtensilsCrossed size={18} className="text-stone-400" />
+                    <div className="flex h-[60px] w-full items-center justify-center rounded-xl bg-stone-100">
+                      <UtensilsCrossed size={14} className="text-stone-400" />
                     </div>
                   )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-bold text-stone-900 leading-snug">{store.name}</p>
-                    {store.access && (
-                      <p className="mt-0.5 flex items-center gap-1 text-[11px] text-stone-400">
-                        <Train size={9} className="shrink-0" />
-                        <span className="line-clamp-1">{store.access}</span>
-                      </p>
-                    )}
-                    {/* 差分バッジ */}
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {store.hasPrivateRoom && (
-                        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-500">個室</span>
-                      )}
-                      {store.walkMinutes != null && (
-                        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold text-stone-500">徒歩{store.walkMinutes}分</span>
-                      )}
-                      {store.googleRating && (
-                        <span className="flex items-center gap-0.5 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-600">
-                          <Star size={8} className="fill-amber-400 text-amber-400" />
-                          {store.googleRating.toFixed(1)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {/* 詳細リンク — LinkSwitch により自動アフィリエイト変換される */}
-                  {store.link && (
-                    <StoreExternalLink
-                      href={store.link}
-                      stopPropagation
-                      className="shrink-0 rounded-xl bg-stone-50 px-3 py-1.5 text-xs font-bold text-stone-500 ring-1 ring-stone-200 transition hover:bg-stone-100 active:scale-95"
-                    >
-                      詳細
-                    </StoreExternalLink>
+                  <p className="line-clamp-1 text-[11px] font-bold leading-snug text-stone-900">{store.name}</p>
+                  {(store.hasPrivateRoom || store.walkMinutes != null || store.genre) && (
+                    <span className="self-start rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] font-bold text-stone-500 leading-none">
+                      {store.hasPrivateRoom ? '個室' : store.walkMinutes != null ? `徒歩${store.walkMinutes}分` : store.genre}
+                    </span>
                   )}
-                </motion.button>
+                </button>
               ))}
-            </motion.div>
+            </div>
           </div>
         )}
 
-        {/* 自分でお店を探す（full モードのみ、インライン配置） */}
+        {/* フッター情報カード */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
+            <p className="text-[11px] font-black text-stone-700">みんなの希望をもとに自動で選定</p>
+            <p className="mt-1 text-[11px] leading-5 text-stone-400">条件・評価・アクセスをもとに最適な候補をAIが選んでいます</p>
+          </div>
+          <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
+            <p className="text-[11px] font-black text-stone-700">決定後は、このURLに情報がまとまります</p>
+            <p className="mt-1 text-[11px] leading-5 text-stone-400">参加者にURLを共有するだけで、日程・お店・清算が全員に届きます</p>
+          </div>
+        </div>
+
+        {/* 自分でお店を探す（full モードのみ） */}
         {appMode !== 'store_only' && (
           <button
             type="button"
@@ -4795,11 +4789,6 @@ ${finalStore?.link ?? ''}`
               <span className="rounded-full bg-black/20 px-3 py-1 text-xs font-bold text-black/60">
                 調整中 {finalMaybeParticipants.length}人
               </span>
-              {eventType && (
-                <span className="rounded-full bg-black/15 px-3 py-1 text-xs font-semibold text-black/55">
-                  {eventType}
-                </span>
-              )}
               {effectiveTags.map((tag) => (
                 <span key={tag} className="rounded-full bg-black/15 px-3 py-1 text-xs font-semibold text-black/55">
                   {tag}
@@ -4957,10 +4946,13 @@ ${finalStore?.link ?? ''}`
                   accountNumber: organizerSettings.accountNumber,
                   accountName: organizerSettings.accountName,
                 }
-                const baseMsg = generateSettlementMessage(result, config.parties.map((p) => p.id), storeName, payment)
-                const msg = (appMode !== 'settlement_only' && eventName)
-                  ? baseMsg.replace('会計まとめです。', `${eventName}の会計まとめです。`)
-                  : baseMsg
+                // settlement_only（ツールモード）は URL がないので従来の詳細テキストを使う
+                const msg = (appMode !== 'settlement_only' && shareUrl)
+                  ? `${eventName}の清算が完了しました\n\n詳細はこちら↓\n${shareUrl}`
+                  : (() => {
+                      const base = generateSettlementMessage(result, config.parties.map((p) => p.id), storeName, payment)
+                      return eventName ? base.replace('会計まとめです。', `${eventName}の会計まとめです。`) : base
+                    })()
                 setSettlementConfig(config)
                 setSettlementResult(result)
                 setSettlementMessage(msg)
@@ -5057,7 +5049,6 @@ ${finalStore?.link ?? ''}`
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1.5">
-                        <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[10px] font-black text-stone-500">{store.eventType}</span>
                         <span className="text-[11px] text-stone-400">{store.area}</span>
                         {store.rating === '◎' && (
                           <span className="text-[10px] font-black text-brand">また使いたい</span>
@@ -5100,7 +5091,6 @@ ${finalStore?.link ?? ''}`
               <div className="rounded-3xl bg-white px-6 py-6 shadow-sm ring-1 ring-stone-100">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[10px] font-black text-stone-500">{selectedPastStore.eventType}</span>
                     <h2 className="mt-2.5 text-2xl font-black text-stone-900 tracking-tight">{selectedPastStore.name}</h2>
                     <p className="mt-1 text-sm text-stone-400">{selectedPastStore.area}</p>
                   </div>
@@ -5137,13 +5127,6 @@ ${finalStore?.link ?? ''}`
                   >
                     <p className="text-sm font-black text-white">この店を第一候補にして進める</p>
                     <p className="mt-0.5 text-[11px] text-white/50">お店選びの画面から再開します</p>
-                  </button>
-                  <button type="button"
-                    onClick={() => reuseEventTypeAndCreate(selectedPastStore.eventType)}
-                    className="block w-full rounded-2xl bg-white px-4 py-3.5 text-left ring-1 ring-stone-200 transition hover:bg-stone-50 active:scale-[0.99]"
-                  >
-                    <p className="text-sm font-bold text-stone-700">同じ会タイプで新しい会を作る</p>
-                    <p className="mt-0.5 text-[11px] text-stone-400">{selectedPastStore.eventType}として最初から始めます</p>
                   </button>
                 </div>
               </div>
@@ -5308,21 +5291,25 @@ ${finalStore?.link ?? ''}`
           <>
             {/* バックドロップ */}
             <motion.div
-              className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-[3px]"
+              className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-[6px]"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.18, ease: 'easeOut' }}
               onClick={() => setDecisionSheet(null)}
             />
             {/* シート本体 */}
             <motion.div
               className="fixed bottom-0 left-0 right-0 z-[70] mx-auto max-w-xl overflow-y-auto rounded-t-3xl pb-10 pt-2 shadow-2xl"
               style={{ background: '#1a1a1a', maxHeight: '88vh' }}
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+              variants={{
+                hidden: { y: '100%' },
+                visible: { y: 0, transition: { type: 'spring', stiffness: 480, damping: 34, mass: 0.85 } },
+                exit:   { y: '100%', transition: { type: 'tween', duration: 0.22, ease: [0.4, 0, 1, 1] } },
+              }}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
             >
               {/* ハンドル */}
               <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/20" />
@@ -5341,6 +5328,11 @@ ${finalStore?.link ?? ''}`
                     shareText={decisionSheet.shareText}
                     shareUrl={decisionSheet.shareUrl}
                     label="参加者に送る"
+                    onShareTextChange={(text) =>
+                      setDecisionSheet((prev) =>
+                        prev && prev.type === 'eventCreated' ? { ...prev, shareText: text } : prev
+                      )
+                    }
                   />
                   {/* 次のアクション */}
                   <div className="space-y-1 pt-1">
@@ -5398,6 +5390,14 @@ ${finalStore?.link ?? ''}`
                       shareUrl={decisionSheet.shareUrl}
                       label={decisionSheetDateTab === 'yes' ? '参加確定者に送る' : '調整中の方に送る'}
                       hideUrlToggle
+                      onShareTextChange={(text) =>
+                        setDecisionSheet((prev) => {
+                          if (!prev || prev.type !== 'dateDecided') return prev
+                          return decisionSheetDateTab === 'yes'
+                            ? { ...prev, yesText: text }
+                            : { ...prev, maybeText: text }
+                        })
+                      }
                     />
                   </div>
                   {/* 次のアクション */}
@@ -5462,6 +5462,11 @@ ${finalStore?.link ?? ''}`
                           shareUrl={decisionSheet.storeLink ?? decisionSheet.shareUrl}
                           hideUrlToggle={!decisionSheet.storeLink}
                           label="参加者に知らせる"
+                          onShareTextChange={(text) =>
+                            setDecisionSheet((prev) =>
+                              prev && prev.type === 'storeDecided' ? { ...prev, shareText: text } : prev
+                            )
+                          }
                         />
                         {/* 精算CTA */}
                         <div className="space-y-2 pt-1">
@@ -5541,6 +5546,7 @@ ${finalStore?.link ?? ''}`
                     return 'ok'
                   }
                   const record = buildPastEventRecord({
+                    eventId: createdEventId ?? undefined,
                     eventName,
                     eventDate: settlementDate,
                     storeName: settlementStore?.name ?? '',
@@ -5552,6 +5558,15 @@ ${finalStore?.link ?? ''}`
                     hasPhoto: data.hasPhoto,
                     photoDataUrl: data.photoDataUrl,
                     participants: settlementResult.personResults.map(p => p.name),
+                    settlementResults: settlementResult.personResults.map(p => ({ name: p.name, total: p.total })),
+                    paymentInfo: (organizerSettings.paypayId || organizerSettings.bankName) ? {
+                      paypayId: organizerSettings.paypayId || undefined,
+                      bankName: organizerSettings.bankName || undefined,
+                      branchName: organizerSettings.branchName || undefined,
+                      accountType: organizerSettings.accountType || undefined,
+                      accountNumber: organizerSettings.accountNumber || undefined,
+                      accountName: organizerSettings.accountName || undefined,
+                    } : undefined,
                   })
                   const favoriteStore =
                     data.isFavorite && settlementStore
@@ -5566,7 +5581,6 @@ ${finalStore?.link ?? ''}`
                 }
 
                 function handleCompleted() {
-                  // 精算完了後はフィードバック画面を挟む
                   setShowSettlementFeedback(true)
                 }
 
@@ -5683,6 +5697,7 @@ ${finalStore?.link ?? ''}`
                     eventName={eventName}
                     eventDate={settlementDate}
                     isToolMode={appMode === 'settlement_only'}
+                    shareUrl={appMode !== 'settlement_only' && shareUrl ? shareUrl : undefined}
                     onBack={() => { setDecisionSheet(null); setStep('settlement') }}
                     onShare={(text) => openLineShare(text)}
                     onComplete={handleComplete}

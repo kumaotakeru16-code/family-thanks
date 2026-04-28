@@ -28,6 +28,7 @@ import {
 // ── 完了済みレコード生成 ─────────────────────────────────────────────────────
 
 export type BuildPastEventRecordParams = {
+  eventId?: string   // 実際のイベント ID（past_events.event_id に使う）
   eventName: string
   eventDate: string
   storeName: string
@@ -49,6 +50,15 @@ export type BuildPastEventRecordParams = {
    */
   photoDataUrl?: string
   participants: string[]
+  settlementResults?: { name: string; total: number }[]
+  paymentInfo?: {
+    paypayId?: string
+    bankName?: string
+    branchName?: string
+    accountType?: string
+    accountNumber?: string
+    accountName?: string
+  }
 }
 
 /**
@@ -60,7 +70,7 @@ export type BuildPastEventRecordParams = {
  */
 export function buildPastEventRecord(params: BuildPastEventRecordParams): PastEventRecord {
   return {
-    id: crypto.randomUUID(),
+    id: params.eventId ?? crypto.randomUUID(),
     title: params.eventName || '名称未設定',
     eventDate: params.eventDate,
     storeName: params.storeName,
@@ -72,6 +82,8 @@ export function buildPastEventRecord(params: BuildPastEventRecordParams): PastEv
     hasPhoto: params.hasPhoto,
     photoDataUrl: params.photoDataUrl,
     participants: params.participants,
+    settlementResults: params.settlementResults,
+    paymentInfo: params.paymentInfo,
     createdAt: new Date().toISOString(),
   }
 }

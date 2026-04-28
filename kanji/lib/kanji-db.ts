@@ -86,6 +86,11 @@ export const saveDecision = async ({
   storeUrl,
   storeArea,
   storeMemo,
+  dateReason,
+  storeReason,
+  storeImage,
+  storeAccess,
+  storeChips,
 }: {
   eventId: string
   selectedDateId: string
@@ -95,6 +100,11 @@ export const saveDecision = async ({
   storeUrl?: string
   storeArea?: string
   storeMemo?: string
+  dateReason?: string
+  storeReason?: string
+  storeImage?: string
+  storeAccess?: string
+  storeChips?: string[]
 }) => {
   const payload: Record<string, unknown> = {
     event_id: eventId,
@@ -104,10 +114,15 @@ export const saveDecision = async ({
   }
 
   if (selectedStoreId !== undefined) payload.selected_store_id = selectedStoreId
-  if (storeName   !== undefined)    payload.store_name  = storeName
-  if (storeUrl    !== undefined)    payload.store_url   = storeUrl
-  if (storeArea   !== undefined)    payload.store_area  = storeArea
-  if (storeMemo   !== undefined)    payload.store_memo  = storeMemo
+  if (storeName   !== undefined)    payload.store_name   = storeName
+  if (storeUrl    !== undefined)    payload.store_url    = storeUrl
+  if (storeArea   !== undefined)    payload.store_area   = storeArea
+  if (storeMemo   !== undefined)    payload.store_memo   = storeMemo
+  if (dateReason  !== undefined)    payload.date_reason  = dateReason
+  if (storeReason !== undefined)    payload.store_reason = storeReason
+  if (storeImage  !== undefined)    payload.store_image  = storeImage
+  if (storeAccess !== undefined)    payload.store_access = storeAccess
+  if (storeChips  !== undefined)    payload.store_chips  = storeChips
 
   const { data, error } = await supabase
     .from('decisions')
