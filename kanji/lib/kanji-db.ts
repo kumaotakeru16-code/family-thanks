@@ -140,7 +140,7 @@ export const loadDecision = async (eventId: string) => {
     .from('decisions')
     .select('*')
     .eq('event_id', eventId)
-    .single()
+    .maybeSingle()
 
   if (decisionError) throw decisionError
 

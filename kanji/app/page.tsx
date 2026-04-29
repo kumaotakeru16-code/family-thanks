@@ -45,6 +45,7 @@ import { SettlementSummaryTable, type CompletionData, type CompleteResult } from
 import { SettingsScreen } from '@/app/components/SettingsScreen'
 import { StoreExternalLink, AffiliateNote } from '@/app/components/StoreExternalLink'
 import { SharePanel } from '@/app/components/ui'
+import { OnboardingScreen } from '@/app/components/OnboardingScreen'
 import KanjiLogo from '@/app/components/KanjiLogo'
 import KanjiMark from '@/app/components/KanjiMark'
 import { FeatureIcon } from '@/app/components/brand/FeatureIcon'
@@ -732,6 +733,7 @@ export default function Page() {
 
   // ── スプラッシュ ─────────────────────────────────────────────────────────────
   const [showSplash, setShowSplash] = useState(true)
+  const [showOnboarding, setShowOnboarding] = useState(false)
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
     setMounted(true)
@@ -747,7 +749,13 @@ export default function Page() {
       }))
     })
     void trackEvent('app_open')
-    const t = setTimeout(() => setShowSplash(false), 1800)
+    const t = setTimeout(() => {
+      setShowSplash(false)
+      // 初回ユーザーにだけオンボーディングを表示
+      if (!localStorage.getItem('kanji_onboarding_seen')) {
+        setShowOnboarding(true)
+      }
+    }, 1800)
     return () => clearTimeout(t)
   }, [])
 
@@ -766,6 +774,11 @@ export default function Page() {
 
   const stepHistoryRef = useRef<Step[]>(['home'])
   const isHandlingBackRef = useRef(false)
+
+  const closeOnboarding = () => {
+    localStorage.setItem('kanji_onboarding_seen', '1')
+    setShowOnboarding(false)
+  }
 
   const openLineShare = (text: string) => {
     const url = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`
@@ -2213,6 +2226,11 @@ return (
       </motion.div>
     )}
   </AnimatePresence>
+  <AnimatePresence>
+    {showOnboarding && (
+      <OnboardingScreen key="onboarding" onClose={closeOnboarding} />
+    )}
+  </AnimatePresence>
   <main className="min-h-screen" style={{ background: '#000000' }}>
     <div className="mx-auto flex min-h-screen w-full max-w-xl flex-col px-4 pb-20 pt-6 sm:px-5">
       {/* ── グローバルナビ + ステップバー — ホーム以外で sticky 表示 ─────────── */}
@@ -2765,6 +2783,17 @@ return (
             organizerName={organizerSettings.organizerName}
             onOrganizerNameChange={(name) => {
               applyOrganizerSettings({ ...organizerSettings, organizerName: name })
+            }}
+            onClearAll={() => {
+              try {
+                localStorage.removeItem('kanji_events')
+                localStorage.removeItem('kanji_onboarding_seen')
+              } catch { /* ignore */ }
+              setSavedEvents([])
+            }}
+            onShowOnboarding={() => {
+              localStorage.removeItem('kanji_onboarding_seen')
+              setShowOnboarding(true)
             }}
           />
         )}
@@ -4189,66 +4218,66 @@ return (
               transition={{ duration: 0.25, ease: 'easeOut' }}
               className="overflow-hidden rounded-3xl bg-stone-900 shadow-xl shadow-stone-900/30"
             >
-              {/* 画像左 / 情報右 — スマホでも横並び */}
-              <div className="flex gap-3 p-4">
-                {/* 画像（左・スクエア固定・47%） */}
-                {primaryStore.image ? (
-                  <div className="w-[47%] shrink-0">
+              {/* ① ヘッダー: BEST CHOICE・評価・店名 */}
+              <div className="px-4 pt-4 pb-3 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] text-white/70 ring-1 ring-white/15">
+                    <Sparkles size={7} strokeWidth={2.5} />
+                    BEST CHOICE
+                  </span>
+                  {primaryStore.googleRating && (
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-bold text-white/55 ring-1 ring-white/10">
+                      <Star size={8} className="fill-amber-400 text-amber-400" />
+                      {primaryStore.googleRating.toFixed(1)}
+                    </span>
+                  )}
+                </div>
+                <h3 className="text-[18px] font-black tracking-tight text-white leading-snug">
+                  {primaryStore.name}
+                </h3>
+              </div>
+
+              {/* ② 中段: 画像左（42%・スクエア）＋ 情報右 */}
+              <div className="flex gap-3 px-4 pb-3">
+                {/* 画像（左・正方形固定） */}
+                <div className="w-[42%] shrink-0">
+                  {primaryStore.image ? (
                     <img
                       src={primaryStore.image}
                       alt={primaryStore.name}
                       className="aspect-square w-full rounded-2xl object-cover object-center"
                       style={{ filter: 'brightness(0.92)' }}
                     />
-                  </div>
-                ) : (
-                  <div className="flex w-[47%] shrink-0 items-center justify-center rounded-2xl bg-white/10">
-                    <UtensilsCrossed size={28} className="text-white/20" />
-                  </div>
-                )}
+                  ) : (
+                    <div className="flex aspect-square w-full items-center justify-center rounded-2xl bg-white/10">
+                      <UtensilsCrossed size={24} className="text-white/20" />
+                    </div>
+                  )}
+                </div>
 
                 {/* 情報（右） */}
-                <div className="min-w-0 flex-1 space-y-2.5">
-                  {/* BEST CHOICE バッジ + 評価 */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-white/70 ring-1 ring-white/15">
-                      <Sparkles size={7} strokeWidth={2.5} />
-                      BEST CHOICE
-                    </span>
-                    {primaryStore.googleRating && (
-                      <span className="inline-flex items-center gap-0.5 rounded-full bg-white/10 px-2 py-0.5 text-[9px] font-bold text-white/55 ring-1 ring-white/10">
-                        <Star size={8} className="fill-amber-400 text-amber-400" />
-                        {primaryStore.googleRating.toFixed(1)}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* 店名 */}
-                  <h3 className="text-[17px] font-black tracking-tight text-white leading-snug">
-                    {primaryStore.name}
-                  </h3>
-
-                  {/* この店にした理由（店名直後） */}
+                <div className="min-w-0 flex-1 space-y-2">
+                  {/* この店にした理由 */}
                   {storeHighlightReason && (
-                    <div className="rounded-xl bg-white/[0.07] px-3 py-2.5 ring-1 ring-white/10">
-                      <p className="mb-0.5 text-[8px] font-black uppercase tracking-[0.18em] text-white/28">
+                    <div className="rounded-xl bg-white/[0.07] px-2.5 py-2 ring-1 ring-white/10">
+                      <p className="mb-0.5 text-[7px] font-black uppercase tracking-[0.15em] text-white/28">
                         この店にした理由
                       </p>
-                      <p className="line-clamp-1 text-[13px] font-black leading-snug text-white">
+                      <p className="line-clamp-2 text-[11px] font-black leading-snug text-white">
                         {storeHighlightReason}
                       </p>
                     </div>
                   )}
 
-                  {/* アクセス（1行） */}
+                  {/* アクセス（最大2行） */}
                   {primaryStore.access && (
                     <div className="flex items-start gap-1">
                       <Train size={10} className="mt-[3px] shrink-0 text-white/35" />
-                      <p className="line-clamp-1 text-[11px] leading-5 text-white/45">{primaryStore.access}</p>
+                      <p className="line-clamp-2 text-[10px] leading-[1.5] text-white/45">{primaryStore.access}</p>
                     </div>
                   )}
 
-                  {/* 補足チップ（最大3個） */}
+                  {/* 補足チップ */}
                   {(() => {
                     const chips: string[] = []
                     if (primaryStore.walkMinutes != null) chips.push(`徒歩${primaryStore.walkMinutes}分`)
@@ -4264,13 +4293,13 @@ return (
                     ) : null
                   })()}
 
-                  {/* 条件チェック（最大2件） */}
+                  {/* 条件チェック（最大3件） */}
                   {storeReasons.length > 0 && (
                     <div className="space-y-1">
-                      {storeReasons.slice(0, 2).map((r, i) => (
+                      {storeReasons.slice(0, 3).map((r, i) => (
                         <div key={i} className="flex items-start gap-1">
-                          <CheckCircle2 size={10} className="mt-[3px] shrink-0 text-brand" strokeWidth={2.5} />
-                          <span className="line-clamp-1 text-[11px] leading-[1.4] text-white/55">{r}</span>
+                          <CheckCircle2 size={9} className="mt-[2px] shrink-0 text-brand" strokeWidth={2.5} />
+                          <span className="line-clamp-1 text-[10px] leading-[1.4] text-white/55">{r}</span>
                         </div>
                       ))}
                     </div>
@@ -4278,7 +4307,7 @@ return (
                 </div>
               </div>
 
-              {/* CTA — フル幅（画像右列に閉じ込めない） */}
+              {/* ③ CTA — フル幅 */}
               <div className="space-y-2 px-4 pb-4">
                 {primaryStore.link && (
                   <>
@@ -4328,7 +4357,7 @@ return (
                       <UtensilsCrossed size={14} className="text-stone-400" />
                     </div>
                   )}
-                  <p className="line-clamp-1 text-[11px] font-bold leading-snug text-stone-900">{store.name}</p>
+                  <p className="line-clamp-2 text-[11px] font-bold leading-snug text-stone-900">{store.name}</p>
                   {(store.hasPrivateRoom || store.walkMinutes != null || store.genre) && (
                     <span className="self-start rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] font-bold text-stone-500 leading-none">
                       {store.hasPrivateRoom ? '個室' : store.walkMinutes != null ? `徒歩${store.walkMinutes}分` : store.genre}
@@ -5459,8 +5488,7 @@ ${finalStore?.link ?? ''}`
                         {/* 共有パネル */}
                         <SharePanel
                           shareText={decisionSheet.shareText}
-                          shareUrl={decisionSheet.storeLink ?? decisionSheet.shareUrl}
-                          hideUrlToggle={!decisionSheet.storeLink}
+                          shareUrl={decisionSheet.shareUrl}
                           label="参加者に知らせる"
                           onShareTextChange={(text) =>
                             setDecisionSheet((prev) =>
@@ -5558,7 +5586,16 @@ ${finalStore?.link ?? ''}`
                     hasPhoto: data.hasPhoto,
                     photoDataUrl: data.photoDataUrl,
                     participants: settlementResult.personResults.map(p => p.name),
-                    settlementResults: settlementResult.personResults.map(p => ({ name: p.name, total: p.total })),
+                    settlementResults: settlementResult.personResults.map(p => {
+                      const partyBreakdown = settlementResult.partyResults
+                        .map((pr, i) => ({ label: pr.id, amount: p.partyAmounts[i] ?? 0 }))
+                        .filter(pa => pa.amount > 0)
+                      return {
+                        name: p.name,
+                        total: p.total,
+                        ...(partyBreakdown.length > 1 ? { parties: partyBreakdown } : {}),
+                      }
+                    }),
                     paymentInfo: (organizerSettings.paypayId || organizerSettings.bankName) ? {
                       paypayId: organizerSettings.paypayId || undefined,
                       bankName: organizerSettings.bankName || undefined,

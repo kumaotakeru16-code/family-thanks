@@ -56,7 +56,7 @@ type PastEventRow = {
   memo: string
   has_photo: boolean
   photo_url: string | null
-  settlement_results: { name: string; total: number }[] | null
+  settlement_results: { name: string; total: number; parties?: { label: string; amount: number }[] }[] | null
   payment_info: PaymentInfo | null
 }
 
@@ -134,6 +134,7 @@ export default function EventParticipantPage() {
   const [decision, setDecision] = useState<DecisionRow | null>(null)
   const [pastEvent, setPastEvent] = useState<PastEventRow | null>(null)
   const [pastEventPhotoUrl, setPastEventPhotoUrl] = useState<string | null>(null)
+  const [showPartyBreakdown, setShowPartyBreakdown] = useState(false)
 
   const [participantName, setParticipantName] = useState('')
   const [answers, setAnswers] = useState<Record<string, AvailabilityValue | undefined>>({})
@@ -538,6 +539,39 @@ export default function EventParticipantPage() {
               <p className="px-1 text-[11px] leading-5 text-white/30">
                 ※金額は調整のうえ、100円単位で切り上げて計算しています
               </p>
+              {/* 内訳アコーディオン（2次会以上がある場合のみ表示） */}
+              {pastEvent.settlement_results.some(r => r.parties && r.parties.length > 1) && (
+                <div className="overflow-hidden rounded-2xl bg-white/4 ring-1 ring-white/8">
+                  <button
+                    type="button"
+                    onClick={() => setShowPartyBreakdown(v => !v)}
+                    className="flex w-full items-center justify-between px-5 py-3.5"
+                  >
+                    <span className="text-[11px] font-black uppercase tracking-[0.18em] text-white/30">次会別の内訳</span>
+                    {showPartyBreakdown
+                      ? <ChevronUp size={14} className="text-white/25" />
+                      : <ChevronDown size={14} className="text-white/25" />
+                    }
+                  </button>
+                  {showPartyBreakdown && (
+                    <div className="border-t border-white/6 px-5 pb-4 pt-3 space-y-4">
+                      {pastEvent.settlement_results.map((r) => r.parties && r.parties.length > 1 ? (
+                        <div key={r.name}>
+                          <p className="mb-1.5 text-[12px] font-bold text-white/50">{r.name}</p>
+                          <div className="space-y-1.5">
+                            {r.parties.map((p) => (
+                              <div key={p.label} className="flex items-center justify-between">
+                                <span className="text-[12px] text-white/35">{p.label}</span>
+                                <span className="text-[14px] font-bold tabular-nums text-white/60">¥{p.amount.toLocaleString('ja-JP')}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null)}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
 

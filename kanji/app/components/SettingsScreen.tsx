@@ -28,6 +28,10 @@ type Props = {
   /** 幹事名（organizerSettings と共有） */
   organizerName: string
   onOrganizerNameChange: (name: string) => void
+  /** 進行中の会も含めた全データ削除（page.tsx 側で savedEvents もリセット） */
+  onClearAll?: () => void
+  /** デバッグ: オンボーディングを再表示する */
+  onShowOnboarding?: () => void
 }
 
 // ── セクションカード ────────────────────────────────────────────────────────────
@@ -77,7 +81,7 @@ function SaveModeBadge({ mode }: { mode: SaveMode }) {
 
 // ── メインコンポーネント ───────────────────────────────────────────────────────
 
-export function SettingsScreen({ settings, onSettingsChange, organizerName, onOrganizerNameChange }: Props) {
+export function SettingsScreen({ settings, onSettingsChange, organizerName, onOrganizerNameChange, onClearAll, onShowOnboarding }: Props) {
   const [displayNameInput, setDisplayNameInput] = useState(
     settings.displayName || organizerName
   )
@@ -109,6 +113,15 @@ export function SettingsScreen({ settings, onSettingsChange, organizerName, onOr
       favoriteStores: [],
       pastEventRecords: [],
     })
+    // 進行中の会・オンボーディング済みフラグも含めて全消去
+    if (onClearAll) {
+      onClearAll()
+    } else {
+      try {
+        localStorage.removeItem('kanji_events')
+        localStorage.removeItem('kanji_onboarding_seen')
+      } catch { /* ignore */ }
+    }
     setShowDeleteConfirm(false)
   }
 
@@ -332,8 +345,19 @@ export function SettingsScreen({ settings, onSettingsChange, organizerName, onOr
         </SectionCard>
       </div>
 
-      {/* バージョン情報 */}
-      <p className="text-center text-[10px] text-stone-300">KANJI v0.1 — 設定はこの端末に保存されます</p>
+      {/* バージョン情報 + デバッグ */}
+      <div className="space-y-2 text-center">
+        <p className="text-[10px] text-stone-300">KANJI v0.1 — 設定はこの端末に保存されます</p>
+        {onShowOnboarding && (
+          <button
+            type="button"
+            onClick={onShowOnboarding}
+            className="text-[10px] text-stone-300 underline underline-offset-2 transition hover:text-stone-500"
+          >
+            導入ページを再表示（デバッグ）
+          </button>
+        )}
+      </div>
     </motion.div>
   )
 }

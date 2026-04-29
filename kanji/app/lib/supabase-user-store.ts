@@ -179,7 +179,7 @@ export async function loadPastEventsCloud(): Promise<PastEventRecord[]> {
     // 表示時は photoUrl → getPastEventPhotoSignedUrl() で signed URL を生成する
     photoUrl: (r.photo_url as string | null) ?? undefined,
     photoDataUrl: undefined,
-    settlementResults: (r.settlement_results as { name: string; total: number }[] | null) ?? undefined,
+    settlementResults: (r.settlement_results as { name: string; total: number; parties?: { label: string; amount: number }[] }[] | null) ?? undefined,
     paymentInfo: (r.payment_info as PastEventRecord['paymentInfo'] | null) ?? undefined,
     createdAt: (r.created_at as string) ?? '',
   }))

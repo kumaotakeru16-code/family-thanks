@@ -95,7 +95,7 @@ export type PastEventRecord = {
    *  CLOUD-MIGRATION: Auth 導入後もパス規則以外は変わらない。 */
   photoUrl?: string
   participants?: string[] // 参加者名一覧
-  settlementResults?: { name: string; total: number }[] // 清算結果（名前・支払額）
+  settlementResults?: { name: string; total: number; parties?: { label: string; amount: number }[] }[] // 清算結果（名前・支払額・内訳）
   /** 送金先情報（参加者ページで表示するために保存） */
   paymentInfo?: {
     paypayId?: string
