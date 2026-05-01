@@ -1,0 +1,63 @@
+/* ── おもいで英語えほん — スタイル ────────────────────────── */
+
+/* Design tokens */
+:root {
+  --omoide-bg:         #FBF4E8;
+  --omoide-bg-soft:    #FCF7EE;
+  --omoide-paper:      #FFFCF6;
+  --omoide-ink:        #3B2F22;
+  --omoide-ink-soft:   #6E5E4D;
+  --omoide-ink-mute:   #A89685;
+  --omoide-line:       #E9DEC8;
+  --omoide-line-soft:  #F2E9D6;
+  --omoide-peach:      #F4B5B0;
+  --omoide-peach-deep: #E89B95;
+  --omoide-peach-soft: #FBDDD7;
+  --omoide-butter:     #F2D27C;
+  --omoide-sage:       #A8C9B8;
+}
+
+/* Override body styles for the /omoide route */
+body:has(.omoide-root) {
+  background: var(--omoide-bg) !important;
+  font-family: "Zen Maru Gothic", "Hiragino Maru Gothic ProN",
+               "M PLUS Rounded 1c", system-ui, sans-serif !important;
+  letter-spacing: 0.02em;
+}
+
+/* Disable the ThanksApp orb effects on /omoide */
+body:has(.omoide-root)::before,
+body:has(.omoide-root)::after {
+  display: none !important;
+}
+
+/* ── Animations ──────────────────────────────────────────── */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50%       { opacity: 1;   transform: scale(1.2); }
+}
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes omoide-fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sheetUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.omoide-screen-enter {
+  animation: omoide-fadeUp 0.28s ease both;
+}
+
+.omoide-root {
+  min-height: 100dvh;
+  background: var(--omoide-bg);
+  -webkit-font-smoothing: antialiased;
+}
