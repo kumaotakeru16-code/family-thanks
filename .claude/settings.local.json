@@ -2,7 +2,30 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc:*)",
-      "Bash(node -e \"const p = require\\(''./node_modules/next/package.json''\\); console.log\\(p.version\\)\")"
+      "Bash(node -e \"const p = require\\(''./node_modules/next/package.json''\\); console.log\\(p.version\\)\")",
+      "Bash(grep -n \"step === ''dashboard''\" \"c:/Users/User/family-thanks/kanji/app/page.tsx\")",
+      "Bash(node -e \":*)",
+      "Bash(node replace-sections.mjs)",
+      "Bash(npx next:*)",
+      "Bash(node patch3.mjs)",
+      "Bash(node patch4.mjs)",
+      "Bash(find c:/Users/User/family-thanks/kanji/app -name *.tsx)",
+      "Bash(grep -n \"step === ''dates''\" /c/Users/User/family-thanks/kanji/app/page.tsx)",
+      "Bash(grep -n \"answers\\\\|prefGenres\\\\|submitResponse\\\\|genres.*areas\\\\|errorMessage\\\\|submitting\\\\|送信\" /c/Users/User/family-thanks/kanji/app/e/[eventId]/page.tsx)",
+      "Bash(node patch5.mjs)",
+      "Bash(cat -A /c/Users/User/family-thanks/kanji/app/e/[eventId]/page.tsx)",
+      "Bash(file /c/Users/User/family-thanks/kanji/app/e/[eventId]/page.tsx /c/Users/User/family-thanks/kanji/app/page.tsx /c/Users/User/family-thanks/kanji/app/api/store-recommend/route.ts)",
+      "Bash(python3 -c \":*)",
+      "Bash(node patch6.mjs)",
+      "Bash(node -e \"const s = require\\(''fs''\\).readFileSync\\(''c:/Users/User/family-thanks/kanji/app/page.tsx'',''utf8''\\); const idx = s.indexOf\\(''storePool = ''\\); console.log\\(JSON.stringify\\(s.slice\\(idx-40, idx+60\\)\\)\\)\")",
+      "Bash(node patch7.mjs)",
+      "Bash(node patch8.mjs)",
+      "Bash(node patch9.mjs)",
+      "Bash(node patch10.mjs)",
+      "Bash(node patch11.mjs)",
+      "Bash(npm install:*)",
+      "Read(//mnt/c/Users/User/**)",
+      "Bash(dir \"C:\\\\Users\\\\User\\\\family-thanks\")"
     ]
   }
 }

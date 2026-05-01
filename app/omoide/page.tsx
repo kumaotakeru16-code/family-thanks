@@ -50,8 +50,8 @@ export default function OmoideApp() {
     navigate('generating')
   }
 
-  const handleGenerationDone = useCallback(() => {
-    const book = generateStoryBook(creation.photos, creation.memo)
+  const handleGenerationDone = useCallback(async () => {
+    const book = await generateStoryBook(creation.photos, creation.memo)
     saveBook(book)
     setCreation(prev => ({ ...prev, generatedBook: book }))
     navigate('story-confirm')
