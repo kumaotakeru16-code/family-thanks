@@ -45,7 +45,7 @@ import { SettlementSummaryTable, type CompletionData, type CompleteResult } from
 import { SettingsScreen } from '@/app/components/SettingsScreen'
 import { StoreExternalLink, AffiliateNote } from '@/app/components/StoreExternalLink'
 import { SharePanel } from '@/app/components/ui'
-import { OnboardingScreen } from '@/app/components/OnboardingScreen'
+import { PseudoOnboarding } from '@/app/components/onboarding/PseudoOnboarding'
 import KanjiLogo from '@/app/components/KanjiLogo'
 import KanjiMark from '@/app/components/KanjiMark'
 import { FeatureIcon } from '@/app/components/brand/FeatureIcon'
@@ -733,7 +733,7 @@ export default function Page() {
 
   // ── スプラッシュ ─────────────────────────────────────────────────────────────
   const [showSplash, setShowSplash] = useState(true)
-  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [showPseudoOnboarding, setShowPseudoOnboarding] = useState(false)
   const [mounted, setMounted] = useState(false)
   useEffect(() => {
     setMounted(true)
@@ -752,8 +752,8 @@ export default function Page() {
     const t = setTimeout(() => {
       setShowSplash(false)
       // 初回ユーザーにだけオンボーディングを表示
-      if (!localStorage.getItem('kanji_onboarding_seen')) {
-        setShowOnboarding(true)
+      if (!localStorage.getItem('kanji_pseudo_onboarding_seen')) {
+        setShowPseudoOnboarding(true)
       }
     }, 1800)
     return () => clearTimeout(t)
@@ -775,9 +775,9 @@ export default function Page() {
   const stepHistoryRef = useRef<Step[]>(['home'])
   const isHandlingBackRef = useRef(false)
 
-  const closeOnboarding = () => {
-    localStorage.setItem('kanji_onboarding_seen', '1')
-    setShowOnboarding(false)
+  const closePseudoOnboarding = () => {
+    localStorage.setItem('kanji_pseudo_onboarding_seen', '1')
+    setShowPseudoOnboarding(false)
   }
 
   const openLineShare = (text: string) => {
@@ -2227,8 +2227,8 @@ return (
     )}
   </AnimatePresence>
   <AnimatePresence>
-    {showOnboarding && (
-      <OnboardingScreen key="onboarding" onClose={closeOnboarding} />
+    {showPseudoOnboarding && (
+      <PseudoOnboarding key="pseudo-onboarding" onClose={closePseudoOnboarding} />
     )}
   </AnimatePresence>
   <main className="min-h-screen" style={{ background: '#000000' }}>
@@ -2421,7 +2421,7 @@ return (
                   </div>
                 </motion.div>
               ) : (
-                /* 進行中なし — 統合カード（グリーン背景・黒文字） */
+                /* 進行中なし — 統合カード（オンボーディングトーン） */
                 <motion.button
                   type="button"
                   initial={{ opacity: 0, y: 8 }}
@@ -2429,43 +2429,50 @@ return (
                   transition={{ duration: 0.3, ease: 'easeOut' }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => { setEventName(''); void trackEvent('start_from_dates'); setStep('create') }}
-                  className="w-full overflow-hidden rounded-3xl transition active:scale-[0.98]"
-                  style={{ background: 'var(--brand)' }}
+                  className="w-full overflow-hidden rounded-3xl text-left transition"
+                  style={{
+                    background: '#0B0D0B',
+                    border: '1px solid rgba(60,197,90,0.2)',
+                    boxShadow: '0 24px 60px -20px rgba(60,197,90,0.18)',
+                  }}
                 >
-                  <div className="flex flex-col items-center px-6 pt-8 pb-7 text-center">
-                    {/* ミニフロー — アイコンメイン */}
+                  <div className="flex flex-col px-6 pt-7 pb-6">
+                    {/* ミニフロー — トーンダウン */}
                     {mounted && (() => {
                       const reducedMotion = typeof window !== 'undefined'
                         ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
                         : false
                       const nodes: { iconType: 'schedule' | 'store' | 'settlement'; label: string }[] = [
-                        { iconType: 'schedule',    label: '日程' },
-                        { iconType: 'store',       label: 'お店' },
-                        { iconType: 'settlement',  label: '精算' },
+                        { iconType: 'schedule',   label: '日程' },
+                        { iconType: 'store',      label: 'お店' },
+                        { iconType: 'settlement', label: '精算' },
                       ]
                       return (
                         <>
-                          <div className="mt-6 flex items-end justify-center">
+                          <div className="flex items-end justify-center">
                             {nodes.map((node, i) => (
                               <div key={i} className="flex items-center">
-                                <div className="flex flex-col items-center gap-2">
-                                  {/* 各ステップ: 黒背景ブランドアイコン — 大型 */}
-                                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-black">
-                                    <FeatureIcon type={node.iconType} size={32} />
+                                <div className="flex flex-col items-center gap-1.5">
+                                  <div
+                                    className="flex h-11 w-11 items-center justify-center rounded-xl"
+                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                                  >
+                                    <FeatureIcon type={node.iconType} size={24} style={{ opacity: 0.4 }} />
                                   </div>
-                                  <p className="text-[10px] font-bold text-black/50">{node.label}</p>
+                                  <p className="text-[9px] font-bold" style={{ color: 'rgba(255,255,255,0.28)' }}>{node.label}</p>
                                 </div>
                                 {i < 2 && (
-                                  <div className="relative mx-2 mb-6 h-px w-6 bg-black/25">
+                                  <div className="relative mx-2 mb-5 h-px w-5" style={{ background: 'rgba(255,255,255,0.09)' }}>
                                     {!reducedMotion && (
                                       <motion.div
-                                        className="absolute top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-black/50"
-                                        animate={{ x: ['-4px', '28px'], opacity: [0, 1, 1, 0] }}
+                                        className="absolute top-1/2 h-1 w-1 -translate-y-1/2 rounded-full"
+                                        style={{ background: 'rgba(60,197,90,0.7)' }}
+                                        animate={{ x: ['-4px', '24px'], opacity: [0, 1, 1, 0] }}
                                         transition={{
                                           duration: 1.0,
                                           repeat: Infinity,
-                                          repeatDelay: 2.0,
-                                          delay: i * 0.5,
+                                          repeatDelay: 2.2,
+                                          delay: i * 0.55,
                                           ease: 'easeInOut',
                                         }}
                                       />
@@ -2475,10 +2482,20 @@ return (
                               </div>
                             ))}
                           </div>
-                          <p className="mt-5 text-[22px] font-black tracking-tight text-black">イベントを作る</p>
-                          <p className="mt-1 text-[11px] font-bold text-black/40">
+
+                          <p className="mt-5 text-[22px] font-black tracking-tight text-white">イベントを作る</p>
+                          <p className="mt-1 text-[11px] font-semibold" style={{ color: 'rgba(255,255,255,0.38)' }}>
                             入力は1回で、そのままつながる
                           </p>
+
+                          {/* CTA */}
+                          <div
+                            className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-[14px] font-black tracking-tight"
+                            style={{ background: '#3CC55A', color: '#000' }}
+                          >
+                            会をつくる
+                            <svg width="13" height="10" viewBox="0 0 14 12" fill="none"><path d="M1 6H13M9 1L13 6L9 11" stroke="#000" strokeWidth="2.2" strokeLinecap="square"/></svg>
+                          </div>
                         </>
                       )
                     })()}
@@ -2787,13 +2804,13 @@ return (
             onClearAll={() => {
               try {
                 localStorage.removeItem('kanji_events')
-                localStorage.removeItem('kanji_onboarding_seen')
+                localStorage.removeItem('kanji_pseudo_onboarding_seen')
               } catch { /* ignore */ }
               setSavedEvents([])
             }}
             onShowOnboarding={() => {
-              localStorage.removeItem('kanji_onboarding_seen')
-              setShowOnboarding(true)
+              localStorage.removeItem('kanji_pseudo_onboarding_seen')
+              setShowPseudoOnboarding(true)
             }}
           />
         )}
