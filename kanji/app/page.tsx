@@ -1799,6 +1799,15 @@ async function fetchRecommendedStores(excludeIds: string[] = []) {
   }
   setStationError('')
 
+  void trackEvent('store_conditions_submit', {
+    mode: appMode,
+    areas: orgPrefs.areas,
+    genre: orgPrefs.genres[0] ?? null,
+    budget: orgPrefs.priceRange,
+    peopleCount: totalCount,
+    privateRoom: orgPrefs.privateRoom,
+  })
+
   setIsLoadingStores(true)
   setStoreFetchError('')
   setStoreSelectNotes([])
@@ -2011,6 +2020,14 @@ async function fetchRecommendedStores(excludeIds: string[] = []) {
     setRecommendedStores(finalStores)
     setSelectedStoreId(finalStores[0]?.id ?? '')
     setStoreSelectNotes(selectNotes)
+    void trackEvent('store_candidates_loaded', {
+      mode: appMode,
+      candidateCount: finalStores.length,
+      hasGoogleRating: finalStores[0]?.googleRating != null,
+      topStoreName: finalStores[0]?.name ?? null,
+      topStoreGenre: finalStores[0]?.genre ?? null,
+      topStoreArea: finalStores[0]?.area ?? null,
+    })
 
     if (hpData?.fallback) {
       setStoreFetchError(
@@ -2572,7 +2589,11 @@ return (
                 <div className="grid grid-cols-2 gap-2.5">
                   <button
                     type="button"
-                    onClick={() => { void trackEvent('start_from_store'); startStoreOnlyFlow() }}
+                    onClick={() => {
+                      void trackEvent('start_from_store')
+                      void trackEvent('store_only_start', { source: 'home', mode: 'store_only' })
+                      startStoreOnlyFlow()
+                    }}
                     className="flex flex-col items-center gap-3 rounded-2xl bg-stone-900 px-4 py-5 text-center ring-1 ring-white/8 transition hover:bg-stone-800 active:scale-95"
                   >
                     <FeatureIcon type="store" size={48} />
@@ -4331,6 +4352,12 @@ return (
                     <StoreExternalLink
                       href={primaryStore.link}
                       className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white/[0.07] px-4 py-3.5 text-sm font-black text-white ring-1 ring-brand/50 transition hover:bg-white/10 active:scale-[0.98]"
+                      onClick={() => void trackEvent('hotpepper_link_click', {
+                        mode: appMode,
+                        storeName: primaryStore.name,
+                        storeId: primaryStore.id,
+                        urlHost: 'hotpepper.jp',
+                      })}
                     >
                       <ExternalLink size={14} strokeWidth={2.5} />
                       {appMode === 'store_only' ? 'お店の詳細を確認する' : 'ホットペッパーで予約する'}
@@ -4362,7 +4389,17 @@ return (
                 <button
                   type="button"
                   key={store.id}
-                  onClick={() => setSelectedStoreId(store.id)}
+                  onClick={() => {
+                    const fromIdx = recommendedStores.findIndex(s => s.id === selectedStoreId)
+                    const toIdx   = recommendedStores.findIndex(s => s.id === store.id)
+                    void trackEvent('store_candidate_switch', {
+                      mode: appMode,
+                      fromIndex: fromIdx,
+                      toIndex: toIdx,
+                      storeName: store.name,
+                    })
+                    setSelectedStoreId(store.id)
+                  }}
                   className="flex flex-col gap-1.5 rounded-2xl bg-white p-2 text-left shadow-sm ring-1 ring-stone-100 transition hover:shadow-md active:scale-[0.97]"
                 >
                   {store.image ? (
@@ -4439,6 +4476,12 @@ return (
                       isFav,
                     )
                     setUserSettings(next)
+                    void trackEvent('favorite_store_click', {
+                      mode: appMode,
+                      storeName: primaryStore.name,
+                      storeId: storeKey,
+                      isFavorite: !isFav,
+                    })
                   }}
                 >
                   <span className="inline-flex items-center justify-center gap-2">
@@ -4451,6 +4494,13 @@ return (
             <button
               type="button"
               onClick={() => {
+                void trackEvent('store_only_to_event_create', {
+                  from: 'store_only',
+                  storeName: primaryStore?.name ?? null,
+                  storeId: primaryStore?.id ?? null,
+                  area: primaryStore?.area ?? null,
+                  genre: orgPrefs.genres[0] ?? primaryStore?.genre ?? null,
+                })
                 setPrefilledStore(primaryStore)
                 setAppMode('full')
                 setSkipStoreCondition(true)

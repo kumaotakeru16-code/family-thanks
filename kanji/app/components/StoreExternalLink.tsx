@@ -22,20 +22,24 @@ type LinkProps = {
   className?: string
   /** カード内リンクなど、親のクリックと競合するとき */
   stopPropagation?: boolean
+  onClick?: () => void
 }
 
 /**
  * 店舗外部リンク本体。
  * LinkSwitch の変換対象にするため、href は hotpepper.jp の通常URLをそのまま渡す。
  */
-export function StoreExternalLink({ href, children, className, stopPropagation }: LinkProps) {
+export function StoreExternalLink({ href, children, className, stopPropagation, onClick }: LinkProps) {
   return (
     <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
       className={className}
-      onClick={stopPropagation ? (e) => e.stopPropagation() : undefined}
+      onClick={(e) => {
+        if (stopPropagation) e.stopPropagation()
+        onClick?.()
+      }}
     >
       {children}
     </a>

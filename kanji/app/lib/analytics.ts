@@ -9,8 +9,11 @@
  *   id         bigserial PRIMARY KEY,
  *   user_id    text        NOT NULL,
  *   event_name text        NOT NULL,
+ *   metadata   jsonb,
  *   created_at timestamptz NOT NULL DEFAULT now()
  * );
+ * -- migration (既存テーブルへの追加):
+ * -- ALTER TABLE analytics_events ADD COLUMN metadata jsonb;
  * ALTER TABLE analytics_events ENABLE ROW LEVEL SECURITY;
  * CREATE POLICY "anon open" ON analytics_events FOR ALL USING (true) WITH CHECK (true);
  * CREATE INDEX analytics_events_user_id_idx    ON analytics_events(user_id);
@@ -41,6 +44,16 @@ export type AnalyticsEventName =
   | 'view_store_suggestion'
   | 'confirm_store'
   | 'complete_settlement'
+  // store funnel
+  | 'store_only_start'
+  | 'store_conditions_submit'
+  | 'store_candidates_loaded'
+  | 'store_candidate_switch'
+  | 'store_reason_view'
+  | 'hotpepper_link_click'
+  | 'favorite_store_click'
+  | 'store_only_to_event_create'
+  | 'share_store_info'
 
 const TRACKED_EVENTS: AnalyticsEventName[] = [
   'app_open',
@@ -49,6 +62,12 @@ const TRACKED_EVENTS: AnalyticsEventName[] = [
   'create_event',
   'view_store_suggestion',
   'complete_settlement',
+  // store funnel
+  'store_only_start',
+  'store_candidates_loaded',
+  'hotpepper_link_click',
+  'favorite_store_click',
+  'store_only_to_event_create',
 ]
 
 // ── 除外対象 user_id ──────────────────────────────────────────────────────────
@@ -73,12 +92,17 @@ export const EXCLUDED_USER_IDS: string[] = [
  * イベントを記録する。fire-and-forget（void で呼ぶ）。
  * getAnonId() が空の場合（SSR / プライベートブラウジング）は何もしない。
  */
-export async function trackEvent(eventName: AnalyticsEventName): Promise<void> {
+export async function trackEvent(
+  eventName: AnalyticsEventName,
+  metadata?: Record<string, unknown>,
+): Promise<void> {
   if (typeof window === 'undefined') return
   const userId = getAnonId()
   if (!userId) return
   // エラーは無視（アナリティクスの失敗でアプリを止めない）
-  await supabase.from('analytics_events').insert({ user_id: userId, event_name: eventName })
+  const row: Record<string, unknown> = { user_id: userId, event_name: eventName }
+  if (metadata !== undefined) row.metadata = metadata
+  await supabase.from('analytics_events').insert(row)
 }
 
 // ── 読み込み（ダッシュボード用） ───────────────────────────────────────────────
