@@ -205,6 +205,144 @@ export async function loadDashboard(myUserId: string): Promise<AnalyticsDashboar
   }
 }
 
+// ── Retention 集計 ────────────────────────────────────────────────────────────
+
+const RETENTION_EVENTS: AnalyticsEventName[] = [
+  'app_open',
+  'store_only_start',
+  'store_candidates_loaded',
+  'hotpepper_link_click',
+  'favorite_store_click',
+  'create_event',
+  'complete_settlement',
+]
+
+export type RetentionSlice = {
+  /** 分析対象の全ユーザー数（除外済み） */
+  totalUsers: number
+  /** 2日以上 app_open したユーザー数 */
+  returningUsers: number
+  /** 再訪率（%） */
+  returningRate: number
+  /** store_only_start を1回以上したユーザー数 */
+  storeStarters: number
+  /** 2日以上 store_only_start したユーザー数 */
+  storeReturningUsers: number
+  /** 店探し再訪率（%） */
+  storeReturningRate: number
+  /** 再訪ユーザー（app_open 2日以上）の中での各イベント到達者数 */
+  returningActivity: {
+    storeOnlyStart: number
+    storeCandidatesLoaded: number
+    hotpepperClick: number
+    favoriteClick: number
+    createEvent: number
+    completeSettlement: number
+  }
+}
+
+export type RetentionDashboard = {
+  all: RetentionSlice
+  week: RetentionSlice
+}
+
+type RawRetentionRow = { user_id: string; event_name: string; created_at: string }
+
+function processRetentionRows(rows: RawRetentionRow[]): RetentionSlice {
+  const toDay = (iso: string) => iso.slice(0, 10) // 'YYYY-MM-DD'
+
+  // user_id ごとにイベントをグループ化
+  const byUser: Record<string, RawRetentionRow[]> = {}
+  for (const r of rows) {
+    if (!byUser[r.user_id]) byUser[r.user_id] = []
+    byUser[r.user_id].push(r)
+  }
+
+  let returningUsers = 0
+  let storeReturningUsers = 0
+  const storeStartersSet = new Set<string>()
+  const returningUserSet = new Set<string>()
+
+  for (const [userId, events] of Object.entries(byUser)) {
+    // app_open の日付ユニーク数
+    const appOpenDays = new Set(
+      events.filter(e => e.event_name === 'app_open').map(e => toDay(e.created_at))
+    )
+    if (appOpenDays.size >= 2) {
+      returningUsers++
+      returningUserSet.add(userId)
+    }
+
+    // store_only_start の日付ユニーク数
+    const storeStartDays = new Set(
+      events.filter(e => e.event_name === 'store_only_start').map(e => toDay(e.created_at))
+    )
+    if (storeStartDays.size >= 1) storeStartersSet.add(userId)
+    if (storeStartDays.size >= 2) storeReturningUsers++
+  }
+
+  const totalUsers = Object.keys(byUser).length
+  const storeStarters = storeStartersSet.size
+
+  // 再訪ユーザーの行動内訳
+  const ra = {
+    storeOnlyStart: 0, storeCandidatesLoaded: 0,
+    hotpepperClick: 0, favoriteClick: 0,
+    createEvent: 0, completeSettlement: 0,
+  }
+  for (const userId of returningUserSet) {
+    const names = new Set((byUser[userId] ?? []).map(e => e.event_name))
+    if (names.has('store_only_start'))       ra.storeOnlyStart++
+    if (names.has('store_candidates_loaded')) ra.storeCandidatesLoaded++
+    if (names.has('hotpepper_link_click'))    ra.hotpepperClick++
+    if (names.has('favorite_store_click'))    ra.favoriteClick++
+    if (names.has('create_event'))            ra.createEvent++
+    if (names.has('complete_settlement'))     ra.completeSettlement++
+  }
+
+  return {
+    totalUsers,
+    returningUsers,
+    returningRate: pct(returningUsers, totalUsers),
+    storeStarters,
+    storeReturningUsers,
+    storeReturningRate: pct(storeReturningUsers, storeStarters),
+    returningActivity: ra,
+  }
+}
+
+/**
+ * リピーター指標を集計する。created_at を日付単位に丸めて判定。
+ * 同日に複数アクセスしても 1 日扱い。user_id が空のレコードは除外。
+ */
+export async function loadRetentionDashboard(myUserId: string): Promise<RetentionDashboard | null> {
+  if (typeof window === 'undefined') return null
+
+  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  const [allRes, weekRes] = await Promise.all([
+    supabase
+      .from('analytics_events')
+      .select('user_id, event_name, created_at')
+      .in('event_name', RETENTION_EVENTS),
+    supabase
+      .from('analytics_events')
+      .select('user_id, event_name, created_at')
+      .in('event_name', RETENTION_EVENTS)
+      .gt('created_at', sevenDaysAgo),
+  ])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const filter = (rows: any[] | null): RawRetentionRow[] =>
+    (rows ?? []).filter((r: RawRetentionRow) => r.user_id && !excludedSet.has(r.user_id))
+
+  return {
+    all: processRetentionRows(filter(allRes.data)),
+    week: processRetentionRows(filter(weekRes.data)),
+  }
+}
+
 // ── Store Funnel 集計 ─────────────────────────────────────────────────────────
 
 const STORE_EVENTS: AnalyticsEventName[] = [

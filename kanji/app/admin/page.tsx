@@ -12,17 +12,21 @@ import { BarChart2, RefreshCw } from 'lucide-react'
 import {
   loadDashboard,
   loadStoreDashboard,
+  loadRetentionDashboard,
   pct,
   type AnalyticsDashboard,
   type AnalyticsSlice,
   type StoreDashboard,
   type StoreFunnelSlice,
+  type RetentionDashboard,
+  type RetentionSlice,
 } from '@/app/lib/analytics'
 import { getAnonId } from '@/app/lib/storage/anonymous-id'
 
 export default function AdminPage() {
   const [dashboard, setDashboard] = useState<AnalyticsDashboard | null>(null)
   const [storeDash, setStoreDash] = useState<StoreDashboard | null>(null)
+  const [retentionDash, setRetentionDash] = useState<RetentionDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [weekMode, setWeekMode] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -33,16 +37,19 @@ export default function AdminPage() {
     setLoading(true)
     try {
       const id = getAnonId()
-      const [data, storeData] = await Promise.all([
+      const [data, storeData, retData] = await Promise.all([
         loadDashboard(id),
         loadStoreDashboard(id),
+        loadRetentionDashboard(id),
       ])
       setDashboard(data)
       setStoreDash(storeData)
+      setRetentionDash(retData)
       setLastUpdated(new Date())
     } catch {
       setDashboard(null)
       setStoreDash(null)
+      setRetentionDash(null)
     } finally {
       setLoading(false)
     }
@@ -113,6 +120,9 @@ export default function AdminPage() {
             <DashboardView slice={weekMode ? dashboard.week : dashboard.all} />
             {storeDash && (
               <StoreFunnelView slice={weekMode ? storeDash.week : storeDash.all} />
+            )}
+            {retentionDash && (
+              <RetentionView slice={weekMode ? retentionDash.week : retentionDash.all} />
             )}
           </div>
         )}
@@ -273,6 +283,59 @@ function StoreFunnelView({ slice: s }: { slice: StoreFunnelSlice }) {
                 </div>
               </div>
             )}
+          </div>
+        </Card>
+      )}
+    </>
+  )
+}
+
+// ── リピーター指標 ────────────────────────────────────────────────────────────
+
+function RetentionView({ slice: s }: { slice: RetentionSlice }) {
+  const ra = s.returningActivity
+  const activityItems: Array<{ label: string; count: number }> = [
+    { label: '店探し開始', count: ra.storeOnlyStart },
+    { label: '候補表示', count: ra.storeCandidatesLoaded },
+    { label: 'HPリンク', count: ra.hotpepperClick },
+    { label: 'お気に入り', count: ra.favoriteClick },
+    { label: '会作成', count: ra.createEvent },
+    { label: '清算完了', count: ra.completeSettlement },
+  ]
+
+  return (
+    <>
+      {/* ⑦ リピーター指標 */}
+      <Card>
+        <SectionLabel>リピーター指標</SectionLabel>
+        <div className="grid grid-cols-2 gap-2.5">
+          <MetricCell label="全ユーザー" value={s.totalUsers} />
+          <MetricCell label="再訪ユーザー" value={s.returningUsers} rate={s.returningRate} />
+          <MetricCell label="店探しユーザー" value={s.storeStarters} />
+          <MetricCell label="店探しリピーター" value={s.storeReturningUsers} rate={s.storeReturningRate} />
+        </div>
+      </Card>
+
+      {/* ⑧ 再訪ユーザーの行動内訳 */}
+      {s.returningUsers > 0 && (
+        <Card>
+          <SectionLabel>再訪ユーザーの行動内訳</SectionLabel>
+          <p className="mb-3 text-[10px] text-stone-400">{s.returningUsers}人中</p>
+          <div className="space-y-2.5">
+            {activityItems.map(({ label, count }) => (
+              <div key={label} className="flex items-center gap-3">
+                <p className="w-24 shrink-0 text-[11px] font-bold text-stone-600">{label}</p>
+                <div className="flex flex-1 items-center gap-2">
+                  <div className="flex-1 overflow-hidden rounded-full bg-stone-100" style={{ height: 6 }}>
+                    <div
+                      className="h-full rounded-full bg-stone-600 transition-all duration-500"
+                      style={{ width: `${s.returningUsers > 0 ? Math.round((count / s.returningUsers) * 100) : 0}%` }}
+                    />
+                  </div>
+                  <p className="w-9 text-right text-[13px] font-black text-stone-800">{count}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </Card>
       )}
