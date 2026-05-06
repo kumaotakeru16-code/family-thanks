@@ -205,6 +205,166 @@ export async function loadDashboard(myUserId: string): Promise<AnalyticsDashboar
   }
 }
 
+// ── Store Funnel 集計 ─────────────────────────────────────────────────────────
+
+const STORE_EVENTS: AnalyticsEventName[] = [
+  'store_only_start',
+  'store_conditions_submit',
+  'store_candidates_loaded',
+  'store_candidate_switch',
+  'hotpepper_link_click',
+  'favorite_store_click',
+  'store_only_to_event_create',
+]
+
+export type StoreModeBreakdown = {
+  candidatesLoaded: number
+  hotpepperClick: number
+  favoriteClick: number
+}
+
+export type StoreFunnelSlice = {
+  /** ユニークユーザー数（ファネル各ステップ） */
+  storeOnlyStart: number
+  conditionsSubmit: number
+  candidatesLoaded: number
+  hotpepperClick: number
+  favoriteClick: number
+  toEventCreate: number
+  /** 候補切替イベントの総数 */
+  candidateSwitch: number
+  /** mode='store_only' のイベント総数 */
+  storeOnly: StoreModeBreakdown
+  /** mode='event_flow' のイベント総数 */
+  eventFlow: StoreModeBreakdown
+  /** 人気エリア上位5 */
+  topAreas: Array<{ name: string; count: number }>
+  /** 人気ジャンル上位5 */
+  topGenres: Array<{ name: string; count: number }>
+  /** 人数帯ごとの送信数 */
+  peopleCounts: Array<{ count: number; freq: number }>
+}
+
+export type StoreDashboard = {
+  all: StoreFunnelSlice
+  week: StoreFunnelSlice
+}
+
+type RawStoreRow = {
+  user_id: string
+  event_name: string
+  metadata: Record<string, unknown> | null
+}
+
+function meta(r: RawStoreRow): Record<string, unknown> {
+  return r.metadata && typeof r.metadata === 'object' ? r.metadata : {}
+}
+
+function processStoreRows(rows: RawStoreRow[]): StoreFunnelSlice {
+  const byEvent: Record<string, RawStoreRow[]> = {}
+  for (const r of rows) {
+    if (!byEvent[r.event_name]) byEvent[r.event_name] = []
+    byEvent[r.event_name].push(r)
+  }
+
+  const unique = (name: string) =>
+    new Set((byEvent[name] ?? []).map(r => r.user_id)).size
+  const total = (name: string) => (byEvent[name] ?? []).length
+  const modeTotal = (name: string, mode: string) =>
+    (byEvent[name] ?? []).filter(r => meta(r).mode === mode).length
+
+  // エリア集計
+  const areaCounts: Record<string, number> = {}
+  for (const r of byEvent['store_conditions_submit'] ?? []) {
+    const areas = meta(r).areas
+    if (Array.isArray(areas)) {
+      for (const a of areas) {
+        if (typeof a === 'string' && a) areaCounts[a] = (areaCounts[a] ?? 0) + 1
+      }
+    }
+  }
+  const topAreas = Object.entries(areaCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count }))
+
+  // ジャンル集計
+  const genreCounts: Record<string, number> = {}
+  for (const r of byEvent['store_conditions_submit'] ?? []) {
+    const g = meta(r).genre
+    if (typeof g === 'string' && g) genreCounts[g] = (genreCounts[g] ?? 0) + 1
+  }
+  const topGenres = Object.entries(genreCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name, count]) => ({ name, count }))
+
+  // 人数帯集計
+  const pcMap: Record<number, number> = {}
+  for (const r of byEvent['store_conditions_submit'] ?? []) {
+    const n = meta(r).peopleCount
+    if (typeof n === 'number') pcMap[n] = (pcMap[n] ?? 0) + 1
+  }
+  const peopleCounts = Object.entries(pcMap)
+    .sort((a, b) => Number(a[0]) - Number(b[0]))
+    .map(([c, f]) => ({ count: Number(c), freq: f }))
+
+  return {
+    storeOnlyStart: unique('store_only_start'),
+    conditionsSubmit: unique('store_conditions_submit'),
+    candidatesLoaded: unique('store_candidates_loaded'),
+    hotpepperClick: unique('hotpepper_link_click'),
+    favoriteClick: unique('favorite_store_click'),
+    toEventCreate: unique('store_only_to_event_create'),
+    candidateSwitch: total('store_candidate_switch'),
+    storeOnly: {
+      candidatesLoaded: modeTotal('store_candidates_loaded', 'store_only'),
+      hotpepperClick: modeTotal('hotpepper_link_click', 'store_only'),
+      favoriteClick: modeTotal('favorite_store_click', 'store_only'),
+    },
+    eventFlow: {
+      candidatesLoaded: modeTotal('store_candidates_loaded', 'event_flow'),
+      hotpepperClick: modeTotal('hotpepper_link_click', 'event_flow'),
+      favoriteClick: modeTotal('favorite_store_click', 'event_flow'),
+    },
+    topAreas,
+    topGenres,
+    peopleCounts,
+  }
+}
+
+/**
+ * 店探しファネル用集計。metadata を含むクエリを別途発行する。
+ * 既存 loadDashboard とは独立して呼ぶ（parallel fetch）。
+ */
+export async function loadStoreDashboard(myUserId: string): Promise<StoreDashboard | null> {
+  if (typeof window === 'undefined') return null
+
+  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  const [allRes, weekRes] = await Promise.all([
+    supabase
+      .from('analytics_events')
+      .select('user_id, event_name, metadata')
+      .in('event_name', STORE_EVENTS),
+    supabase
+      .from('analytics_events')
+      .select('user_id, event_name, metadata')
+      .in('event_name', STORE_EVENTS)
+      .gt('created_at', sevenDaysAgo),
+  ])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const filter = (rows: any[] | null): RawStoreRow[] =>
+    (rows ?? []).filter((r: RawStoreRow) => !excludedSet.has(r.user_id))
+
+  return {
+    all: processStoreRows(filter(allRes.data)),
+    week: processStoreRows(filter(weekRes.data)),
+  }
+}
+
 // ── 表示ヘルパー ──────────────────────────────────────────────────────────────
 
 /** n / d を 0–100 の整数パーセントで返す。d = 0 なら 0。 */

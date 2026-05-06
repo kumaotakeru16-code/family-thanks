@@ -9,11 +9,20 @@
 
 import { useEffect, useState } from 'react'
 import { BarChart2, RefreshCw } from 'lucide-react'
-import { loadDashboard, pct, type AnalyticsDashboard, type AnalyticsSlice } from '@/app/lib/analytics'
+import {
+  loadDashboard,
+  loadStoreDashboard,
+  pct,
+  type AnalyticsDashboard,
+  type AnalyticsSlice,
+  type StoreDashboard,
+  type StoreFunnelSlice,
+} from '@/app/lib/analytics'
 import { getAnonId } from '@/app/lib/storage/anonymous-id'
 
 export default function AdminPage() {
   const [dashboard, setDashboard] = useState<AnalyticsDashboard | null>(null)
+  const [storeDash, setStoreDash] = useState<StoreDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [weekMode, setWeekMode] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -24,11 +33,16 @@ export default function AdminPage() {
     setLoading(true)
     try {
       const id = getAnonId()
-      const data = await loadDashboard(id)
+      const [data, storeData] = await Promise.all([
+        loadDashboard(id),
+        loadStoreDashboard(id),
+      ])
       setDashboard(data)
+      setStoreDash(storeData)
       setLastUpdated(new Date())
     } catch {
       setDashboard(null)
+      setStoreDash(null)
     } finally {
       setLoading(false)
     }
@@ -95,7 +109,12 @@ export default function AdminPage() {
             <p className="text-sm font-bold text-stone-500">データを取得できませんでした</p>
           </div>
         ) : (
-          <DashboardView slice={weekMode ? dashboard.week : dashboard.all} />
+          <div className="space-y-4">
+            <DashboardView slice={weekMode ? dashboard.week : dashboard.all} />
+            {storeDash && (
+              <StoreFunnelView slice={weekMode ? storeDash.week : storeDash.all} />
+            )}
+          </div>
         )}
 
         {/* この端末の anon_id */}
@@ -127,7 +146,7 @@ export default function AdminPage() {
   )
 }
 
-// ── ダッシュボード本体 ─────────────────────────────────────────────────────────
+// ── 既存ダッシュボード本体（変更なし） ────────────────────────────────────────
 
 function DashboardView({ slice: s }: { slice: AnalyticsSlice }) {
   const startTotal = s.startDatesUsers + s.startStoreUsers
@@ -137,8 +156,7 @@ function DashboardView({ slice: s }: { slice: AnalyticsSlice }) {
   const storeToComplete = pct(s.completeUsers, s.storeViewUsers)
 
   return (
-    <div className="space-y-4">
-
+    <>
       {/* ① メイン指標 */}
       <Card>
         <SectionLabel>メイン指標</SectionLabel>
@@ -173,8 +191,92 @@ function DashboardView({ slice: s }: { slice: AnalyticsSlice }) {
           <FunnelRow label="店提案 → 清算完了" from={s.storeViewUsers} rate={storeToComplete} />
         </div>
       </Card>
+    </>
+  )
+}
 
-    </div>
+// ── 店探しファネル ────────────────────────────────────────────────────────────
+
+function StoreFunnelView({ slice: s }: { slice: StoreFunnelSlice }) {
+  const hasData = s.storeOnlyStart > 0 || s.conditionsSubmit > 0
+
+  return (
+    <>
+      {/* ④ 店探しファネル */}
+      <Card>
+        <SectionLabel>店探しファネル</SectionLabel>
+        {!hasData ? (
+          <p className="py-2 text-center text-[11px] text-stone-300">まだデータがありません</p>
+        ) : (
+          <div className="divide-y divide-stone-100">
+            <FunnelStep label="お店から開始" count={s.storeOnlyStart} />
+            <FunnelStep label="条件送信" count={s.conditionsSubmit} prev={s.storeOnlyStart} />
+            <FunnelStep label="候補表示" count={s.candidatesLoaded} prev={s.conditionsSubmit} />
+            <FunnelStep label="HPリンク" count={s.hotpepperClick} prev={s.candidatesLoaded} />
+            <FunnelStep label="お気に入り" count={s.favoriteClick} prev={s.candidatesLoaded} />
+            <FunnelStep label="会作成へ移行" count={s.toEventCreate} prev={s.storeOnlyStart} accent />
+            <div className="flex items-center justify-between py-2.5">
+              <p className="text-[11px] font-bold text-stone-400">候補切替（回）</p>
+              <p className="text-[15px] font-black text-stone-600">{s.candidateSwitch.toLocaleString()}</p>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* ⑤ mode 別比較 */}
+      {(s.storeOnly.candidatesLoaded + s.eventFlow.candidatesLoaded) > 0 && (
+        <Card>
+          <SectionLabel>mode 別比較（イベント数）</SectionLabel>
+          <div>
+            <div className="mb-2 grid grid-cols-3 gap-1 text-[9px] font-black uppercase tracking-wider text-stone-400">
+              <span />
+              <span className="text-center">store_only</span>
+              <span className="text-center">event_flow</span>
+            </div>
+            <div className="space-y-1.5">
+              {[
+                { label: '候補表示', so: s.storeOnly.candidatesLoaded, ef: s.eventFlow.candidatesLoaded },
+                { label: 'HPリンク', so: s.storeOnly.hotpepperClick,   ef: s.eventFlow.hotpepperClick },
+                { label: 'お気に入り', so: s.storeOnly.favoriteClick,  ef: s.eventFlow.favoriteClick },
+              ].map(({ label, so, ef }) => (
+                <div key={label} className="grid grid-cols-3 items-center gap-1 rounded-xl bg-stone-50 px-3 py-2.5 ring-1 ring-stone-100">
+                  <p className="text-[11px] font-bold text-stone-600">{label}</p>
+                  <p className="text-center text-[15px] font-black text-stone-800">{so}</p>
+                  <p className="text-center text-[15px] font-black text-stone-800">{ef}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* ⑥ よく使われる条件 */}
+      {(s.topAreas.length > 0 || s.topGenres.length > 0 || s.peopleCounts.length > 0) && (
+        <Card>
+          <SectionLabel>よく使われる条件</SectionLabel>
+          <div className="space-y-5">
+            {s.topAreas.length > 0 && (
+              <RankingList title="人気エリア" items={s.topAreas} />
+            )}
+            {s.topGenres.length > 0 && (
+              <RankingList title="人気ジャンル" items={s.topGenres} />
+            )}
+            {s.peopleCounts.length > 0 && (
+              <div>
+                <p className="mb-2 text-[11px] font-bold text-stone-500">人数帯</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {s.peopleCounts.map(({ count, freq }) => (
+                    <span key={count} className="rounded-lg bg-stone-100 px-2.5 py-1 text-[11px] font-bold text-stone-700 ring-1 ring-stone-200">
+                      {count}人 <span className="font-normal text-stone-400">×{freq}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
+    </>
   )
 }
 
@@ -236,6 +338,57 @@ function FunnelRow({ label, from, rate }: { label: string; from: number; rate: n
           <div className={`h-full rounded-full transition-all duration-500 ${color}`} style={{ width: `${rate}%` }} />
         </div>
         <p className="w-9 text-right text-[13px] font-black text-stone-800">{rate}%</p>
+      </div>
+    </div>
+  )
+}
+
+function FunnelStep({
+  label, count, prev, accent,
+}: {
+  label: string
+  count: number
+  prev?: number
+  accent?: boolean
+}) {
+  const rate = prev != null && prev > 0 ? pct(count, prev) : null
+  const rateColor =
+    rate == null ? '' : rate >= 50 ? 'text-emerald-600' : rate >= 25 ? 'text-amber-500' : 'text-stone-400'
+  return (
+    <div className="flex items-center justify-between py-2.5">
+      <p className={`text-[12px] font-bold ${accent ? 'text-stone-900' : 'text-stone-600'}`}>{label}</p>
+      <div className="flex items-center gap-2.5">
+        {rate !== null && (
+          <span className={`rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-bold ${rateColor}`}>
+            前段比 {rate}%
+          </span>
+        )}
+        <p className={`text-[16px] font-black tabular-nums ${accent ? 'text-stone-900' : 'text-stone-700'}`}>
+          {count.toLocaleString()}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function RankingList({ title, items }: { title: string; items: Array<{ name: string; count: number }> }) {
+  const max = items[0]?.count ?? 1
+  return (
+    <div>
+      <p className="mb-2 text-[11px] font-bold text-stone-500">{title}</p>
+      <div className="space-y-2">
+        {items.map(({ name, count }) => (
+          <div key={name} className="flex items-center gap-2">
+            <p className="w-20 shrink-0 truncate text-[11px] font-bold text-stone-700">{name}</p>
+            <div className="flex-1 overflow-hidden rounded-full bg-stone-100" style={{ height: 5 }}>
+              <div
+                className="h-full rounded-full bg-stone-600 transition-all duration-500"
+                style={{ width: `${Math.round((count / max) * 100)}%` }}
+              />
+            </div>
+            <p className="w-5 text-right text-[11px] font-black text-stone-700">{count}</p>
+          </div>
+        ))}
       </div>
     </div>
   )
