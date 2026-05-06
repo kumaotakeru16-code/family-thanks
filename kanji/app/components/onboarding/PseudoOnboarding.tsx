@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, createContext, useContext } from 'react'
+import { compressImageToDataUrl } from '@/app/lib/image'
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const G    = '#3CC55A'
@@ -9,6 +10,12 @@ const SURF = '#0B0D0B'
 const LINE = '#1B1F1B'
 const PE_FONT = '"Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif'
 const PE_NUM  = '"Inter", "Helvetica Neue", "Hiragino Kaku Gothic ProN", sans-serif'
+
+const STORE_IMG_KEY     = 'kanji:demo:storeImage'
+const DEFAULT_STORE_IMG = '/onboarding/store-best.png'
+const StoreImgCtx = createContext<{ url: string; setUrl: (u: string) => void }>({
+  url: DEFAULT_STORE_IMG, setUrl: () => {},
+})
 
 type Props = { onClose: () => void }
 
@@ -222,23 +229,35 @@ function OrgScene_BestDate() {
 }
 
 function OrgScene_Store() {
+  const { url, setUrl } = useContext(StoreImgCtx)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const dataUrl = await compressImageToDataUrl(file, 900, 0.88)
+    setUrl(dataUrl)
+    e.target.value = ''
+  }
+
   return (
     <FadeWrap>
-      <div style={{ padding: '10px 12px' }}>
-        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>お店の提案</div>
-        <div style={{ background: SURF, border: `1px solid ${LINE}`, borderRadius: 12, overflow: 'hidden', animation: 'peSlide 0.5s ease' }}>
-          <div style={{ height: 64, position: 'relative', background: 'linear-gradient(135deg, #2b1f0e, #0a0a0a)' }}>
-            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 30% 40%, rgba(220,140,60,0.45), transparent 50%), radial-gradient(circle at 70% 60%, rgba(180,90,40,0.4), transparent 60%)' }}/>
-            <div style={{ position: 'absolute', top: 6, left: 8, fontSize: 7, fontWeight: 800, letterSpacing: 1.5, padding: '2px 6px', background: G, color: '#000', borderRadius: 99 }}>✓ BEST</div>
-          </div>
-          <div style={{ padding: '8px 12px 10px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: -0.3, marginBottom: 3, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }}>good spoon pizzeria 横浜店</div>
-            <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' as const }}>
-              {['4人席', '¥3-5k', '個室'].map(tag => (
-                <div key={tag} style={{ fontSize: 7, fontWeight: 700, padding: '2px 5px', borderRadius: 4, background: 'rgba(60,197,90,0.10)', color: '#7FE89A', border: `1px solid rgba(60,197,90,0.25)` }}>{tag}</div>
-              ))}
-            </div>
-          </div>
+      <div style={{ padding: '8px 12px 10px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 6, flexShrink: 0 }}>お店の提案</div>
+        <div style={{ borderRadius: 12, overflow: 'hidden', border: `1px solid ${LINE}`, animation: 'peSlide 0.5s ease', position: 'relative' }}>
+          <img src={url} alt="" style={{ width: '100%', display: 'block' }} />
+          <button
+            onClick={() => inputRef.current?.click()}
+            title="画像を差し替える"
+            style={{ position: 'absolute', top: 7, right: 7, width: 26, height: 26, borderRadius: 99, background: 'rgba(0,0,0,0.72)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </button>
+          <input ref={inputRef} type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
         </div>
       </div>
     </FadeWrap>
@@ -359,6 +378,7 @@ function GuestScene_Answer() {
 }
 
 function GuestScene_EvolvingURL({ phase }: { phase: number }) {
+  const { url: storeImgUrl } = useContext(StoreImgCtx)
   const has = (n: number) => phase >= n
   return (
     <FadeWrap>
@@ -381,8 +401,8 @@ function GuestScene_EvolvingURL({ phase }: { phase: number }) {
           </Slot>
           <Slot show={has(5)} order={1}>
             <div style={{ background: SURF, border: `1px solid ${LINE}`, borderRadius: 8, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 28, height: 28, borderRadius: 5, background: 'linear-gradient(135deg, #3a2814, #0a0a0a)', flexShrink: 0, position: 'relative' }}>
-                <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(220,140,60,0.4), transparent 70%)', borderRadius: 5 }}/>
+              <div style={{ width: 28, height: 28, borderRadius: 5, overflow: 'hidden', flexShrink: 0 }}>
+                <img src={storeImgUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '30% 55%', display: 'block' }} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 7, color: G, fontWeight: 700, letterSpacing: 1 }}>② 店</div>
@@ -419,40 +439,75 @@ const SHOW_GUEST  = [false, true,  true,  true,  false, true,  true ]
 const GUEST_MAIN  = [false, false, true,  false, false, true,  false]
 const GUEST_PMAP  = [4,     4,     4,     4,     4,     5,     6    ] // evolving URL phase
 
+// Mobile flow overlay — small pill shown in the gap between the two cards
+// toGuest: true → ↓ arrow, false → ↑ arrow
+const MOBILE_FLOW: Record<number, { label: string; toGuest: boolean }> = {
+  1: { label: 'URL送信',  toGuest: true  },
+  2: { label: '回答',     toGuest: false },
+  3: { label: '日程確定', toGuest: true  },
+  5: { label: '店決定',   toGuest: true  },
+  6: { label: '会計',     toGuest: true  },
+}
+
+// Gap between the two cards (px)
+const PANEL_GAP = 14
+
+// Guest height as % of total pane — 2 fixed values only:
+//   guestIsMain (phases 2, 5): 50%  → equal weight with organizer
+//   supplemental (phases 1, 3, 6): 42% → organizer stays visually dominant
+const GUEST_PCT_MAIN = 50
+const GUEST_PCT_SUB  = 42
+
 function MobileExperiencePane({ phase }: { phase: number }) {
-  const showGuest        = SHOW_GUEST[phase]  ?? false
-  const guestIsMain      = GUEST_MAIN[phase]  ?? false
-  const guestEvolvingP   = GUEST_PMAP[phase]  ?? 4
-  const orgDimmed        = guestIsMain
+  const showGuest      = SHOW_GUEST[phase] ?? false
+  const guestIsMain    = GUEST_MAIN[phase] ?? false
+  const guestEvolvingP = GUEST_PMAP[phase] ?? 4
+
+  const guestPct  = guestIsMain ? GUEST_PCT_MAIN : GUEST_PCT_SUB
+  const orgBottom = showGuest ? `calc(${guestPct}% + ${PANEL_GAP}px)` : '0px'
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', background: INK, borderRadius: 18, overflow: 'hidden', border: '1px solid rgba(60,197,90,0.2)', boxShadow: '0 20px 60px -20px rgba(60,197,90,0.22)' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
 
-      {/* 幹事 role tag */}
+      {/* ── Organizer card ───────────────────────────────────── */}
       <div style={{
-        position: 'absolute', top: 6, left: 12, zIndex: 10,
-        fontSize: 8, fontWeight: 800, letterSpacing: 2, padding: '2px 8px', borderRadius: 99,
-        background: 'rgba(60,197,90,0.12)', color: G, border: '1px solid rgba(60,197,90,0.3)',
-        opacity: orgDimmed ? 0.3 : 1, transition: 'opacity 0.5s', whiteSpace: 'nowrap' as const,
-      }}>幹事</div>
-
-      {/* Status bar */}
-      <div style={{ height: 22, padding: '0 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 9, fontWeight: 700, color: `rgba(255,255,255,${orgDimmed ? 0.15 : 0.6})`, flexShrink: 0, transition: 'color 0.5s' }}>
-        <span>9:41</span>
-        <svg width="11" height="7" viewBox="0 0 17 11"><g fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="5" y="5" width="3" height="6"/><rect x="10" y="3" width="3" height="8"/></g></svg>
-      </div>
-
-      {/* Organizer content */}
-      <div style={{
-        position: 'absolute', top: 22, left: 0, right: 0, bottom: 0,
-        opacity: orgDimmed ? 0.28 : 1, filter: orgDimmed ? 'blur(1px)' : 'none',
-        transition: 'opacity 0.55s ease, filter 0.55s ease',
-        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        position: 'absolute', top: 0, left: 0, right: 0, bottom: orgBottom,
+        transition: 'bottom 0.55s cubic-bezier(.2,.7,.2,1), opacity 0.55s ease, filter 0.55s ease, box-shadow 0.55s ease',
+        background: INK, borderRadius: 16, overflow: 'hidden',
+        border: '1px solid rgba(60,197,90,0.22)',
+        boxShadow: guestIsMain
+          ? '0 6px 24px -10px rgba(0,0,0,0.6)'
+          : '0 14px 44px -14px rgba(60,197,90,0.32)',
+        opacity: guestIsMain ? 0.45 : 1,
+        filter: guestIsMain ? 'blur(0.5px)' : 'none',
+        display: 'flex', flexDirection: 'column',
       }}>
-        <div style={{ padding: '4px 14px 4px', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <KanjiMark size={10} color={G} />
-          <div style={{ fontFamily: PE_NUM, fontSize: 8, fontWeight: 700, letterSpacing: 3 }}>KANJI</div>
+        {/* Status bar — role pill left, time+signal right */}
+        <div style={{ height: 28, padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '2px 8px 2px 5px', borderRadius: 99,
+            background: 'rgba(60,197,90,0.13)', border: `1px solid rgba(60,197,90,0.38)`,
+            boxShadow: '0 0 8px rgba(60,197,90,0.16)',
+          }}>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={G} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="7" r="4"/><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+            </svg>
+            <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: 1.5, color: G }}>幹事</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.45)' }}>
+            <span>9:41</span>
+            <svg width="11" height="7" viewBox="0 0 17 11"><g fill="currentColor"><rect x="0" y="7" width="3" height="4"/><rect x="5" y="5" width="3" height="6"/><rect x="10" y="3" width="3" height="8"/></g></svg>
+          </div>
         </div>
+
+        {/* KANJI wordmark */}
+        <div style={{ padding: '2px 12px 3px', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+          <KanjiMark size={9} color={G} />
+          <div style={{ fontFamily: PE_NUM, fontSize: 7, fontWeight: 700, letterSpacing: 3 }}>KANJI</div>
+        </div>
+
+        {/* Scene content */}
         <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           {phase === 0 && <OrgScene_Calendar />}
           {phase === 1 && <OrgScene_Share />}
@@ -463,41 +518,84 @@ function MobileExperiencePane({ phase }: { phase: number }) {
         </div>
       </div>
 
-      {/* Guest panel — slides up from bottom */}
+      {/* ── Guest card ───────────────────────────────────────── */}
       <div style={{
-        position: 'absolute', bottom: 0, left: '7%', right: '7%',
-        height: guestIsMain ? '62%' : '50%',
-        background: SURF, borderRadius: '12px 12px 0 0',
-        borderTop: `1px solid rgba(60,197,90,${showGuest ? 0.22 : 0.07})`,
-        borderLeft: `1px solid rgba(60,197,90,${showGuest ? 0.22 : 0.07})`,
-        borderRight: `1px solid rgba(60,197,90,${showGuest ? 0.22 : 0.07})`,
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        height: `${guestPct}%`,
+        background: SURF, borderRadius: 14, overflow: 'hidden',
+        borderTop: `1px solid rgba(60,197,90,${showGuest ? 0.2 : 0.06})`,
+        borderLeft: `1px solid rgba(60,197,90,${showGuest ? 0.2 : 0.06})`,
+        borderRight: `1px solid rgba(60,197,90,${showGuest ? 0.2 : 0.06})`,
         borderBottom: 'none',
-        boxShadow: showGuest ? '0 -10px 32px rgba(60,197,90,0.12)' : 'none',
-        transform: showGuest ? 'translateY(0)' : 'translateY(108%)',
-        transition: 'transform 0.55s cubic-bezier(.2,.7,.2,1), height 0.4s ease',
-        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        boxShadow: showGuest ? '0 -4px 18px -6px rgba(60,197,90,0.16)' : 'none',
+        transform: showGuest ? 'translateY(0)' : 'translateY(calc(100% + 20px))',
+        opacity: showGuest ? 1 : 0,
+        transition: 'transform 0.55s cubic-bezier(.2,.7,.2,1), opacity 0.4s ease',
+        display: 'flex', flexDirection: 'column',
       }}>
-        {/* 参加者 role tag */}
-        <div style={{
-          position: 'absolute', top: 4, left: '50%', transform: 'translateX(-50%)', zIndex: 5,
-          fontSize: 7, fontWeight: 800, letterSpacing: 2, padding: '2px 8px', borderRadius: 99,
-          background: 'rgba(60,197,90,0.12)', color: G, border: '1px solid rgba(60,197,90,0.3)',
-          whiteSpace: 'nowrap' as const,
-        }}>参加者</div>
+        {/* Status bar — role pill left, time right */}
+        <div style={{ height: 26, padding: '0 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '2px 7px 2px 5px', borderRadius: 99,
+            background: 'rgba(60,197,90,0.10)', border: '1px solid rgba(60,197,90,0.30)',
+            boxShadow: '0 0 7px rgba(60,197,90,0.13)',
+          }}>
+            <svg width="11" height="8" viewBox="0 0 24 24" fill="none" stroke={G} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.87"/>
+            </svg>
+            <span style={{ fontSize: 7, fontWeight: 800, letterSpacing: 1.5, color: G }}>参加者</span>
+          </div>
+          <span style={{ fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,0.38)' }}>9:41</span>
+        </div>
 
-        <div style={{ height: 20, padding: '0 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.6)', flexShrink: 0 }}>
-          <span>9:41</span>
-        </div>
-        <div style={{ padding: '1px 12px 4px', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-          <KanjiMark size={9} color={G} />
-          <div style={{ fontFamily: PE_NUM, fontSize: 8, fontWeight: 700, letterSpacing: 3 }}>KANJI</div>
-        </div>
+        {/* Scene content */}
         <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           {phase === 1 && <GuestScene_Notification />}
           {phase === 2 && <GuestScene_Answer />}
           {(phase === 3 || phase === 5 || phase === 6) && <GuestScene_EvolvingURL phase={guestEvolvingP} />}
         </div>
       </div>
+
+      {/* ── Flow connector overlay ───────────────────────────────
+          Pill straddles the PANEL_GAP between the two cards.
+          bottom: calc(guestPct% - 4px) → 4px into guest card (below),
+          14px gap in middle, 4px into org card (above).
+          zIndex: 20 → renders above both overflow:hidden siblings.  */}
+      {showGuest && MOBILE_FLOW[phase] && (
+        <div
+          key={phase}
+          style={{
+            position: 'absolute',
+            bottom: `calc(${guestPct}% - 4px)`,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 20,
+            pointerEvents: 'none',
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '4px 9px 4px 7px',
+            borderRadius: 99,
+            background: INK,
+            border: `1px solid rgba(60,197,90,0.45)`,
+            boxShadow: `0 0 14px rgba(60,197,90,0.22)`,
+            whiteSpace: 'nowrap' as const,
+            animation: 'peFadeIn 0.4s ease 0.35s both',
+          }}
+        >
+          {/* Pulsing dot */}
+          <div style={{ width: 5, height: 5, borderRadius: 99, background: G, boxShadow: `0 0 6px ${G}`, animation: 'pePulse 1.4s ease-in-out infinite', flexShrink: 0 }} />
+          {/* Label */}
+          <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: 1.5, color: G }}>{MOBILE_FLOW[phase]!.label}</span>
+          {/* Direction arrow ↓ or ↑ */}
+          <svg width="7" height="8" viewBox="0 0 7 8" fill="none" style={{ flexShrink: 0 }}>
+            {MOBILE_FLOW[phase]!.toGuest
+              ? <path d="M3.5 1V7M1 4.5L3.5 7L6 4.5" stroke={G} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              : <path d="M3.5 7V1M1 3.5L3.5 1L6 3.5" stroke={G} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            }
+          </svg>
+        </div>
+      )}
     </div>
   )
 }
@@ -567,6 +665,12 @@ function ConnectorFlow({ phase }: { phase: number }) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export function PseudoOnboarding({ onClose }: Props) {
   const [phase, setPhase, paused, setPaused] = usePhase(2200, 7)
+  const [storeImgUrl, setStoreImgUrl] = useState(DEFAULT_STORE_IMG)
+  useEffect(() => {
+    const saved = localStorage.getItem(STORE_IMG_KEY)
+    if (saved) setStoreImgUrl(saved)
+  }, [])
+  const updateStoreImg = (url: string) => { localStorage.setItem(STORE_IMG_KEY, url); setStoreImgUrl(url) }
 
   const captions = [
     { lead: 'まずは会をつくる',              body: '候補日を出すだけ' },
@@ -583,6 +687,7 @@ export function PseudoOnboarding({ onClose }: Props) {
   const isLast = phase === 6
 
   return (
+    <StoreImgCtx.Provider value={{ url: storeImgUrl, setUrl: updateStoreImg }}>
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'radial-gradient(ellipse at 50% 0%, #0a1208 0%, #000 60%)', color: '#fff', fontFamily: PE_FONT, overflowX: 'hidden' }}>
       <style>{`
         @keyframes pePulse   { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.55;transform:scale(.85)} }
@@ -597,49 +702,85 @@ export function PseudoOnboarding({ onClose }: Props) {
       <div className="flex h-full flex-col md:hidden" style={{ overflow: 'hidden' }}>
 
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px 10px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px 6px', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <KanjiMark size={16} color={G} />
             <div style={{ fontFamily: PE_NUM, fontSize: 12, fontWeight: 700, letterSpacing: 4 }}>KANJI</div>
           </div>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: 2 }}>EXPERIENCE PREVIEW</div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.38)', fontSize: 12, fontWeight: 600, fontFamily: PE_FONT, padding: '4px 0' }}>スキップ</button>
         </div>
 
-        {/* Experience preview — top portion */}
-        <div style={{ padding: '0 16px', height: '44vh', flexShrink: 0 }}>
+        {/* Caption — above preview for natural top-down flow */}
+        <div key={phase} style={{ padding: '6px 20px 10px', animation: 'peFadeIn 0.5s ease', flexShrink: 0 }}>
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontWeight: 600, letterSpacing: -0.1 }}>{c.lead}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.4, lineHeight: 1.3, marginTop: 2 }}>{c.body}</div>
+          </div>
+        </div>
+
+        {/* Experience preview — takes remaining space */}
+        <div style={{ padding: '0 16px', flex: 1, minHeight: 0 }}>
           <MobileExperiencePane phase={phase} />
         </div>
 
-        {/* Bottom: caption + dots + CTA */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '16px 24px 28px', minHeight: 0 }}>
+        {/* Bottom control surface */}
+        <div style={{ flexShrink: 0, padding: '10px 16px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-          {/* Caption */}
-          <div key={phase} style={{ animation: 'peFadeIn 0.5s ease' }}>
-            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)', fontWeight: 600, letterSpacing: -0.2 }}>{c.lead}</div>
-            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.8, lineHeight: 1.3, marginTop: 4 }}>{c.body}</div>
+          {/* Step carousel nav — 3 visible, slides on transition */}
+          <div style={{ overflow: 'hidden', background: SURF, border: `1px solid ${LINE}`, borderRadius: 14, position: 'relative' }}>
+            <div style={{
+              display: 'flex',
+              width: `${(7 / 3 * 100).toFixed(4)}%`,
+              transform: `translateX(${((1 - phase) / 7 * 100).toFixed(4)}%)`,
+              transition: 'transform 0.42s cubic-bezier(0.2,0.8,0.2,1)',
+            }}>
+              {steps.map((s, i) => {
+                const dist = Math.abs(i - phase)
+                const isActive = i === phase
+                return (
+                  <button key={s} onClick={() => { setPhase(i); setPaused(true) }}
+                    style={{
+                      flex: '0 0 calc(100% / 7)',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center',
+                      padding: '8px 4px',
+                      background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: PE_FONT,
+                      opacity: dist === 0 ? 1 : dist === 1 ? 0.45 : 0.1,
+                      transform: `scale(${isActive ? 1 : 0.82})`,
+                      transition: 'opacity 0.38s ease, transform 0.38s ease',
+                    }}>
+                    <span style={{ fontFamily: PE_NUM, fontSize: 8, fontWeight: 700, color: isActive ? G : 'rgba(255,255,255,0.5)', letterSpacing: 0.5, marginBottom: 2 }}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <span style={{ fontSize: isActive ? 12 : 10, fontWeight: isActive ? 800 : 600, color: isActive ? G : 'rgba(255,255,255,0.5)', letterSpacing: 0.3, whiteSpace: 'nowrap' as const }}>
+                      {s}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            {/* Edge fades */}
+            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '24%', background: `linear-gradient(to right, ${SURF} 35%, transparent)`, pointerEvents: 'none' }}/>
+            <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '24%', background: `linear-gradient(to left, ${SURF} 35%, transparent)`, pointerEvents: 'none' }}/>
+            {/* Play/pause overlaid at right */}
+            <button onClick={() => setPaused(!paused)} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 22, height: 22, borderRadius: 99, border: 'none', cursor: 'pointer', background: 'rgba(60,197,90,0.14)', color: G, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {paused
+                ? <svg width="8" height="9" viewBox="0 0 9 10"><path d="M1 1L8 5L1 9Z" fill={G}/></svg>
+                : <svg width="8" height="9" viewBox="0 0 9 10"><rect x="1" y="1" width="2.5" height="8" fill={G}/><rect x="5.5" y="1" width="2.5" height="8" fill={G}/></svg>
+              }
+            </button>
           </div>
 
-          {/* Step dots */}
-          <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-            {Array.from({ length: 7 }).map((_, i) => (
-              <div key={i} onClick={() => { setPhase(i); setPaused(true) }} style={{ width: i === phase ? 22 : 6, height: 6, borderRadius: 99, background: i === phase ? G : i < phase ? 'rgba(60,197,90,0.35)' : 'rgba(255,255,255,0.15)', transition: 'all 0.3s ease', cursor: 'pointer' }} />
-            ))}
+          {/* CTA — always visible, dims until last step (same philosophy as PC) */}
+          <div style={{ opacity: isLast ? 1 : 0.4, transform: isLast ? 'translateY(0)' : 'translateY(8px)', transition: 'all 0.6s cubic-bezier(.2,.7,.2,1)' }}>
+            <button
+              onClick={onClose}
+              style={{ width: '100%', padding: '15px', background: G, color: '#000', border: 'none', borderRadius: 14, fontSize: 15, fontWeight: 800, letterSpacing: 0.3, fontFamily: PE_FONT, cursor: 'pointer', boxShadow: `0 16px 44px -10px rgba(60,197,90,0.65), 0 0 0 1px rgba(127,232,154,0.25)`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            >
+              <KanjiMark size={15} color="#000" />
+              KANJIで会をつくる
+              <svg width="13" height="10" viewBox="0 0 14 12" fill="none"><path d="M1 6H13M9 1L13 6L9 11" stroke="#000" strokeWidth="2.2" strokeLinecap="square"/></svg>
+            </button>
           </div>
-
-          {/* CTA */}
-          <button
-            onClick={() => { if (phase < 6) { setPhase(phase + 1); setPaused(true) } else onClose() }}
-            style={{ width: '100%', padding: '16px', background: G, color: '#000', border: 'none', borderRadius: 14, fontSize: 15, fontWeight: 800, letterSpacing: 0.3, fontFamily: PE_FONT, cursor: 'pointer', boxShadow: `0 14px 36px -10px rgba(60,197,90,0.5)`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-          >
-            {isLast ? (
-              <>
-                <KanjiMark size={15} color="#000" />
-                KANJIで会をつくる
-                <svg width="13" height="10" viewBox="0 0 14 12" fill="none"><path d="M1 6H13M9 1L13 6L9 11" stroke="#000" strokeWidth="2.2" strokeLinecap="square"/></svg>
-              </>
-            ) : '次へ →'}
-          </button>
         </div>
       </div>
 
@@ -697,5 +838,6 @@ export function PseudoOnboarding({ onClose }: Props) {
         </div>
       </div>
     </div>
+    </StoreImgCtx.Provider>
   )
 }
