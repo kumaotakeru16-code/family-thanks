@@ -1637,6 +1637,12 @@ async function openSavedEvent(id: string, name: string, type: string, overrideSt
     setDbDates(result.dates ?? [])
     setDbResponses(result.responses ?? [])
 
+    void trackEvent('resume_existing_event', {
+      eventId: id,
+      status: status === 'date_pending' ? 'date' : status === 'reserved' ? 'settlement' : 'store',
+      participantCount: (result.responses ?? []).length,
+    })
+
     if (status === 'store_pending' && confirmedDateId) {
       // 日程確定済み・店未選択 → 店探しから再開
       setHeroBestDateId(confirmedDateId)
@@ -1798,6 +1804,15 @@ async function fetchRecommendedStores(excludeIds: string[] = []) {
     return
   }
   setStationError('')
+
+  if (recommendedStores.length > 0) {
+    void trackEvent('repeat_store_search', {
+      mode: appMode,
+      area: orgPrefs.areas[0] ?? null,
+      genre: orgPrefs.genres[0] ?? null,
+      peopleCount: totalCount,
+    })
+  }
 
   void trackEvent('store_conditions_submit', {
     mode: appMode,
@@ -2028,6 +2043,19 @@ async function fetchRecommendedStores(excludeIds: string[] = []) {
       topStoreGenre: finalStores[0]?.genre ?? null,
       topStoreArea: finalStores[0]?.area ?? null,
     })
+
+    // 別日の再訪検出（localStorage で初回日を記録）
+    if (typeof window !== 'undefined') {
+      const today = new Date().toISOString().slice(0, 10)
+      const lastDate = localStorage.getItem('kanji:lastCandidateDate')
+      if (lastDate && lastDate < today) {
+        void trackEvent('revisit_store_candidates', {
+          mode: appMode,
+          candidateCount: finalStores.length,
+        })
+      }
+      localStorage.setItem('kanji:lastCandidateDate', today)
+    }
 
     if (hpData?.fallback) {
       setStoreFetchError(

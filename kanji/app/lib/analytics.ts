@@ -54,6 +54,10 @@ export type AnalyticsEventName =
   | 'favorite_store_click'
   | 'store_only_to_event_create'
   | 'share_store_info'
+  // revisit / retention
+  | 'resume_existing_event'
+  | 'repeat_store_search'
+  | 'revisit_store_candidates'
 
 const TRACKED_EVENTS: AnalyticsEventName[] = [
   'app_open',
@@ -215,6 +219,9 @@ const RETENTION_EVENTS: AnalyticsEventName[] = [
   'favorite_store_click',
   'create_event',
   'complete_settlement',
+  'resume_existing_event',
+  'repeat_store_search',
+  'revisit_store_candidates',
 ]
 
 export type RetentionSlice = {
@@ -238,6 +245,9 @@ export type RetentionSlice = {
     favoriteClick: number
     createEvent: number
     completeSettlement: number
+    resumeExistingEvent: number
+    repeatStoreSearch: number
+    revisitStoreCandidates: number
   }
 }
 
@@ -289,15 +299,19 @@ function processRetentionRows(rows: RawRetentionRow[]): RetentionSlice {
     storeOnlyStart: 0, storeCandidatesLoaded: 0,
     hotpepperClick: 0, favoriteClick: 0,
     createEvent: 0, completeSettlement: 0,
+    resumeExistingEvent: 0, repeatStoreSearch: 0, revisitStoreCandidates: 0,
   }
   for (const userId of returningUserSet) {
     const names = new Set((byUser[userId] ?? []).map(e => e.event_name))
-    if (names.has('store_only_start'))       ra.storeOnlyStart++
-    if (names.has('store_candidates_loaded')) ra.storeCandidatesLoaded++
-    if (names.has('hotpepper_link_click'))    ra.hotpepperClick++
-    if (names.has('favorite_store_click'))    ra.favoriteClick++
-    if (names.has('create_event'))            ra.createEvent++
-    if (names.has('complete_settlement'))     ra.completeSettlement++
+    if (names.has('store_only_start'))         ra.storeOnlyStart++
+    if (names.has('store_candidates_loaded'))   ra.storeCandidatesLoaded++
+    if (names.has('hotpepper_link_click'))      ra.hotpepperClick++
+    if (names.has('favorite_store_click'))      ra.favoriteClick++
+    if (names.has('create_event'))              ra.createEvent++
+    if (names.has('complete_settlement'))       ra.completeSettlement++
+    if (names.has('resume_existing_event'))     ra.resumeExistingEvent++
+    if (names.has('repeat_store_search'))       ra.repeatStoreSearch++
+    if (names.has('revisit_store_candidates'))  ra.revisitStoreCandidates++
   }
 
   return {
@@ -340,6 +354,95 @@ export async function loadRetentionDashboard(myUserId: string): Promise<Retentio
   return {
     all: processRetentionRows(filter(allRes.data)),
     week: processRetentionRows(filter(weekRes.data)),
+  }
+}
+
+// ── Revisit 分析 ──────────────────────────────────────────────────────────────
+
+const REVISIT_EVENTS: AnalyticsEventName[] = [
+  'resume_existing_event',
+  'repeat_store_search',
+  'revisit_store_candidates',
+]
+
+export type RevisitSlice = {
+  /** 進行中の会を開いたユニークユーザー数 */
+  resumeCount: number
+  /** repeat_store_search したユニークユーザー数 */
+  repeatSearchUserCount: number
+  /** repeat_store_search の総発火回数 */
+  repeatSearchTotal: number
+  /** revisit_store_candidates したユニークユーザー数 */
+  revisitCandidatesCount: number
+  /** resume_existing_event の status 内訳（イベント発火回数） */
+  statusBreakdown: { date: number; store: number; settlement: number }
+}
+
+export type RevisitDashboard = { all: RevisitSlice; week: RevisitSlice }
+
+type RawRevisitRow = {
+  user_id: string
+  event_name: string
+  metadata: Record<string, unknown> | null
+}
+
+function processRevisitRows(rows: RawRevisitRow[]): RevisitSlice {
+  const resumeUsers = new Set<string>()
+  const repeatUsers = new Set<string>()
+  const revisitUsers = new Set<string>()
+  let repeatSearchTotal = 0
+  const statusBreakdown = { date: 0, store: 0, settlement: 0 }
+
+  for (const r of rows) {
+    const m = r.metadata && typeof r.metadata === 'object' ? r.metadata : {}
+    if (r.event_name === 'resume_existing_event') {
+      resumeUsers.add(r.user_id)
+      const s = m.status as string | undefined
+      if (s === 'date') statusBreakdown.date++
+      else if (s === 'store') statusBreakdown.store++
+      else if (s === 'settlement') statusBreakdown.settlement++
+    } else if (r.event_name === 'repeat_store_search') {
+      repeatUsers.add(r.user_id)
+      repeatSearchTotal++
+    } else if (r.event_name === 'revisit_store_candidates') {
+      revisitUsers.add(r.user_id)
+    }
+  }
+
+  return {
+    resumeCount: resumeUsers.size,
+    repeatSearchUserCount: repeatUsers.size,
+    repeatSearchTotal,
+    revisitCandidatesCount: revisitUsers.size,
+    statusBreakdown,
+  }
+}
+
+export async function loadRevisitDashboard(myUserId: string): Promise<RevisitDashboard | null> {
+  if (typeof window === 'undefined') return null
+
+  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  const [allRes, weekRes] = await Promise.all([
+    supabase
+      .from('analytics_events')
+      .select('user_id, event_name, metadata')
+      .in('event_name', REVISIT_EVENTS),
+    supabase
+      .from('analytics_events')
+      .select('user_id, event_name, metadata')
+      .in('event_name', REVISIT_EVENTS)
+      .gt('created_at', sevenDaysAgo),
+  ])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const filter = (rows: any[] | null): RawRevisitRow[] =>
+    (rows ?? []).filter((r: RawRevisitRow) => r.user_id && !excludedSet.has(r.user_id))
+
+  return {
+    all: processRevisitRows(filter(allRes.data)),
+    week: processRevisitRows(filter(weekRes.data)),
   }
 }
 

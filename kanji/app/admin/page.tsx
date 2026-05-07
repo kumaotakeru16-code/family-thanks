@@ -13,6 +13,7 @@ import {
   loadDashboard,
   loadStoreDashboard,
   loadRetentionDashboard,
+  loadRevisitDashboard,
   pct,
   type AnalyticsDashboard,
   type AnalyticsSlice,
@@ -20,6 +21,8 @@ import {
   type StoreFunnelSlice,
   type RetentionDashboard,
   type RetentionSlice,
+  type RevisitDashboard,
+  type RevisitSlice,
 } from '@/app/lib/analytics'
 import { getAnonId } from '@/app/lib/storage/anonymous-id'
 
@@ -27,6 +30,7 @@ export default function AdminPage() {
   const [dashboard, setDashboard] = useState<AnalyticsDashboard | null>(null)
   const [storeDash, setStoreDash] = useState<StoreDashboard | null>(null)
   const [retentionDash, setRetentionDash] = useState<RetentionDashboard | null>(null)
+  const [revisitDash, setRevisitDash] = useState<RevisitDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [weekMode, setWeekMode] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -37,19 +41,22 @@ export default function AdminPage() {
     setLoading(true)
     try {
       const id = getAnonId()
-      const [data, storeData, retData] = await Promise.all([
+      const [data, storeData, retData, revData] = await Promise.all([
         loadDashboard(id),
         loadStoreDashboard(id),
         loadRetentionDashboard(id),
+        loadRevisitDashboard(id),
       ])
       setDashboard(data)
       setStoreDash(storeData)
       setRetentionDash(retData)
+      setRevisitDash(revData)
       setLastUpdated(new Date())
     } catch {
       setDashboard(null)
       setStoreDash(null)
       setRetentionDash(null)
+      setRevisitDash(null)
     } finally {
       setLoading(false)
     }
@@ -123,6 +130,9 @@ export default function AdminPage() {
             )}
             {retentionDash && (
               <RetentionView slice={weekMode ? retentionDash.week : retentionDash.all} />
+            )}
+            {revisitDash && (
+              <RevisitView slice={weekMode ? revisitDash.week : revisitDash.all} />
             )}
           </div>
         )}
@@ -301,6 +311,9 @@ function RetentionView({ slice: s }: { slice: RetentionSlice }) {
     { label: 'お気に入り', count: ra.favoriteClick },
     { label: '会作成', count: ra.createEvent },
     { label: '清算完了', count: ra.completeSettlement },
+    { label: '進行中会再開', count: ra.resumeExistingEvent },
+    { label: '店再検索', count: ra.repeatStoreSearch },
+    { label: '候補再訪', count: ra.revisitStoreCandidates },
   ]
 
   return (
@@ -336,6 +349,73 @@ function RetentionView({ slice: s }: { slice: RetentionSlice }) {
                 </div>
               </div>
             ))}
+          </div>
+        </Card>
+      )}
+    </>
+  )
+}
+
+// ── 再訪行動分析 ──────────────────────────────────────────────────────────────
+
+function RevisitView({ slice: s }: { slice: RevisitSlice }) {
+  const hasData = s.resumeCount + s.repeatSearchUserCount + s.revisitCandidatesCount > 0
+
+  return (
+    <>
+      {/* ⑨ 再訪行動 */}
+      <Card>
+        <SectionLabel>再訪行動</SectionLabel>
+        {!hasData ? (
+          <p className="py-2 text-center text-[11px] text-stone-300">まだデータがありません</p>
+        ) : (
+          <div className="divide-y divide-stone-100">
+            <div className="flex items-center justify-between py-2.5">
+              <p className="text-[12px] font-bold text-stone-600">進行中会再開</p>
+              <p className="text-[16px] font-black tabular-nums text-stone-700">{s.resumeCount.toLocaleString()}</p>
+            </div>
+            <div className="flex items-center justify-between py-2.5">
+              <div>
+                <p className="text-[12px] font-bold text-stone-600">店再検索</p>
+                <p className="text-[10px] text-stone-400">総回数 {s.repeatSearchTotal.toLocaleString()} 回</p>
+              </div>
+              <p className="text-[16px] font-black tabular-nums text-stone-700">{s.repeatSearchUserCount.toLocaleString()}</p>
+            </div>
+            <div className="flex items-center justify-between py-2.5">
+              <p className="text-[12px] font-bold text-stone-600">候補再訪</p>
+              <p className="text-[16px] font-black tabular-nums text-stone-700">{s.revisitCandidatesCount.toLocaleString()}</p>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* ⑩ 会再開 status 内訳 */}
+      {s.resumeCount > 0 && (
+        <Card>
+          <SectionLabel>会再開 — フェーズ内訳</SectionLabel>
+          <p className="mb-3 text-[10px] text-stone-400">resume_existing_event 発火回数（延べ）</p>
+          <div className="space-y-2.5">
+            {[
+              { label: '日程調整中', count: s.statusBreakdown.date },
+              { label: '店決め中', count: s.statusBreakdown.store },
+              { label: '清算中', count: s.statusBreakdown.settlement },
+            ].map(({ label, count }) => {
+              const total = s.statusBreakdown.date + s.statusBreakdown.store + s.statusBreakdown.settlement
+              return (
+                <div key={label} className="flex items-center gap-3">
+                  <p className="w-24 shrink-0 text-[11px] font-bold text-stone-600">{label}</p>
+                  <div className="flex flex-1 items-center gap-2">
+                    <div className="flex-1 overflow-hidden rounded-full bg-stone-100" style={{ height: 6 }}>
+                      <div
+                        className="h-full rounded-full bg-stone-600 transition-all duration-500"
+                        style={{ width: `${total > 0 ? Math.round((count / total) * 100) : 0}%` }}
+                      />
+                    </div>
+                    <p className="w-9 text-right text-[13px] font-black text-stone-800">{count}</p>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </Card>
       )}
