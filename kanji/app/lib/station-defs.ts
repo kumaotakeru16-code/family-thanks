@@ -1203,6 +1203,15 @@ export const STATION_DEFS: Record<string, StationDef> = {
       smallArea: "X940",
     },
   },
+  "熊本": {
+    canonical: "熊本",
+    displayName: "熊本",
+    aliases: ["熊本","熊本駅","くまもと","クマモト","JR熊本"],
+    hpArea: {
+      middleArea: "Y760",
+      smallArea: "X764",
+    },
+  },
   "群馬県庁": {
     canonical: "群馬県庁",
     displayName: "群馬県庁",
@@ -1669,6 +1678,14 @@ export const STATION_DEFS: Record<string, StationDef> = {
     hpArea: {
       middleArea: "Y007",
       smallArea: "XA3D",
+    },
+  },
+  "国分": {
+    canonical: "国分",
+    displayName: "国分",
+    aliases: ["国分","国分駅","こくぶ","コクブ","JR国分","霧島国分"],
+    hpArea: {
+      middleArea: "Y781",
     },
   },
   "国分寺": {
@@ -4389,6 +4406,14 @@ export const STATION_DEFS: Record<string, StationDef> = {
       smallArea: "XA8P",
     },
   },
+  "中津": {
+    canonical: "中津",
+    displayName: "中津",
+    aliases: ["中津","中津駅","なかつ","ナカツ","JR中津"],
+    hpArea: {
+      middleArea: "Y904",
+    },
+  },
   "中板橋": {
     canonical: "中板橋",
     displayName: "中板橋",
@@ -4504,6 +4529,15 @@ export const STATION_DEFS: Record<string, StationDef> = {
     hpArea: {
       middleArea: "Y082",
       smallArea: "XA5D",
+    },
+  },
+  "長崎": {
+    canonical: "長崎",
+    displayName: "長崎",
+    aliases: ["長崎","長崎駅","ながさき","ナガサキ","JR長崎"],
+    hpArea: {
+      middleArea: "Y740",
+      smallArea: "X748",
     },
   },
   "長沼": {
@@ -4702,6 +4736,14 @@ export const STATION_DEFS: Record<string, StationDef> = {
     hpArea: {
       middleArea: "Y087",
       smallArea: "X254",
+    },
+  },
+  "都城": {
+    canonical: "都城",
+    displayName: "都城",
+    aliases: ["都城","都城駅","みやこのじょう","ミヤコノジョウ","JR都城"],
+    hpArea: {
+      middleArea: "Y771",
     },
   },
   "都庁": {
@@ -5071,6 +5113,14 @@ export const STATION_DEFS: Record<string, StationDef> = {
     hpArea: {
       middleArea: "Y905",
       smallArea: "X976",
+    },
+  },
+  "南宮崎": {
+    canonical: "南宮崎",
+    displayName: "南宮崎",
+    aliases: ["南宮崎","南宮崎駅","みなみみやざき","ミナミミヤザキ","JR南宮崎"],
+    hpArea: {
+      middleArea: "Y773",
     },
   },
   "南千住": {
@@ -6457,6 +6507,14 @@ export const STATION_DEFS: Record<string, StationDef> = {
     hpArea: {
       middleArea: "Y006",
       smallArea: "XA1K",
+    },
+  },
+  "諫早": {
+    canonical: "諫早",
+    displayName: "諫早",
+    aliases: ["諫早","諫早駅","いさはや","イサハヤ","JR諫早"],
+    hpArea: {
+      middleArea: "Y902",
     },
   },
   "鶯谷": {
