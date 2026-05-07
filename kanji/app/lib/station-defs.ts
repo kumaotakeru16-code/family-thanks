@@ -3984,6 +3984,15 @@ export const STATION_DEFS: Record<string, StationDef> = {
       smallArea: "X077",
     },
   },
+  "大井町": {
+    canonical: "大井町",
+    displayName: "大井町",
+    aliases: ["大井町","大井町駅","おおいまち","オオイマチ","JR大井町"],
+    hpArea: {
+      middleArea: "Y080",
+      smallArea: "X216",
+    },
+  },
   "大岡山": {
     canonical: "大岡山",
     displayName: "大岡山",

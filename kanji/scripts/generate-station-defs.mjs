@@ -32,6 +32,7 @@ const MANUAL_HP_AREA = {
   日光: { middleArea: 'Y863', smallArea: 'X896' },
 
   大分: { middleArea: 'Y750', smallArea: 'X750' },
+  大井町: { middleArea: 'Y080', smallArea: 'X216' },
 }
 
 const MANUAL_ALIASES = {
@@ -57,6 +58,7 @@ const MANUAL_ALIASES = {
   久里浜: ['久里浜', '京急久里浜', '北久里浜'],
 
   大分: ['大分', '大分駅', 'おおいた', 'オオイタ', 'JR大分'],
+  大井町: ['大井町', '大井町駅', 'おおいまち', 'オオイマチ', 'JR大井町'],
 }
 
 function readJson(filePath) {
