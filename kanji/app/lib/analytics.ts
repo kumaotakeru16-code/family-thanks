@@ -606,6 +606,112 @@ export async function loadStoreDashboard(myUserId: string): Promise<StoreDashboa
   }
 }
 
+// ── Time Series ───────────────────────────────────────────────────────────────
+
+export type DayPoint = {
+  date: string        // 'YYYY-MM-DD'
+  users: number       // app_open ユニークユーザー
+  creates: number     // create_event ユニークユーザー
+  storeViews: number  // view_store_suggestion ユニークユーザー
+  completes: number   // complete_settlement ユニークユーザー
+}
+
+const TIME_SERIES_EVENTS: AnalyticsEventName[] = [
+  'app_open', 'create_event', 'view_store_suggestion', 'complete_settlement',
+]
+
+/** 直近 days 日分の日別集計を返す。weekMode 連動は呼び出し側でスライス。 */
+export async function loadTimeSeries(myUserId: string, days = 30): Promise<DayPoint[]> {
+  if (typeof window === 'undefined') return []
+
+  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+
+  const { data } = await supabase
+    .from('analytics_events')
+    .select('user_id, event_name, created_at')
+    .in('event_name', TIME_SERIES_EVENTS)
+    .gt('created_at', since)
+
+  type TSRow = { user_id: string; event_name: string; created_at: string }
+  const rows = (data as TSRow[] ?? []).filter(r => !excludedSet.has(r.user_id))
+
+  const byDate: Record<string, {
+    users: Set<string>; creates: Set<string>; storeViews: Set<string>; completes: Set<string>
+  }> = {}
+
+  for (const r of rows) {
+    const d = r.created_at.slice(0, 10)
+    if (!byDate[d]) byDate[d] = {
+      users: new Set(), creates: new Set(), storeViews: new Set(), completes: new Set(),
+    }
+    byDate[d].users.add(r.user_id)
+    if (r.event_name === 'create_event') byDate[d].creates.add(r.user_id)
+    if (r.event_name === 'view_store_suggestion') byDate[d].storeViews.add(r.user_id)
+    if (r.event_name === 'complete_settlement') byDate[d].completes.add(r.user_id)
+  }
+
+  const result: DayPoint[] = []
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const g = byDate[d]
+    result.push({
+      date: d,
+      users: g?.users.size ?? 0,
+      creates: g?.creates.size ?? 0,
+      storeViews: g?.storeViews.size ?? 0,
+      completes: g?.completes.size ?? 0,
+    })
+  }
+  return result
+}
+
+// ── Activity Feed ─────────────────────────────────────────────────────────────
+
+export type ActivityItem = {
+  id: number
+  eventName: AnalyticsEventName
+  metadata: Record<string, unknown> | null
+  createdAt: string
+}
+
+const FEED_EVENTS: AnalyticsEventName[] = [
+  'start_from_dates', 'start_from_store', 'create_event',
+  'view_store_suggestion', 'complete_settlement',
+  'store_only_start', 'store_candidates_loaded',
+  'hotpepper_link_click', 'favorite_store_click',
+  'store_only_to_event_create', 'resume_existing_event',
+  'repeat_store_search', 'revisit_store_candidates',
+]
+
+/** 直近 limit 件のイベントを新着順で返す。 */
+export async function loadActivityFeed(
+  myUserId: string,
+  limit = 20,
+): Promise<ActivityItem[]> {
+  if (typeof window === 'undefined') return []
+
+  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
+
+  const { data } = await supabase
+    .from('analytics_events')
+    .select('id, user_id, event_name, metadata, created_at')
+    .in('event_name', FEED_EVENTS)
+    .order('created_at', { ascending: false })
+    .limit(limit + 60)
+
+  type FeedRow = { id: number; user_id: string; event_name: string; metadata: unknown; created_at: string }
+  return (data as FeedRow[] ?? [])
+    .filter(r => !excludedSet.has(r.user_id))
+    .slice(0, limit)
+    .map(r => ({
+      id: r.id,
+      eventName: r.event_name as AnalyticsEventName,
+      metadata: (r.metadata ?? null) as Record<string, unknown> | null,
+      createdAt: r.created_at,
+    }))
+}
+
 // ── 表示ヘルパー ──────────────────────────────────────────────────────────────
 
 /** n / d を 0–100 の整数パーセントで返す。d = 0 なら 0。 */
