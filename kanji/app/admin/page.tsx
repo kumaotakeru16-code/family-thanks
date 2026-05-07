@@ -10,6 +10,8 @@ import {
   loadTimeSeries,
   loadActivityFeed,
   loadSourceDashboard,
+  loadStationEmptyDashboard,
+  loadStationFallbackDashboard,
   pct,
   type AnalyticsDashboard,
   type AnalyticsSlice,
@@ -24,6 +26,11 @@ import {
   type SourceDashboard,
   type SourceSlice,
   type TrafficSource,
+  type StationEmptyDashboard,
+  type StationEmptyItem,
+  type StationFallbackDashboard,
+  type StationFallbackSlice,
+  type StationFallbackFailedItem,
 } from '@/app/lib/analytics'
 import { getAnonId } from '@/app/lib/storage/anonymous-id'
 
@@ -69,6 +76,8 @@ export default function AdminPage() {
   const [timeSeries, setTimeSeries] = useState<DayPoint[]>([])
   const [feed, setFeed] = useState<ActivityItem[]>([])
   const [sourceDash, setSourceDash] = useState<SourceDashboard | null>(null)
+  const [stationEmptyDash, setStationEmptyDash] = useState<StationEmptyDashboard | null>(null)
+  const [stationFallbackDash, setStationFallbackDash] = useState<StationFallbackDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [weekMode, setWeekMode] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -79,7 +88,7 @@ export default function AdminPage() {
     setLoading(true)
     try {
       const id = getAnonId()
-      const [d, s, r, rv, ts, f, src] = await Promise.all([
+      const [d, s, r, rv, ts, f, src, stEmpty, stFallback] = await Promise.all([
         loadDashboard(id),
         loadStoreDashboard(id),
         loadRetentionDashboard(id),
@@ -87,6 +96,8 @@ export default function AdminPage() {
         loadTimeSeries(id, 30),
         loadActivityFeed(id, 20),
         loadSourceDashboard(id),
+        loadStationEmptyDashboard(id),
+        loadStationFallbackDashboard(id),
       ])
       setDash(d)
       setStoreDash(s)
@@ -95,6 +106,8 @@ export default function AdminPage() {
       setTimeSeries(ts)
       setFeed(f)
       setSourceDash(src)
+      setStationEmptyDash(stEmpty)
+      setStationFallbackDash(stFallback)
       setLastUpdated(new Date())
     } catch {
       setDash(null)
@@ -114,6 +127,8 @@ export default function AdminPage() {
   const revSlice    = weekMode ? revisitDash?.week   : revisitDash?.all
   const sourceSlices = weekMode ? sourceDash?.week   : sourceDash?.all
   const tsData      = weekMode ? timeSeries.slice(-7) : timeSeries
+  const stationEmptyItems  = weekMode ? stationEmptyDash?.week   : stationEmptyDash?.all
+  const stationFallbackSlice = weekMode ? stationFallbackDash?.week : stationFallbackDash?.all
 
   return (
     <div style={{ minHeight: '100vh', background: '#0B0D0B' }} className="px-4 pb-20 pt-10">
@@ -190,6 +205,8 @@ export default function AdminPage() {
             {retSlice && <RetentionSection slice={retSlice} />}
             {revSlice && <RevisitSection revisit={revSlice} />}
             {sourceSlices && sourceSlices.length > 0 && <SourceView slices={sourceSlices} small={slice.totalUsers < 10} />}
+            {stationFallbackSlice && <StationFallbackSection slice={stationFallbackSlice} />}
+            {stationEmptyItems && stationEmptyItems.length > 0 && <StationEmptySection items={stationEmptyItems} />}
             {feed.length > 0 && <ActivityFeedSection feed={feed} />}
           </div>
         )}
@@ -862,6 +879,131 @@ function SourceView({ slices, small }: { slices: SourceSlice[]; small: boolean }
         </div>
       </GlassCard>
     </>
+  )
+}
+
+// ── Station Fallback Analysis ─────────────────────────────────────────────────
+
+function StationFallbackSection({ slice: s }: { slice: StationFallbackSlice }) {
+  const hasAny = s.emptyCount + s.fallbackPressCount > 0
+  const pressRate = pct(s.fallbackPressCount, s.emptyCount)
+  const successRate = pct(s.fallbackSuccessCount, s.fallbackPressCount)
+
+  return (
+    <>
+      <GlassCard>
+        <Lbl className="mb-3">駅候補なし / fallback 利用</Lbl>
+        {!hasAny ? (
+          <p className="py-4 text-center text-[11px]" style={{ color: 'rgba(255,255,255,0.2)' }}>まだデータがありません</p>
+        ) : (
+          <>
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              {[
+                { label: '候補0件',        val: s.emptyCount,            rate: undefined },
+                { label: 'fallback押下',   val: s.fallbackPressCount,    rate: pressRate },
+                { label: 'fallback成功',   val: s.fallbackSuccessCount,  rate: successRate },
+                { label: 'fallback失敗',   val: s.fallbackFailedCount,   rate: undefined },
+              ].map(({ label, val, rate }) => (
+                <div key={label} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                  <p className="text-[9px] font-bold" style={{ color: 'rgba(255,255,255,0.28)' }}>{label}</p>
+                  <div className="mt-1 flex items-baseline gap-1">
+                    <p className="text-[20px] font-black text-white">{val}</p>
+                    {rate !== undefined && (
+                      <p className="text-[10px] font-bold" style={{ color: rate >= 50 ? G : rate > 0 ? WARN : 'rgba(255,255,255,0.2)' }}>
+                        {rate}%
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {s.emptyCount > 0 && (
+              <div>
+                <div className="mb-1.5 flex justify-between text-[9px]" style={{ color: 'rgba(255,255,255,0.28)' }}>
+                  <span>スルー {s.emptyCount - s.fallbackPressCount}件</span>
+                  <span>fallback押下 {s.fallbackPressCount}件</span>
+                </div>
+                <div className="flex overflow-hidden rounded-full" style={{ height: 7, background: 'rgba(255,255,255,0.06)' }}>
+                  <div style={{ width: `${pct(s.emptyCount - s.fallbackPressCount, s.emptyCount)}%`, background: 'rgba(255,255,255,0.18)', transition: 'width 0.6s ease' }} />
+                  <div style={{ width: `${pressRate}%`, background: G, transition: 'width 0.6s ease' }} />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </GlassCard>
+
+      {s.failedItems.length > 0 && (
+        <GlassCard>
+          <Lbl className="mb-3">fallback 後も候補なし</Lbl>
+          <div className="space-y-0">
+            {s.failedItems.map((item: StationFallbackFailedItem, i: number) => (
+              <div key={item.input}>
+                {i > 0 && <div style={{ height: 1, background: 'rgba(255,255,255,0.05)' }} />}
+                <div className="flex items-center justify-between py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-bold" style={{ color: 'rgba(255,255,255,0.72)' }}>{item.input}</p>
+                    <p className="mt-0.5 text-[9px]" style={{ color: 'rgba(255,255,255,0.25)' }}>
+                      {item.storeOnlyCount > 0 && `store_only: ${item.storeOnlyCount}`}
+                      {item.storeOnlyCount > 0 && item.eventFlowCount > 0 && '  '}
+                      {item.eventFlowCount > 0 && `event_flow: ${item.eventFlowCount}`}
+                      {item.storeOnlyCount === 0 && item.eventFlowCount === 0 && 'mode不明'}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-[16px] font-black" style={{ color: DANGER }}>{item.count}</p>
+                    <p className="text-[9px]" style={{ color: 'rgba(255,255,255,0.22)' }}>
+                      {item.lastSeen.slice(0, 10)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      )}
+    </>
+  )
+}
+
+// ── Station Empty Ranking ─────────────────────────────────────────────────────
+
+function StationEmptySection({ items }: { items: StationEmptyItem[] }) {
+  const max = Math.max(1, items[0]?.count ?? 1)
+
+  return (
+    <GlassCard>
+      <Lbl className="mb-3">駅候補なしランキング</Lbl>
+      <div className="space-y-0">
+        {items.map((item: StationEmptyItem, i: number) => (
+          <div key={item.input}>
+            {i > 0 && <div style={{ height: 1, background: 'rgba(255,255,255,0.05)' }} />}
+            <div className="flex items-center gap-3 py-2.5">
+              <span className="w-4 shrink-0 text-[10px] font-black" style={{ color: 'rgba(255,255,255,0.22)' }}>
+                {i + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex items-center justify-between">
+                  <p className="text-[12px] font-bold" style={{ color: 'rgba(255,255,255,0.72)' }}>{item.input}</p>
+                  <p className="text-[14px] font-black" style={{ color: WARN }}>{item.count}</p>
+                </div>
+                <div className="overflow-hidden rounded-full" style={{ height: 3, background: 'rgba(255,255,255,0.06)' }}>
+                  <div style={{ width: `${Math.round((item.count / max) * 100)}%`, background: WARN, height: '100%', borderRadius: 99, transition: 'width 0.6s ease' }} />
+                </div>
+                <p className="mt-1 text-[9px]" style={{ color: 'rgba(255,255,255,0.22)' }}>
+                  {item.storeOnlyCount > 0 && `store_only: ${item.storeOnlyCount}`}
+                  {item.storeOnlyCount > 0 && item.eventFlowCount > 0 && '  '}
+                  {item.eventFlowCount > 0 && `event_flow: ${item.eventFlowCount}`}
+                  {item.storeOnlyCount === 0 && item.eventFlowCount === 0 && 'mode不明'}
+                  {'  最終: ' + item.lastSeen.slice(0, 10)}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </GlassCard>
   )
 }
 

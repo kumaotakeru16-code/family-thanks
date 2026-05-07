@@ -60,6 +60,9 @@ export type AnalyticsEventName =
   | 'revisit_store_candidates'
   // station search
   | 'station_suggestion_empty'
+  | 'station_fallback_search'
+  | 'station_fallback_search_success'
+  | 'station_fallback_search_failed'
 
 const TRACKED_EVENTS: AnalyticsEventName[] = [
   'app_open',
@@ -881,6 +884,177 @@ export async function loadSourceDashboard(myUserId: string): Promise<SourceDashb
   return {
     all:  processSourceRows(filterFunnel(allRes.data),  sourceMap),
     week: processSourceRows(filterFunnel(weekRes.data), sourceMap),
+  }
+}
+
+// ── Station Empty Dashboard ───────────────────────────────────────────────────
+
+export type StationEmptyItem = {
+  input: string
+  count: number
+  lastSeen: string
+  storeOnlyCount: number
+  eventFlowCount: number
+}
+
+export type StationEmptyDashboard = {
+  all: StationEmptyItem[]
+  week: StationEmptyItem[]
+}
+
+type RawStationRow = { user_id: string; event_name?: string; metadata: Record<string, unknown> | null; created_at: string }
+
+function processStationEmptyRows(rows: RawStationRow[]): StationEmptyItem[] {
+  const map = new Map<string, { count: number; lastSeen: string; storeOnly: number; eventFlow: number }>()
+
+  for (const r of rows) {
+    const m = r.metadata ?? {}
+    const input = typeof m.input === 'string' && m.input ? m.input : 'unknown'
+    const mode = typeof m.mode === 'string' ? m.mode : ''
+
+    const cur = map.get(input) ?? { count: 0, lastSeen: r.created_at, storeOnly: 0, eventFlow: 0 }
+    cur.count++
+    if (r.created_at > cur.lastSeen) cur.lastSeen = r.created_at
+    if (mode === 'store_only') cur.storeOnly++
+    else if (mode !== '') cur.eventFlow++
+    map.set(input, cur)
+  }
+
+  return [...map.entries()]
+    .map(([input, v]) => ({
+      input,
+      count: v.count,
+      lastSeen: v.lastSeen,
+      storeOnlyCount: v.storeOnly,
+      eventFlowCount: v.eventFlow,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10)
+}
+
+export async function loadStationEmptyDashboard(myUserId: string): Promise<StationEmptyDashboard | null> {
+  if (typeof window === 'undefined') return null
+
+  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  const [allRes, weekRes] = await Promise.all([
+    supabase
+      .from('analytics_events')
+      .select('user_id, metadata, created_at')
+      .eq('event_name', 'station_suggestion_empty'),
+    supabase
+      .from('analytics_events')
+      .select('user_id, metadata, created_at')
+      .eq('event_name', 'station_suggestion_empty')
+      .gt('created_at', sevenDaysAgo),
+  ])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const filter = (rows: any[] | null): RawStationRow[] =>
+    (rows ?? []).filter((r: RawStationRow) => r.user_id && !excludedSet.has(r.user_id))
+
+  return {
+    all:  processStationEmptyRows(filter(allRes.data)),
+    week: processStationEmptyRows(filter(weekRes.data)),
+  }
+}
+
+// ── Station Fallback Dashboard ────────────────────────────────────────────────
+
+export type StationFallbackFailedItem = {
+  input: string
+  count: number
+  lastSeen: string
+  storeOnlyCount: number
+  eventFlowCount: number
+}
+
+export type StationFallbackSlice = {
+  emptyCount: number
+  fallbackPressCount: number
+  fallbackSuccessCount: number
+  fallbackFailedCount: number
+  failedItems: StationFallbackFailedItem[]
+}
+
+export type StationFallbackDashboard = {
+  all: StationFallbackSlice
+  week: StationFallbackSlice
+}
+
+const STATION_FALLBACK_EVENTS = [
+  'station_suggestion_empty',
+  'station_fallback_search',
+  'station_fallback_search_success',
+  'station_fallback_search_failed',
+] as const
+
+function processStationFallbackRows(rows: RawStationRow[]): StationFallbackSlice {
+  const empty   = rows.filter(r => r.event_name === 'station_suggestion_empty')
+  const press   = rows.filter(r => r.event_name === 'station_fallback_search')
+  const success = rows.filter(r => r.event_name === 'station_fallback_search_success')
+  const failed  = rows.filter(r => r.event_name === 'station_fallback_search_failed')
+
+  const failedMap = new Map<string, { count: number; lastSeen: string; storeOnly: number; eventFlow: number }>()
+  for (const r of failed) {
+    const m = r.metadata ?? {}
+    const input = typeof m.input === 'string' && m.input ? m.input : 'unknown'
+    const mode = typeof m.mode === 'string' ? m.mode : ''
+    const cur = failedMap.get(input) ?? { count: 0, lastSeen: r.created_at, storeOnly: 0, eventFlow: 0 }
+    cur.count++
+    if (r.created_at > cur.lastSeen) cur.lastSeen = r.created_at
+    if (mode === 'store_only') cur.storeOnly++
+    else if (mode !== '') cur.eventFlow++
+    failedMap.set(input, cur)
+  }
+
+  const failedItems = [...failedMap.entries()]
+    .map(([input, v]) => ({
+      input,
+      count: v.count,
+      lastSeen: v.lastSeen,
+      storeOnlyCount: v.storeOnly,
+      eventFlowCount: v.eventFlow,
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 10)
+
+  return {
+    emptyCount: empty.length,
+    fallbackPressCount: press.length,
+    fallbackSuccessCount: success.length,
+    fallbackFailedCount: failed.length,
+    failedItems,
+  }
+}
+
+export async function loadStationFallbackDashboard(myUserId: string): Promise<StationFallbackDashboard | null> {
+  if (typeof window === 'undefined') return null
+
+  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const evList = STATION_FALLBACK_EVENTS as unknown as string[]
+
+  const [allRes, weekRes] = await Promise.all([
+    supabase
+      .from('analytics_events')
+      .select('user_id, event_name, metadata, created_at')
+      .in('event_name', evList),
+    supabase
+      .from('analytics_events')
+      .select('user_id, event_name, metadata, created_at')
+      .in('event_name', evList)
+      .gt('created_at', sevenDaysAgo),
+  ])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const filter = (rows: any[] | null): RawStationRow[] =>
+    (rows ?? []).filter((r: RawStationRow) => r.user_id && !excludedSet.has(r.user_id))
+
+  return {
+    all:  processStationFallbackRows(filter(allRes.data)),
+    week: processStationFallbackRows(filter(weekRes.data)),
   }
 }
 

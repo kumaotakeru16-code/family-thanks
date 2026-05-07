@@ -695,6 +695,7 @@ export default function Page() {
 
 
   const orgPrefsInitRef = useRef(false)
+  const stationFallbackRef = useRef<{ input: string; label: string } | null>(null)
   const [selectedStoreId, setSelectedStoreId] = useState('s1')
   const [selectedPastStoreId, setSelectedPastStoreId] = useState<string | null>(null)
   const [storeDetailOrigin, setStoreDetailOrigin] = useState<Step>('pastStores')
@@ -2047,6 +2048,30 @@ async function fetchRecommendedStores(excludeIds: string[] = []) {
       topStoreArea: finalStores[0]?.area ?? null,
     })
 
+    // fallback 経由の検索結果を計測
+    if (stationFallbackRef.current) {
+      const fb = stationFallbackRef.current
+      stationFallbackRef.current = null
+      if (finalStores.length > 0) {
+        void trackEvent('station_fallback_search_success', {
+          input: fb.input,
+          normalizedInput: fb.input.replace(/\s+/g, '').replace(/駅$/, ''),
+          fallbackLabel: fb.label,
+          resultCount: finalStores.length,
+          mode: appMode,
+        })
+      } else {
+        void trackEvent('station_fallback_search_failed', {
+          input: fb.input,
+          normalizedInput: fb.input.replace(/\s+/g, '').replace(/駅$/, ''),
+          fallbackLabel: fb.label,
+          resultCount: 0,
+          errorType: 'zero_results',
+          mode: appMode,
+        })
+      }
+    }
+
     // 別日の再訪検出（localStorage で初回日を記録）
     if (typeof window !== 'undefined') {
       const today = new Date().toISOString().slice(0, 10)
@@ -2072,6 +2097,18 @@ async function fetchRecommendedStores(excludeIds: string[] = []) {
     setStep('storeSuggestion')
   } catch (e: any) {
     console.error(e)
+    if (stationFallbackRef.current) {
+      const fb = stationFallbackRef.current
+      stationFallbackRef.current = null
+      void trackEvent('station_fallback_search_failed', {
+        input: fb.input,
+        normalizedInput: fb.input.replace(/\s+/g, '').replace(/駅$/, ''),
+        fallbackLabel: fb.label,
+        resultCount: 0,
+        errorType: 'api_error',
+        mode: appMode,
+      })
+    }
     setStoreFetchError(
       e?.message ?? 'お店候補の取得に失敗しました。条件を変えてもう一度お試しください。'
     )
@@ -4023,6 +4060,15 @@ return (
                     void trackEvent('station_suggestion_empty', {
                       input,
                       normalizedInput: input.replace(/\s+/g, '').replace(/駅$/, ''),
+                      mode: appMode,
+                    })
+                  }}
+                  onFallbackSelect={(input, label) => {
+                    stationFallbackRef.current = { input, label }
+                    void trackEvent('station_fallback_search', {
+                      input,
+                      normalizedInput: input.replace(/\s+/g, '').replace(/駅$/, ''),
+                      fallbackLabel: label,
                       mode: appMode,
                     })
                   }}

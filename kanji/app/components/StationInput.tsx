@@ -29,6 +29,8 @@ type Props = {
   onCommittedChange?: (committed: boolean) => void
   /** Called when the user typed ≥1 chars but the API returned 0 suggestions. */
   onSuggestionEmpty?: (input: string) => void
+  /** Called when the user selects the fallback "〇〇駅として検索する" row. */
+  onFallbackSelect?: (input: string, label: string) => void
 }
 
 export function StationInput({
@@ -38,6 +40,7 @@ export function StationInput({
   single = false,
   onCommittedChange,
   onSuggestionEmpty,
+  onFallbackSelect,
 }: Props) {
   const [query, setQuery] = useState(() => (single ? (value[0] ?? '') : ''))
   const [suggestions, setSuggestions] = useState<StationSuggestion[]>([])
@@ -204,7 +207,10 @@ export function StationInput({
                     type="button"
                     onMouseDown={(e) => {
                       e.preventDefault()
-                      addStation(query.trim())
+                      const input = query.trim()
+                      const label = `${input}駅`
+                      onFallbackSelect?.(input, label)
+                      addStation(input)
                     }}
                     className="flex w-full items-baseline gap-2 px-4 py-3 text-left transition hover:bg-stone-50 active:bg-stone-100"
                   >
