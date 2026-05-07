@@ -9,6 +9,7 @@ import {
   loadRevisitDashboard,
   loadTimeSeries,
   loadActivityFeed,
+  loadSourceDashboard,
   pct,
   type AnalyticsDashboard,
   type AnalyticsSlice,
@@ -20,6 +21,9 @@ import {
   type RevisitSlice,
   type DayPoint,
   type ActivityItem,
+  type SourceDashboard,
+  type SourceSlice,
+  type TrafficSource,
 } from '@/app/lib/analytics'
 import { getAnonId } from '@/app/lib/storage/anonymous-id'
 
@@ -64,6 +68,7 @@ export default function AdminPage() {
   const [revisitDash, setRevisitDash] = useState<RevisitDashboard | null>(null)
   const [timeSeries, setTimeSeries] = useState<DayPoint[]>([])
   const [feed, setFeed] = useState<ActivityItem[]>([])
+  const [sourceDash, setSourceDash] = useState<SourceDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [weekMode, setWeekMode] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -74,13 +79,14 @@ export default function AdminPage() {
     setLoading(true)
     try {
       const id = getAnonId()
-      const [d, s, r, rv, ts, f] = await Promise.all([
+      const [d, s, r, rv, ts, f, src] = await Promise.all([
         loadDashboard(id),
         loadStoreDashboard(id),
         loadRetentionDashboard(id),
         loadRevisitDashboard(id),
         loadTimeSeries(id, 30),
         loadActivityFeed(id, 20),
+        loadSourceDashboard(id),
       ])
       setDash(d)
       setStoreDash(s)
@@ -88,6 +94,7 @@ export default function AdminPage() {
       setRevisitDash(rv)
       setTimeSeries(ts)
       setFeed(f)
+      setSourceDash(src)
       setLastUpdated(new Date())
     } catch {
       setDash(null)
@@ -104,8 +111,9 @@ export default function AdminPage() {
   const slice      = weekMode ? dash?.week      : dash?.all
   const storeSlice = weekMode ? storeDash?.week : storeDash?.all
   const retSlice   = weekMode ? retentionDash?.week : retentionDash?.all
-  const revSlice   = weekMode ? revisitDash?.week   : revisitDash?.all
-  const tsData     = weekMode ? timeSeries.slice(-7) : timeSeries
+  const revSlice    = weekMode ? revisitDash?.week   : revisitDash?.all
+  const sourceSlices = weekMode ? sourceDash?.week   : sourceDash?.all
+  const tsData      = weekMode ? timeSeries.slice(-7) : timeSeries
 
   return (
     <div style={{ minHeight: '100vh', background: '#0B0D0B' }} className="px-4 pb-20 pt-10">
@@ -181,6 +189,7 @@ export default function AdminPage() {
             )}
             {retSlice && <RetentionSection slice={retSlice} />}
             {revSlice && <RevisitSection revisit={revSlice} />}
+            {sourceSlices && sourceSlices.length > 0 && <SourceView slices={sourceSlices} small={slice.totalUsers < 10} />}
             {feed.length > 0 && <ActivityFeedSection feed={feed} />}
           </div>
         )}
@@ -735,6 +744,124 @@ function RevisitSection({ revisit: r }: { revisit: RevisitSlice }) {
         </>
       )}
     </GlassCard>
+  )
+}
+
+// ── Source Analysis ───────────────────────────────────────────────────────────
+
+const SOURCE_LABEL: Record<TrafficSource, string> = {
+  x: 'X',
+  note: 'note',
+  tsukutta: 'tsukutta',
+  direct: 'Direct',
+  other: 'Other',
+}
+
+function SourceView({ slices, small }: { slices: SourceSlice[]; small: boolean }) {
+  // 濃さ洞察: 会作成率・店探し率が高いソース（母数 3 以上）
+  const qualified = slices.filter(s => s.users >= 3)
+  const topByCreate = [...qualified].sort((a, b) => pct(b.createEvents, b.users) - pct(a.createEvents, a.users))[0]
+  const topByStore  = [...qualified].sort((a, b) => pct(b.storeOnlyStarts, b.users) - pct(a.storeOnlyStarts, a.users))[0]
+  const topByVolume = slices[0]
+
+  const insights: Array<{ label: string; value: string; type: 'good' | 'info' }> = []
+  if (topByVolume) {
+    insights.push({ label: '最も流入が多い', value: `${SOURCE_LABEL[topByVolume.source]} (${topByVolume.users}人)`, type: 'info' })
+  }
+  if (topByCreate && pct(topByCreate.createEvents, topByCreate.users) > 0) {
+    insights.push({ label: '会作成率が高い', value: `${SOURCE_LABEL[topByCreate.source]} (${pct(topByCreate.createEvents, topByCreate.users)}%)`, type: 'good' })
+  }
+  if (topByStore && pct(topByStore.storeOnlyStarts, topByStore.users) > 0) {
+    insights.push({ label: '店探し率が高い', value: `${SOURCE_LABEL[topByStore.source]} (${pct(topByStore.storeOnlyStarts, topByStore.users)}%)`, type: 'good' })
+  }
+
+  return (
+    <>
+      {/* 流入元の濃さ */}
+      <GlassCard>
+        <Lbl className="mb-3">流入元の濃さ</Lbl>
+        {insights.length === 0 ? (
+          <p className="py-2 text-center text-[11px]" style={{ color: 'rgba(255,255,255,0.2)' }}>まだ母数が少ないです</p>
+        ) : (
+          <div className="space-y-2">
+            {small && (
+              <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>まだ母数は少ないですが、傾向として：</p>
+            )}
+            {insights.map(({ label, value, type }) => (
+              <div key={label} className="flex items-start gap-2.5">
+                <div className="mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: type === 'good' ? G : 'rgba(255,255,255,0.3)' }} />
+                <div className="flex flex-1 items-baseline justify-between gap-2">
+                  <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.55)' }}>{label}</p>
+                  <p className="text-[12px] font-black" style={{ color: type === 'good' ? G : 'rgba(255,255,255,0.7)' }}>{value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </GlassCard>
+
+      {/* 流入元別ファネル */}
+      <GlassCard>
+        <Lbl className="mb-3">流入元別</Lbl>
+        <div className="space-y-0">
+          {slices.map((s, i) => {
+            const createRate = pct(s.createEvents, s.users)
+            const storeRate  = pct(s.storeOnlyStarts, s.users)
+            const rows = [
+              { label: 'start',  val: s.starts,               rate: pct(s.starts, s.users) },
+              { label: 'store',  val: s.storeOnlyStarts,      rate: storeRate },
+              { label: 'create', val: s.createEvents,          rate: createRate },
+              { label: '候補',   val: s.storeCandidatesLoaded, rate: pct(s.storeCandidatesLoaded, s.users) },
+              { label: '完了',   val: s.completeSettlements,   rate: pct(s.completeSettlements, s.users) },
+            ].filter(r => r.val > 0)
+
+            return (
+              <div key={s.source}>
+                {i > 0 && <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '12px 0' }} />}
+                <div className="flex items-start gap-3">
+                  {/* Source label + user count */}
+                  <div className="w-16 shrink-0">
+                    <p className="text-[12px] font-black" style={{ color: 'rgba(255,255,255,0.85)' }}>
+                      {SOURCE_LABEL[s.source]}
+                    </p>
+                    <p className="text-[10px] font-bold" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                      {s.users}人
+                    </p>
+                  </div>
+
+                  {/* Mini funnel bars */}
+                  <div className="flex-1 space-y-1.5">
+                    {rows.length === 0 ? (
+                      <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.2)' }}>アクティビティなし</p>
+                    ) : (
+                      rows.map(({ label, val, rate }) => {
+                        const isGood = rate >= 30
+                        return (
+                          <div key={label} className="flex items-center gap-2">
+                            <span className="w-8 shrink-0 text-[9px] font-bold" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                              {label}
+                            </span>
+                            <div className="flex-1 overflow-hidden rounded-full" style={{ height: 4, background: 'rgba(255,255,255,0.06)' }}>
+                              <div style={{
+                                width: `${Math.max(rate > 0 ? 4 : 0, rate)}%`,
+                                background: isGood ? G : 'rgba(255,255,255,0.25)',
+                                height: '100%', borderRadius: 99, transition: 'width 0.6s ease',
+                              }} />
+                            </div>
+                            <span className="w-4 text-right text-[10px] font-black" style={{ color: 'rgba(255,255,255,0.6)' }}>{val}</span>
+                            <span className="w-6 text-right text-[9px]" style={{ color: 'rgba(255,255,255,0.28)' }}>{rate}%</span>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </GlassCard>
+    </>
   )
 }
 

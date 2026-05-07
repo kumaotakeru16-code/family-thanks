@@ -81,7 +81,7 @@ import {
   saveCompletionData,
   toggleFavoriteStore,
 } from '@/app/lib/event-actions'
-import { trackEvent } from '@/app/lib/analytics'
+import { trackEvent, getTrafficSource } from '@/app/lib/analytics'
 
 // --- Types ---
 type Step =
@@ -748,7 +748,10 @@ export default function Page() {
         pastEventRecords: cloud.pastEventRecords.length > 0 ? cloud.pastEventRecords : prev.pastEventRecords,
       }))
     })
-    void trackEvent('app_open')
+    void trackEvent('app_open', (() => {
+      if (typeof document === 'undefined') return { source: 'other' as const, referrerHost: null }
+      return getTrafficSource(document.referrer || null)
+    })())
     const t = setTimeout(() => {
       setShowSplash(false)
       // 初回ユーザーにだけオンボーディングを表示

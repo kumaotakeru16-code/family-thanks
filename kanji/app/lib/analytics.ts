@@ -90,6 +90,40 @@ export const EXCLUDED_USER_IDS: string[] = [
   '19de35cc-fcf3-476c-9cbf-5895a479754e', // Chrome
 ]
 
+// ── Traffic Source ────────────────────────────────────────────────────────────
+
+export type TrafficSource = 'x' | 'note' | 'tsukutta' | 'direct' | 'other'
+
+/**
+ * document.referrer を解析して流入元を分類する。SSR セーフ（呼び出し側で null を渡す）。
+ * URL 全文は保存せず、ホスト名のみ返す。
+ */
+export function getTrafficSource(referrer: string | null): {
+  source: TrafficSource
+  referrerHost: string | null
+} {
+  if (!referrer) return { source: 'direct', referrerHost: null }
+
+  let host: string
+  try {
+    host = new URL(referrer).hostname.replace(/^www\./, '')
+  } catch {
+    return { source: 'other', referrerHost: null }
+  }
+
+  if (['t.co', 'x.com', 'twitter.com'].includes(host)) {
+    return { source: 'x', referrerHost: host }
+  }
+  if (host === 'note.com' || host.endsWith('.note.com')) {
+    return { source: 'note', referrerHost: host }
+  }
+  if (host === 'tsukutta.app' || host.endsWith('.tsukutta.app')) {
+    return { source: 'tsukutta', referrerHost: host }
+  }
+
+  return { source: 'other', referrerHost: host }
+}
+
 // ── 書き込み ──────────────────────────────────────────────────────────────────
 
 /**
@@ -710,6 +744,142 @@ export async function loadActivityFeed(
       metadata: (r.metadata ?? null) as Record<string, unknown> | null,
       createdAt: r.created_at,
     }))
+}
+
+// ── Source Dashboard ─────────────────────────────────────────────────────────
+
+export type SourceSlice = {
+  source: TrafficSource
+  /** このソースに帰属するユニークユーザー数 */
+  users: number
+  /** start_from_dates または start_from_store したユニークユーザー数 */
+  starts: number
+  /** create_event したユニークユーザー数 */
+  createEvents: number
+  /** store_only_start したユニークユーザー数 */
+  storeOnlyStarts: number
+  /** store_candidates_loaded したユニークユーザー数 */
+  storeCandidatesLoaded: number
+  /** complete_settlement したユニークユーザー数 */
+  completeSettlements: number
+}
+
+export type SourceDashboard = {
+  all: SourceSlice[]
+  week: SourceSlice[]
+}
+
+const SOURCE_FUNNEL_EVENTS: AnalyticsEventName[] = [
+  'app_open',
+  'start_from_dates', 'start_from_store',
+  'create_event',
+  'store_only_start',
+  'store_candidates_loaded',
+  'complete_settlement',
+]
+
+type RawOpenRow = { user_id: string; metadata: Record<string, unknown> | null; created_at: string }
+type RawFunnelRow = { user_id: string; event_name: string }
+
+/** 全期間の app_open から userId → 初回取得ソース の Map を構築する */
+function buildSourceMap(openRows: RawOpenRow[]): Map<string, TrafficSource> {
+  const sorted = [...openRows].sort((a, b) => a.created_at.localeCompare(b.created_at))
+  const map = new Map<string, TrafficSource>()
+  for (const r of sorted) {
+    if (!map.has(r.user_id)) {
+      const m = r.metadata ?? {}
+      map.set(r.user_id, (m.source as TrafficSource | undefined) ?? 'other')
+    }
+  }
+  return map
+}
+
+function processSourceRows(
+  rows: RawFunnelRow[],
+  sourceMap: Map<string, TrafficSource>,
+): SourceSlice[] {
+  const SOURCES: TrafficSource[] = ['x', 'note', 'tsukutta', 'direct', 'other']
+
+  type Acc = {
+    users: Set<string>; starts: Set<string>; creates: Set<string>
+    storeStarts: Set<string>; storeCandidates: Set<string>; completes: Set<string>
+  }
+  const acc = new Map<TrafficSource, Acc>(
+    SOURCES.map(s => [s, {
+      users: new Set(), starts: new Set(), creates: new Set(),
+      storeStarts: new Set(), storeCandidates: new Set(), completes: new Set(),
+    }])
+  )
+
+  for (const r of rows) {
+    const src = sourceMap.get(r.user_id)
+    if (!src) continue
+    const g = acc.get(src)!
+    g.users.add(r.user_id)
+    if (r.event_name === 'start_from_dates' || r.event_name === 'start_from_store') g.starts.add(r.user_id)
+    if (r.event_name === 'create_event')           g.creates.add(r.user_id)
+    if (r.event_name === 'store_only_start')        g.storeStarts.add(r.user_id)
+    if (r.event_name === 'store_candidates_loaded') g.storeCandidates.add(r.user_id)
+    if (r.event_name === 'complete_settlement')     g.completes.add(r.user_id)
+  }
+
+  return SOURCES
+    .map(s => ({
+      source: s,
+      users:                acc.get(s)!.users.size,
+      starts:               acc.get(s)!.starts.size,
+      createEvents:         acc.get(s)!.creates.size,
+      storeOnlyStarts:      acc.get(s)!.storeStarts.size,
+      storeCandidatesLoaded: acc.get(s)!.storeCandidates.size,
+      completeSettlements:  acc.get(s)!.completes.size,
+    }))
+    .filter(s => s.users > 0)
+    .sort((a, b) => b.users - a.users)
+}
+
+/**
+ * 流入元別ファネルを集計する。
+ * 取得ソースは「ユーザーの初回 app_open」で確定（全期間 app_open を参照）。
+ * ファネル集計は weekMode に応じて期間フィルタを適用する。
+ */
+export async function loadSourceDashboard(myUserId: string): Promise<SourceDashboard | null> {
+  if (typeof window === 'undefined') return null
+
+  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  const [openRes, allRes, weekRes] = await Promise.all([
+    // 全期間の app_open（ソース帰属用）
+    supabase
+      .from('analytics_events')
+      .select('user_id, metadata, created_at')
+      .eq('event_name', 'app_open'),
+    // 全期間のファネルイベント
+    supabase
+      .from('analytics_events')
+      .select('user_id, event_name')
+      .in('event_name', SOURCE_FUNNEL_EVENTS),
+    // 直近7日のファネルイベント
+    supabase
+      .from('analytics_events')
+      .select('user_id, event_name')
+      .in('event_name', SOURCE_FUNNEL_EVENTS)
+      .gt('created_at', sevenDaysAgo),
+  ])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const filterOpen = (rows: any[] | null): RawOpenRow[] =>
+    (rows ?? []).filter((r: RawOpenRow) => r.user_id && !excludedSet.has(r.user_id))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const filterFunnel = (rows: any[] | null): RawFunnelRow[] =>
+    (rows ?? []).filter((r: RawFunnelRow) => r.user_id && !excludedSet.has(r.user_id))
+
+  const sourceMap = buildSourceMap(filterOpen(openRes.data))
+
+  return {
+    all:  processSourceRows(filterFunnel(allRes.data),  sourceMap),
+    week: processSourceRows(filterFunnel(weekRes.data), sourceMap),
+  }
 }
 
 // ── 表示ヘルパー ──────────────────────────────────────────────────────────────
