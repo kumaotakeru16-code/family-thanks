@@ -27,6 +27,8 @@ type Props = {
    * committed=false: user typed text that has not been confirmed via dropdown.
    */
   onCommittedChange?: (committed: boolean) => void
+  /** Called when the user typed ≥1 chars but the API returned 0 suggestions. */
+  onSuggestionEmpty?: (input: string) => void
 }
 
 export function StationInput({
@@ -35,6 +37,7 @@ export function StationInput({
   placeholder = '駅名を入力',
   single = false,
   onCommittedChange,
+  onSuggestionEmpty,
 }: Props) {
   const [query, setQuery] = useState(() => (single ? (value[0] ?? '') : ''))
   const [suggestions, setSuggestions] = useState<StationSuggestion[]>([])
@@ -83,7 +86,10 @@ export function StationInput({
         const data = await res.json()
         const stations: StationSuggestion[] = data.stations ?? []
         setSuggestions(stations)
-        setOpen(stations.length > 0)
+        setOpen(stations.length > 0 || query.trim().length > 0)
+        if (stations.length === 0 && query.trim().length > 0) {
+          onSuggestionEmpty?.(query.trim())
+        }
       } catch {
         setSuggestions([])
         setOpen(false)
@@ -173,25 +179,40 @@ export function StationInput({
       </div>
 
       {/* Suggestion dropdown */}
-      {open && suggestions.length > 0 && (
+      {open && (
         <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-black/10">
-          {suggestions.map((s) => (
-            <button
-              key={s.name}
-              type="button"
-              onMouseDown={(e) => {
-                // prevent blur before click fires
-                e.preventDefault()
-                addStation(s.name)
-              }}
-              className="flex w-full items-baseline gap-2 px-4 py-3 text-left transition hover:bg-stone-50 active:bg-stone-100"
-            >
-              <span className="text-sm font-bold text-stone-900">{s.name}</span>
-              {s.line && (
-                <span className="truncate text-xs text-stone-400">{s.line}</span>
+          {suggestions.length > 0
+            ? suggestions.map((s) => (
+                <button
+                  key={s.name}
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    addStation(s.name)
+                  }}
+                  className="flex w-full items-baseline gap-2 px-4 py-3 text-left transition hover:bg-stone-50 active:bg-stone-100"
+                >
+                  <span className="text-sm font-bold text-stone-900">{s.name}</span>
+                  {s.line && (
+                    <span className="truncate text-xs text-stone-400">{s.line}</span>
+                  )}
+                </button>
+              ))
+            : !loading && (
+                <>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      addStation(query.trim())
+                    }}
+                    className="flex w-full items-baseline gap-2 px-4 py-3 text-left transition hover:bg-stone-50 active:bg-stone-100"
+                  >
+                    <span className="text-sm font-bold text-stone-900">「{query.trim()}駅」として検索する</span>
+                  </button>
+                  <p className="px-4 pb-3 text-xs text-stone-400">候補が見つかりません。そのまま検索を続けます。</p>
+                </>
               )}
-            </button>
-          ))}
         </div>
       )}
 

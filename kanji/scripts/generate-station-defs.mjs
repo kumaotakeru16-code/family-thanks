@@ -30,6 +30,8 @@ const MANUAL_HP_AREA = {
   伏見桃山: { middleArea: 'Y437', smallArea: 'X436' },
   藤が丘: { middleArea: 'Y222', smallArea: 'X451' },
   日光: { middleArea: 'Y863', smallArea: 'X896' },
+
+  大分: { middleArea: 'Y750', smallArea: 'X750' },
 }
 
 const MANUAL_ALIASES = {
@@ -53,6 +55,8 @@ const MANUAL_ALIASES = {
   横須賀: ['横須賀', '横須賀中央', '汐入'],
   横須賀中央: ['横須賀中央', '横須賀'],
   久里浜: ['久里浜', '京急久里浜', '北久里浜'],
+
+  大分: ['大分', '大分駅', 'おおいた', 'オオイタ', 'JR大分'],
 }
 
 function readJson(filePath) {

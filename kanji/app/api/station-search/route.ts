@@ -91,5 +91,10 @@ export async function GET(req: NextRequest) {
   }
 
   const stations = searchLocalStations(query)
+
+  if (stations.length === 0) {
+    console.log('[station-search] no results', { query, normalized: normalizeQuery(query) })
+  }
+
   return NextResponse.json({ stations })
 }

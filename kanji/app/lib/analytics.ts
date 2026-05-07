@@ -58,6 +58,8 @@ export type AnalyticsEventName =
   | 'resume_existing_event'
   | 'repeat_store_search'
   | 'revisit_store_candidates'
+  // station search
+  | 'station_suggestion_empty'
 
 const TRACKED_EVENTS: AnalyticsEventName[] = [
   'app_open',

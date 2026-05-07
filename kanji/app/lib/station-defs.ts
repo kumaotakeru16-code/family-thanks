@@ -4155,6 +4155,15 @@ export const STATION_DEFS: Record<string, StationDef> = {
       smallArea: "XA3N",
     },
   },
+  "大分": {
+    canonical: "大分",
+    displayName: "大分",
+    aliases: ["大分","大分駅","おおいた","オオイタ","JR大分"],
+    hpArea: {
+      middleArea: "Y750",
+      smallArea: "X750",
+    },
+  },
   "大門": {
     canonical: "大門",
     displayName: "大門",

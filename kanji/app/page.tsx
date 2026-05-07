@@ -4019,6 +4019,13 @@ return (
                     setStationError('')
                   }}
                   onCommittedChange={setStationCommitted}
+                  onSuggestionEmpty={(input) => {
+                    void trackEvent('station_suggestion_empty', {
+                      input,
+                      normalizedInput: input.replace(/\s+/g, '').replace(/駅$/, ''),
+                      mode: appMode,
+                    })
+                  }}
                 />
                 {stationError && (
                   <p className="mt-2 text-xs text-red-500">{stationError}</p>

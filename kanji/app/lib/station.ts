@@ -75,17 +75,19 @@ export function buildStationSearchContext(input: string | null | undefined): Sta
     }
   }
 
-  return {
+  const fallback = {
     rawInput,
     canonical: normalized,
     displayName: normalized,
     aliases: normalized ? [normalized] : [],
     hpArea: null,
-    searchMode: 'keyword',
+    searchMode: 'keyword' as const,
     keyword: normalized ? `${normalized}駅` : '',
-    matchedBy: 'raw',
+    matchedBy: 'raw' as const,
     hasAreaConfig: false,
   }
+  console.log('[station] buildStationSearchContext fallback', { rawInput, normalized, searchMode: 'keyword' })
+  return fallback
 }
 
 export function getStationAliases(input: string | null | undefined): string[] {
