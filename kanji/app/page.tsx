@@ -4197,7 +4197,7 @@ return (
         >
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-[22px] font-black tracking-tight text-stone-900">
-              お店のご提案 ✨
+              お店のご提案
             </h2>
             <div className="flex shrink-0 items-center gap-1.5">
               {previousStores.length > 0 && (
