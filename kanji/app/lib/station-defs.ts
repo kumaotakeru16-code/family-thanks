@@ -3614,6 +3614,14 @@ export const STATION_DEFS: Record<string, StationDef> = {
       smallArea: "XA17",
     },
   },
+  "折尾": {
+    canonical: "折尾",
+    displayName: "折尾",
+    aliases: ["折尾","折尾駅","おりお","オリオ","JR折尾"],
+    hpArea: {
+      middleArea: "Y731",
+    },
+  },
   "雪が谷大塚": {
     canonical: "雪が谷大塚",
     displayName: "雪が谷大塚",

@@ -246,4 +246,5 @@ export const STATION_KANA: Record<string, string> = {
   '都城': 'みやこのじょう',
   '南宮崎': 'みなみみやざき',
   '国分': 'こくぶ',
+  '折尾': 'おりお',
 }
