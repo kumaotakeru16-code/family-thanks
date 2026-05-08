@@ -82,6 +82,7 @@ import {
   toggleFavoriteStore,
 } from '@/app/lib/event-actions'
 import { trackEvent, getTrafficSource } from '@/app/lib/analytics'
+import { getStoreCopy } from '@/app/lib/store-copy'
 
 // --- Types ---
 type Step =
@@ -496,11 +497,12 @@ function buildStoreReasons(params: {
   orgPrefs?: OrganizerPrefs
   eventType?: string
   mainGuestCount?: number
+  mode?: string
 }): string[] {
-  const { store, orgPrefs, eventType = '', mainGuestCount = 0 } = params
+  const { store, orgPrefs, eventType = '', mainGuestCount = 0, mode } = params
+  const copy = getStoreCopy(mode ?? 'full')
   const reasons: string[] = []
 
-  const area = orgPrefs?.areas[0]
   const genre = orgPrefs?.genres?.find(g => g !== 'なんでもいい')
   const priceRange = orgPrefs?.priceRange && orgPrefs.priceRange !== '指定なし' ? orgPrefs.priceRange : null
   const hasPrivateRoom = store.hasPrivateRoom || (store.tags ?? []).includes('個室あり')
@@ -508,43 +510,52 @@ function buildStoreReasons(params: {
   const formalTypes = ['会食', '歓迎会', '送別会']
   const isFormal = formalTypes.includes(eventType)
 
-  // 1. 主賓関連（最優先）
+  // 1. 主賓関連（最優先・event_flow のみ）
   if (hasVip && hasPrivateRoom) {
-    reasons.push('主賓を個室でお迎えできる')
+    reasons.push('主賓を個室でゆっくりお迎えできる')
   } else if (hasVip) {
     reasons.push('主賓が参加する会にふさわしい雰囲気')
   }
 
-  // 2. 参加者希望ジャンル
+  // 2. ジャンル（mode 別文言）
   if (genre) {
-    reasons.push(`参加者希望の${genre}ジャンル`)
+    reasons.push(copy.genreReason(genre))
   }
 
-  // 3. アクセス
-  if (store.walkMinutes != null && store.walkMinutes <= 10) {
-    const station = area ? `${area}駅` : '最寄り駅'
-    reasons.push(`${station}から徒歩${store.walkMinutes}分でアクセスしやすい`)
-  } else if (store.access) {
-    reasons.push(store.access)
+  // 3. アクセス — 数値・駅名は基本情報欄に表示済みのため「集まりやすさ」で表現
+  if (store.walkMinutes != null) {
+    if (store.walkMinutes <= 3) {
+      reasons.push('駅のすぐそばで、集合しやすい')
+    } else if (store.walkMinutes <= 5) {
+      reasons.push('駅から近く、仕事終わりでも合流しやすい')
+    } else if (store.walkMinutes <= 8) {
+      reasons.push('駅近で参加者が集まりやすい')
+    } else if (store.walkMinutes <= 12) {
+      reasons.push('徒歩圏内でアクセスしやすい')
+    }
+    // 12分超は理由として使わない
   }
 
   // 4. 予算
   if (priceRange) {
-    reasons.push(`予算${priceRange}で条件内`)
+    reasons.push(`${priceRange}の予算内で使いやすい`)
   }
 
   // 5. 個室（主賓で既出でない場合のみ）
   if (hasPrivateRoom && !hasVip) {
-    const context = isFormal ? `${eventType}として落ち着いて使える` : '落ち着いて話せる'
-    reasons.push(`個室ありで${context}`)
+    if (isFormal) {
+      reasons.push(`周りを気にせず${eventType}に使える`)
+    } else {
+      reasons.push('周りを気にせずゆっくり話せる')
+    }
   }
 
-  // 6. Google評価（4.0以上かつ50件以上のみ）
+  // 6. Google評価（数値は星表示に任せ、信頼感だけ表現）
   if (
     store.googleRating && store.googleRating >= 4.0 &&
     store.googleRatingCount && store.googleRatingCount >= 50
   ) {
-    reasons.push(`評価${store.googleRating.toFixed(1)}（${store.googleRatingCount.toLocaleString()}件）で安心感がある`)
+    reasons.push('口コミ評価が高く、安心して使える')
   }
 
   return reasons.slice(0, 5)
@@ -555,8 +566,10 @@ function buildStoreSummary(params: {
   store: StoreCandidate
   orgPrefs?: OrganizerPrefs
   mainGuestCount?: number
+  mode?: string
 }): string {
-  const { store, orgPrefs, mainGuestCount = 0 } = params
+  const { store, orgPrefs, mainGuestCount = 0, mode } = params
+  const copy = getStoreCopy(mode ?? 'full')
   const hasGenrePref = !!orgPrefs?.genres?.find(g => g !== 'なんでもいい')
   const hasCondPref = !!(orgPrefs?.priceRange && orgPrefs.priceRange !== '指定なし')
   const hasGoodRating = !!(store.googleRating && store.googleRating >= 4.0 &&
@@ -564,9 +577,9 @@ function buildStoreSummary(params: {
   const hasVip = mainGuestCount > 0
 
   const matchScore = [hasGenrePref || hasVip, hasCondPref, hasGoodRating].filter(Boolean).length
-  if (matchScore >= 3) return '条件・参加者希望・評価のバランスが良く、安心して選べます'
-  if (hasVip || hasGenrePref) return '条件と参加者の希望の両方に合っており、納得感があります'
-  return '条件との一致度が高く、安心して選べます'
+  if (matchScore >= 3) return copy.summaryHigh
+  if (hasVip || hasGenrePref) return copy.summaryMid
+  return copy.summaryLow
 }
 
 /** チップは補助情報として最大3個（ジャンル / 価格帯 / 個室あり） */
@@ -589,6 +602,19 @@ function buildHighlightReason(store: StoreCandidate, hasMainGuest: boolean): str
   if (store.googleRating && store.googleRating >= 4.0 && store.googleRatingCount && store.googleRatingCount >= 100) return '口コミ評価が高く安心'
   if (store.walkMinutes != null && store.walkMinutes <= 5) return '駅から近く集合しやすい'
   return 'バランスがよく使いやすい'
+}
+
+/** 他候補カードに表示する特徴タグを1つだけ選ぶ（なければ null） */
+function buildAltStoreTag(store: StoreCandidate): string | null {
+  const hasPrivateRoom = store.hasPrivateRoom || (store.tags ?? []).includes('個室あり')
+  if (hasPrivateRoom) return '個室'
+  if (store.walkMinutes != null && store.walkMinutes <= 5) return '駅近'
+  if (store.googleRating && store.googleRating >= 4.3 && store.googleRatingCount && store.googleRatingCount >= 50) return '評価高め'
+  const genre = store.genre ?? ''
+  if (/居酒屋|ダイニングバー|バル/.test(genre)) return '飲み向き'
+  if (store.budgetCode === 'B005' || store.budgetCode === 'B006') return 'コスパ'
+  if (store.walkMinutes != null && store.walkMinutes <= 10) return '駅近'
+  return null
 }
 
 function cx(...c: (string | false | null | undefined)[]) {
@@ -1349,16 +1375,11 @@ const storeReasons = selectedStore
       orgPrefs,
       eventType,
       mainGuestCount: mainGuestIds.length,
+      mode: appMode,
     })
   : []
 
-const storeSummary = selectedStore
-  ? buildStoreSummary({
-      store: selectedStore,
-      orgPrefs,
-      mainGuestCount: mainGuestIds.length,
-    })
-  : '条件のバランスがよいため優先'
+
 
 const storeChips = selectedStore
   ? buildStoreChips(selectedStore, orgPrefs)
@@ -1367,6 +1388,8 @@ const storeChips = selectedStore
 const storeHighlightReason = selectedStore
   ? buildHighlightReason(selectedStore, mainGuestIds.length > 0)
   : null
+
+const storeCopy = getStoreCopy(appMode)
 
   // Merge store tags + active organizer conditions into display tags (max 4)
 const effectiveTags = useMemo(() => {
@@ -4022,7 +4045,7 @@ return (
               >
                 <UtensilsCrossed size={13} className="mt-0.5 shrink-0 text-white/35" />
                 <div className="min-w-0">
-                  <p className="mb-1.5 text-[10px] font-bold tracking-[0.12em] text-white/35 uppercase">参加者の希望</p>
+                  <p className="mb-1.5 text-[10px] font-bold tracking-[0.12em] text-white/35 uppercase">{storeCopy.preferenceLabel}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {genreRanking.map(({ genre, count }, i) => (
                       <span key={genre} className={cx(
@@ -4379,11 +4402,11 @@ return (
 
                 {/* 情報（右） */}
                 <div className="min-w-0 flex-1 space-y-2">
-                  {/* この店にした理由 */}
+                  {/* おすすめポイント / この会に合う理由（mode別） */}
                   {storeHighlightReason && (
                     <div className="rounded-xl bg-white/[0.07] px-2.5 py-2 ring-1 ring-white/10">
                       <p className="mb-0.5 text-[7px] font-black uppercase tracking-[0.15em] text-white/28">
-                        この店にした理由
+                        {storeCopy.reasonLabel}
                       </p>
                       <p className="line-clamp-2 text-[11px] font-black leading-snug text-white">
                         {storeHighlightReason}
@@ -4402,11 +4425,12 @@ return (
                   {/* 補足チップ */}
                   {(() => {
                     const chips: string[] = []
+                    if (appMode !== 'store_only' && totalCount > 0) chips.push(`〜${totalCount}人`)
                     if (primaryStore.walkMinutes != null) chips.push(`徒歩${primaryStore.walkMinutes}分`)
                     storeChips.slice(0, 2).forEach(c => chips.push(c))
                     return chips.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
-                        {chips.slice(0, 3).map(chip => (
+                        {chips.slice(0, 4).map(chip => (
                           <span key={chip} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/50">
                             {chip}
                           </span>
@@ -4469,53 +4493,56 @@ return (
           <div className="space-y-3">
             <p className="px-0.5 text-[10px] font-black uppercase tracking-[0.15em] text-stone-400">他の候補</p>
             <div className="grid grid-cols-3 gap-2">
-              {secondaryStores.slice(0, 3).map((store: StoreCandidate) => (
-                <button
-                  type="button"
-                  key={store.id}
-                  onClick={() => {
-                    const fromIdx = recommendedStores.findIndex(s => s.id === selectedStoreId)
-                    const toIdx   = recommendedStores.findIndex(s => s.id === store.id)
-                    void trackEvent('store_candidate_switch', {
-                      mode: appMode,
-                      fromIndex: fromIdx,
-                      toIndex: toIdx,
-                      storeName: store.name,
-                    })
-                    setSelectedStoreId(store.id)
-                  }}
-                  className="flex flex-col gap-1.5 rounded-2xl bg-white p-2 text-left shadow-sm ring-1 ring-stone-100 transition hover:shadow-md active:scale-[0.97]"
-                >
-                  {store.image ? (
-                    <div className="h-[60px] w-full overflow-hidden rounded-xl">
-                      <img src={store.image} alt={store.name} className="h-full w-full object-cover" />
-                    </div>
-                  ) : (
-                    <div className="flex h-[60px] w-full items-center justify-center rounded-xl bg-stone-100">
-                      <UtensilsCrossed size={14} className="text-stone-400" />
-                    </div>
-                  )}
-                  <p className="line-clamp-2 text-[11px] font-bold leading-snug text-stone-900">{store.name}</p>
-                  {(store.hasPrivateRoom || store.walkMinutes != null || store.genre) && (
-                    <span className="self-start rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] font-bold text-stone-500 leading-none">
-                      {store.hasPrivateRoom ? '個室' : store.walkMinutes != null ? `徒歩${store.walkMinutes}分` : store.genre}
-                    </span>
-                  )}
-                </button>
-              ))}
+              {secondaryStores.slice(0, 3).map((store: StoreCandidate) => {
+                const altTag = buildAltStoreTag(store)
+                return (
+                  <button
+                    type="button"
+                    key={store.id}
+                    onClick={() => {
+                      const fromIdx = recommendedStores.findIndex(s => s.id === selectedStoreId)
+                      const toIdx   = recommendedStores.findIndex(s => s.id === store.id)
+                      void trackEvent('store_candidate_switch', {
+                        mode: appMode,
+                        fromIndex: fromIdx,
+                        toIndex: toIdx,
+                        storeName: store.name,
+                      })
+                      setSelectedStoreId(store.id)
+                    }}
+                    className="flex flex-col gap-1.5 rounded-2xl bg-white p-2 text-left shadow-sm ring-1 ring-stone-100 transition hover:shadow-md active:scale-[0.97]"
+                  >
+                    {store.image ? (
+                      <div className="h-[60px] w-full overflow-hidden rounded-xl">
+                        <img src={store.image} alt={store.name} className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="flex h-[60px] w-full items-center justify-center rounded-xl bg-stone-100">
+                        <UtensilsCrossed size={14} className="text-stone-400" />
+                      </div>
+                    )}
+                    <p className="line-clamp-2 text-[11px] font-bold leading-snug text-stone-900">{store.name}</p>
+                    {altTag && (
+                      <span className="self-start rounded-full bg-stone-100 px-1.5 py-0.5 text-[10px] font-bold text-stone-500 leading-none">
+                        {altTag}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
 
-        {/* フッター情報カード */}
+        {/* フッター情報カード（mode 別） */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
-            <p className="text-[11px] font-black text-stone-700">みんなの希望をもとに自動で選定</p>
-            <p className="mt-1 text-[11px] leading-5 text-stone-400">条件・評価・アクセスをもとに最適な候補をAIが選んでいます</p>
+            <p className="text-[11px] font-black text-stone-700">{storeCopy.infoCardTitle}</p>
+            <p className="mt-1 text-[11px] leading-5 text-stone-400">{storeCopy.infoCardBody}</p>
           </div>
           <div className="rounded-2xl bg-stone-50 px-4 py-4 ring-1 ring-stone-100">
-            <p className="text-[11px] font-black text-stone-700">決定後は、このURLに情報がまとまります</p>
-            <p className="mt-1 text-[11px] leading-5 text-stone-400">参加者にURLを共有するだけで、日程・お店・清算が全員に届きます</p>
+            <p className="text-[11px] font-black text-stone-700">{storeCopy.nextCardTitle}</p>
+            <p className="mt-1 text-[11px] leading-5 text-stone-400">{storeCopy.nextCardBody}</p>
           </div>
         </div>
 
