@@ -72,13 +72,13 @@ function accessPhrase(mins: number): string | null {
  * 優先順位:
  * 1. VIP（主賓あり）
  * 2. 駅近（徒歩≤5分） — 集まりやすさが最強アピール
- * 3. 明示的な個室条件（privateRoom === '個室あり'）
- * 4. ジャンル一致
- * 5. 予算一致
- * 6. 駅近（徒歩6〜12分）
- * 7. 店の空気感（tone）
- * 8. 個室ボーナス（条件未指定の場合 — 低優先）
- * 9. 口コミ評価
+ * 3. 口コミ評価 4.0以上 — 信頼感として強いアピール
+ * 4. 明示的な個室条件（privateRoom === '個室あり'）
+ * 5. ジャンル一致
+ * 6. 予算一致
+ * 7. 駅近（徒歩6〜12分）
+ * 8. 店の空気感（tone）
+ * 9. 個室ボーナス（条件未指定の場合 — 低優先）
  */
 export function buildStoreReasonSet(params: {
   store: ReasonStore
@@ -121,7 +121,10 @@ export function buildStoreReasonSet(params: {
     if (p) candidates.push(p)
   }
 
-  // 3. 明示的な個室条件（VIPで個室理由が出ていない場合のみ）
+  // 3. 口コミ評価（4.0以上は信頼感として強いアピールになる）
+  if (hasGoodRating) candidates.push('口コミ評価が高く安心感がある')
+
+  // 4. 明示的な個室条件（VIPで個室理由が出ていない場合のみ）
   if (privateRoomExplicit && hasPrivateRoom && !hasVip) {
     candidates.push(
       isFormal
@@ -130,28 +133,25 @@ export function buildStoreReasonSet(params: {
     )
   }
 
-  // 4. ジャンル一致
+  // 5. ジャンル一致
   if (genre) candidates.push(copy.genreReason(genre))
 
-  // 5. 予算
+  // 6. 予算
   if (priceRange) candidates.push(`${priceRange}の予算感で読みやすい`)
 
-  // 6. 駅近（6〜12分）
+  // 7. 駅近（6〜12分）
   if (accessMins != null && accessMins > 5) {
     const p = accessPhrase(accessMins)
     if (p) candidates.push(p)
   }
 
-  // 7. 店の空気感（personality）
+  // 8. 店の空気感（personality）
   candidates.push(toneReason)
 
-  // 8. 個室ボーナス（明示条件なし — 低優先でBulletに載る程度）
+  // 9. 個室ボーナス（明示条件なし — 低優先でBulletに載る程度）
   if (hasPrivateRoom && !privateRoomExplicit && !hasVip) {
     candidates.push('個室があるのでグループで落ち着きやすい')
   }
-
-  // 9. 口コミ評価
-  if (hasGoodRating) candidates.push('口コミ評価が高く安心感がある')
 
   const hero = candidates[0] ?? toneReason
   const bullets = candidates.slice(1, 5)
