@@ -83,6 +83,7 @@ import {
 } from '@/app/lib/event-actions'
 import { trackEvent, getTrafficSource } from '@/app/lib/analytics'
 import { getStoreCopy } from '@/app/lib/store-copy'
+import { buildStoreReasonSet, buildAltStoreTag } from '@/app/lib/store-reasons'
 
 // --- Types ---
 type Step =
@@ -490,98 +491,6 @@ function buildParticipantDateReason(params: {
   return '参加予定の方が多い日程です'
 }
 
-/** 箇条書き理由を最大5個生成（意思決定の根拠として機能する順序で） */
-function buildStoreReasons(params: {
-  store: StoreCandidate
-  organizerConditions: string[]
-  orgPrefs?: OrganizerPrefs
-  eventType?: string
-  mainGuestCount?: number
-  mode?: string
-}): string[] {
-  const { store, orgPrefs, eventType = '', mainGuestCount = 0, mode } = params
-  const copy = getStoreCopy(mode ?? 'full')
-  const reasons: string[] = []
-
-  const genre = orgPrefs?.genres?.find(g => g !== 'なんでもいい')
-  const priceRange = orgPrefs?.priceRange && orgPrefs.priceRange !== '指定なし' ? orgPrefs.priceRange : null
-  const hasPrivateRoom = store.hasPrivateRoom || (store.tags ?? []).includes('個室あり')
-  const hasVip = mainGuestCount > 0
-  const formalTypes = ['会食', '歓迎会', '送別会']
-  const isFormal = formalTypes.includes(eventType)
-
-  // 1. 主賓関連（最優先・event_flow のみ）
-  if (hasVip && hasPrivateRoom) {
-    reasons.push('主賓を個室でゆっくりお迎えできる')
-  } else if (hasVip) {
-    reasons.push('主賓が参加する会にふさわしい雰囲気')
-  }
-
-  // 2. ジャンル（mode 別文言）
-  if (genre) {
-    reasons.push(copy.genreReason(genre))
-  }
-
-  // 3. アクセス — 数値・駅名は基本情報欄に表示済みのため「集まりやすさ」で表現
-  if (store.walkMinutes != null) {
-    if (store.walkMinutes <= 3) {
-      reasons.push('駅のすぐそばで、集合しやすい')
-    } else if (store.walkMinutes <= 5) {
-      reasons.push('駅から近く、仕事終わりでも合流しやすい')
-    } else if (store.walkMinutes <= 8) {
-      reasons.push('駅近で参加者が集まりやすい')
-    } else if (store.walkMinutes <= 12) {
-      reasons.push('徒歩圏内でアクセスしやすい')
-    }
-    // 12分超は理由として使わない
-  }
-
-  // 4. 予算
-  if (priceRange) {
-    reasons.push(`${priceRange}の予算内で使いやすい`)
-  }
-
-  // 5. 個室（主賓で既出でない場合のみ）
-  if (hasPrivateRoom && !hasVip) {
-    if (isFormal) {
-      reasons.push(`周りを気にせず${eventType}に使える`)
-    } else {
-      reasons.push('周りを気にせずゆっくり話せる')
-    }
-  }
-
-  // 6. Google評価（数値は星表示に任せ、信頼感だけ表現）
-  if (
-    store.googleRating && store.googleRating >= 4.0 &&
-    store.googleRatingCount && store.googleRatingCount >= 50
-  ) {
-    reasons.push('口コミ評価が高く、安心して使える')
-  }
-
-  return reasons.slice(0, 5)
-}
-
-/** 箇条書き理由の下に1行添えるまとめ文 */
-function buildStoreSummary(params: {
-  store: StoreCandidate
-  orgPrefs?: OrganizerPrefs
-  mainGuestCount?: number
-  mode?: string
-}): string {
-  const { store, orgPrefs, mainGuestCount = 0, mode } = params
-  const copy = getStoreCopy(mode ?? 'full')
-  const hasGenrePref = !!orgPrefs?.genres?.find(g => g !== 'なんでもいい')
-  const hasCondPref = !!(orgPrefs?.priceRange && orgPrefs.priceRange !== '指定なし')
-  const hasGoodRating = !!(store.googleRating && store.googleRating >= 4.0 &&
-    store.googleRatingCount && store.googleRatingCount >= 50)
-  const hasVip = mainGuestCount > 0
-
-  const matchScore = [hasGenrePref || hasVip, hasCondPref, hasGoodRating].filter(Boolean).length
-  if (matchScore >= 3) return copy.summaryHigh
-  if (hasVip || hasGenrePref) return copy.summaryMid
-  return copy.summaryLow
-}
-
 /** チップは補助情報として最大3個（ジャンル / 価格帯 / 個室あり） */
 function buildStoreChips(store: StoreCandidate, orgPrefs?: OrganizerPrefs): string[] {
   const chips: string[] = []
@@ -591,30 +500,6 @@ function buildStoreChips(store: StoreCandidate, orgPrefs?: OrganizerPrefs): stri
   if (priceRange) chips.push(priceRange)
   if (store.hasPrivateRoom || (store.tags ?? []).includes('個室あり')) chips.push('個室あり')
   return chips.slice(0, 3)
-}
-
-/** 「この店にした理由」を1文で返す（優先度順に最上位1つだけ） */
-function buildHighlightReason(store: StoreCandidate, hasMainGuest: boolean): string {
-  const hasPrivateRoom = store.hasPrivateRoom || (store.tags ?? []).includes('個室あり')
-  if (hasPrivateRoom) return '個室ありで周りを気にせず話せる'
-  if (store.walkMinutes != null && store.walkMinutes <= 3) return '駅から近く集合しやすい'
-  if (hasMainGuest) return '主賓の希望に合っている'
-  if (store.googleRating && store.googleRating >= 4.0 && store.googleRatingCount && store.googleRatingCount >= 100) return '口コミ評価が高く安心'
-  if (store.walkMinutes != null && store.walkMinutes <= 5) return '駅から近く集合しやすい'
-  return 'バランスがよく使いやすい'
-}
-
-/** 他候補カードに表示する特徴タグを1つだけ選ぶ（なければ null） */
-function buildAltStoreTag(store: StoreCandidate): string | null {
-  const hasPrivateRoom = store.hasPrivateRoom || (store.tags ?? []).includes('個室あり')
-  if (hasPrivateRoom) return '個室'
-  if (store.walkMinutes != null && store.walkMinutes <= 5) return '駅近'
-  if (store.googleRating && store.googleRating >= 4.3 && store.googleRatingCount && store.googleRatingCount >= 50) return '評価高め'
-  const genre = store.genre ?? ''
-  if (/居酒屋|ダイニングバー|バル/.test(genre)) return '飲み向き'
-  if (store.budgetCode === 'B005' || store.budgetCode === 'B006') return 'コスパ'
-  if (store.walkMinutes != null && store.walkMinutes <= 10) return '駅近'
-  return null
 }
 
 function cx(...c: (string | false | null | undefined)[]) {
@@ -1368,26 +1253,22 @@ const alternativeStores =
     ? generateShareText(eventType, selectedStore, organizerConditions, eventName || undefined)
     : ''
 
-const storeReasons = selectedStore
-  ? buildStoreReasons({
+const storeReasonSet = selectedStore
+  ? buildStoreReasonSet({
       store: selectedStore,
-      organizerConditions,
-      orgPrefs,
+      prefs: orgPrefs,
       eventType,
       mainGuestCount: mainGuestIds.length,
       mode: appMode,
     })
-  : []
+  : null
 
-
+const storeHighlightReason = storeReasonSet?.hero ?? null
+const storeReasons = storeReasonSet?.bullets ?? []
 
 const storeChips = selectedStore
   ? buildStoreChips(selectedStore, orgPrefs)
   : []
-
-const storeHighlightReason = selectedStore
-  ? buildHighlightReason(selectedStore, mainGuestIds.length > 0)
-  : null
 
 const storeCopy = getStoreCopy(appMode)
 
@@ -4338,7 +4219,7 @@ return (
               </button>
             </div>
           </div>
-          {organizerConditions.length > 0 && (
+          {(organizerConditions.length > 0 || (appMode !== 'store_only' && totalCount > 0)) && (
             <div className="flex flex-wrap gap-1.5">
               {organizerConditions.map(c => (
                 <span
@@ -4348,6 +4229,11 @@ return (
                   {c}
                 </span>
               ))}
+              {appMode !== 'store_only' && totalCount > 0 && (
+                <span className="inline-flex items-center rounded-full bg-stone-800 px-3 py-1 text-[11px] font-bold text-white/80">
+                  〜{totalCount}人
+                </span>
+              )}
             </div>
           )}
         </motion.div>
@@ -4425,7 +4311,6 @@ return (
                   {/* 補足チップ */}
                   {(() => {
                     const chips: string[] = []
-                    if (appMode !== 'store_only' && totalCount > 0) chips.push(`〜${totalCount}人`)
                     if (primaryStore.walkMinutes != null) chips.push(`徒歩${primaryStore.walkMinutes}分`)
                     storeChips.slice(0, 2).forEach(c => chips.push(c))
                     return chips.length > 0 ? (
