@@ -248,12 +248,14 @@ export async function loadDashboard(myUserId: string): Promise<AnalyticsDashboar
     supabase
       .from('analytics_events')
       .select('user_id, event_name')
-      .in('event_name', TRACKED_EVENTS),
+      .in('event_name', TRACKED_EVENTS)
+      .limit(10000),
     supabase
       .from('analytics_events')
       .select('user_id, event_name')
       .in('event_name', TRACKED_EVENTS)
-      .gt('created_at', sevenDaysAgo),
+      .gt('created_at', sevenDaysAgo)
+      .limit(5000),
   ])
 
   const applyExclusion = (rows: RawRow[] | null): RawRow[] =>
@@ -399,12 +401,14 @@ export async function loadRetentionDashboard(myUserId: string): Promise<Retentio
     supabase
       .from('analytics_events')
       .select('user_id, event_name, created_at')
-      .in('event_name', RETENTION_EVENTS),
+      .in('event_name', RETENTION_EVENTS)
+      .limit(10000),
     supabase
       .from('analytics_events')
       .select('user_id, event_name, created_at')
       .in('event_name', RETENTION_EVENTS)
-      .gt('created_at', sevenDaysAgo),
+      .gt('created_at', sevenDaysAgo)
+      .limit(5000),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

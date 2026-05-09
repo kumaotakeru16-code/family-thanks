@@ -202,7 +202,7 @@ export default function AdminPage() {
             {storeSlice && (storeSlice.topAreas.length > 0 || storeSlice.topGenres.length > 0 || storeSlice.peopleCounts.length > 0) && (
               <ConditionsSection slice={storeSlice} />
             )}
-            {retSlice && <RetentionSection slice={retSlice} />}
+            {retSlice && <RetentionSection slice={retSlice} totalUsers={slice.totalUsers} />}
             {revSlice && <RevisitSection revisit={revSlice} />}
             {sourceSlices && sourceSlices.length > 0 && <SourceView slices={sourceSlices} small={slice.totalUsers < 10} />}
             {stationFallbackSlice && <StationFallbackSection slice={stationFallbackSlice} />}
@@ -632,7 +632,7 @@ function DarkRankingList({ title, items, color }: { title: string; items: Array<
 
 // ── Retention ─────────────────────────────────────────────────────────────────
 
-function RetentionSection({ slice: s }: { slice: RetentionSlice }) {
+function RetentionSection({ slice: s, totalUsers }: { slice: RetentionSlice; totalUsers: number }) {
   const ra = s.returningActivity
   const actItems = [
     { label: '店探し開始', count: ra.storeOnlyStart },
@@ -652,8 +652,8 @@ function RetentionSection({ slice: s }: { slice: RetentionSlice }) {
 
       <div className="mb-4 grid grid-cols-2 gap-2">
         {[
-          { label: '全ユーザー',     val: s.totalUsers,          rate: undefined },
-          { label: '再訪',           val: s.returningUsers,      rate: s.returningRate },
+          { label: '全ユーザー',     val: totalUsers,            rate: undefined },
+          { label: '再訪',           val: s.returningUsers,      rate: pct(s.returningUsers, totalUsers) },
           { label: '店探しユーザー', val: s.storeStarters,       rate: undefined },
           { label: '店探しリピーター', val: s.storeReturningUsers, rate: s.storeReturningRate },
         ].map(({ label, val, rate }) => (
@@ -669,15 +669,15 @@ function RetentionSection({ slice: s }: { slice: RetentionSlice }) {
         ))}
       </div>
 
-      {s.totalUsers > 0 && (
+      {totalUsers > 0 && (
         <div className="mb-4">
           <div className="mb-1.5 flex justify-between text-[9px]" style={{ color: 'rgba(255,255,255,0.28)' }}>
-            <span>新規 {s.totalUsers - s.returningUsers}人</span>
+            <span>新規 {totalUsers - s.returningUsers}人</span>
             <span>再訪 {s.returningUsers}人</span>
           </div>
           <div className="flex overflow-hidden rounded-full" style={{ height: 7, background: 'rgba(255,255,255,0.06)' }}>
-            <div style={{ width: `${pct(s.totalUsers - s.returningUsers, s.totalUsers)}%`, background: 'rgba(255,255,255,0.18)', transition: 'width 0.6s ease' }} />
-            <div style={{ width: `${pct(s.returningUsers, s.totalUsers)}%`, background: G, transition: 'width 0.6s ease' }} />
+            <div style={{ width: `${pct(totalUsers - s.returningUsers, totalUsers)}%`, background: 'rgba(255,255,255,0.18)', transition: 'width 0.6s ease' }} />
+            <div style={{ width: `${pct(s.returningUsers, totalUsers)}%`, background: G, transition: 'width 0.6s ease' }} />
           </div>
         </div>
       )}
