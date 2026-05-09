@@ -95,6 +95,21 @@ export const EXCLUDED_USER_IDS: string[] = [
   '19de35cc-fcf3-476c-9cbf-5895a479754e', // Chrome
 ]
 
+// ── 集計共通ヘルパー ──────────────────────────────────────────────────────────
+
+/**
+ * 全ローダーで同一の除外セットを生成する。
+ * myUserId（現在端末）+ EXCLUDED_USER_IDS（固定リスト）を合成。
+ */
+function makeExcludedSet(myUserId: string): Set<string> {
+  return new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
+}
+
+/** 直近7日の起点ISO文字列を返す（全ローダーで共通） */
+function sevenDaysAgoISO(): string {
+  return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+}
+
 // ── Traffic Source ────────────────────────────────────────────────────────────
 
 export type TrafficSource = 'x' | 'note' | 'tsukutta' | 'direct' | 'other'
@@ -151,9 +166,13 @@ export async function trackEvent(
 // ── 読み込み（ダッシュボード用） ───────────────────────────────────────────────
 
 export type AnalyticsSlice = {
-  /** ユニークユーザー数（自分除く） */
+  /**
+   * 全ユーザー = 期間内に app_open した unique user_id 数。
+   * app_open 以外のイベントしか持たないユーザーは含まない。
+   * RetentionSection の totalUsers と定義を揃えるため app_open ベースに固定。
+   */
   totalUsers: number
-  /** app_open したユニークユーザー数 */
+  /** app_open したユニークユーザー数（totalUsers と同値） */
   appOpenUsers: number
   /** start_from_dates + start_from_store のユニークユーザー数（重複除去） */
   startUsers: number
@@ -178,19 +197,22 @@ export type AnalyticsDashboard = {
 
 type RawRow = { user_id: string; event_name: string }
 
-/** rows を集計して AnalyticsSlice を返す */
+/**
+ * rows を集計して AnalyticsSlice を返す。
+ * totalUsers = app_open した unique user_id 数に固定（RetentionSection と定義を揃える）。
+ * app_open 以外のイベントしか持たないユーザーは全ユーザー数に含まない。
+ */
 function processRows(rows: RawRow[] | null): AnalyticsSlice {
   const all = rows ?? []
   const byEvent: Record<string, Set<string>> = {}
-  const allUsers = new Set<string>()
 
   for (const row of all) {
-    allUsers.add(row.user_id)
     if (!byEvent[row.event_name]) byEvent[row.event_name] = new Set()
     byEvent[row.event_name].add(row.user_id)
   }
 
   const count = (name: string) => byEvent[name]?.size ?? 0
+  const appOpenCount = count('app_open')
 
   // start の union（日程 OR お店を押したユーザー）
   const datesSet = byEvent['start_from_dates'] ?? new Set<string>()
@@ -198,8 +220,8 @@ function processRows(rows: RawRow[] | null): AnalyticsSlice {
   const startUnion = new Set([...datesSet, ...storeSet])
 
   return {
-    totalUsers: allUsers.size,
-    appOpenUsers: count('app_open'),
+    totalUsers: appOpenCount,   // 全ユーザー = 期間内 app_open ユーザー数
+    appOpenUsers: appOpenCount,
     startUsers: startUnion.size,
     startDatesUsers: count('start_from_dates'),
     startStoreUsers: count('start_from_store'),
@@ -219,8 +241,8 @@ function processRows(rows: RawRow[] | null): AnalyticsSlice {
 export async function loadDashboard(myUserId: string): Promise<AnalyticsDashboard | null> {
   if (typeof window === 'undefined') return null
 
-  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const excludedSet = makeExcludedSet(myUserId)
+  const sevenDaysAgo = sevenDaysAgoISO()
 
   const [allRes, weekRes] = await Promise.all([
     supabase
@@ -234,13 +256,8 @@ export async function loadDashboard(myUserId: string): Promise<AnalyticsDashboar
       .gt('created_at', sevenDaysAgo),
   ])
 
-  const applyExclusion = (rows: RawRow[] | null): RawRow[] => {
-    const raw = rows ?? []
-    const filtered = raw.filter((r) => !excludedSet.has(r.user_id))
-    console.log('[analytics] excluded ids:', excludedSet.size)
-    console.log('[analytics] raw rows:', raw.length, '→ filtered:', filtered.length)
-    return filtered
-  }
+  const applyExclusion = (rows: RawRow[] | null): RawRow[] =>
+    (rows ?? []).filter((r) => !excludedSet.has(r.user_id))
 
   return {
     all: processRows(applyExclusion(allRes.data)),
@@ -311,12 +328,15 @@ function processRetentionRows(rows: RawRetentionRow[]): RetentionSlice {
   let storeReturningUsers = 0
   const storeStartersSet = new Set<string>()
   const returningUserSet = new Set<string>()
+  // 全ユーザー = 期間内に app_open した unique user_id（loadDashboard と定義を揃える）
+  const appOpenUserSet = new Set<string>()
 
   for (const [userId, events] of Object.entries(byUser)) {
     // app_open の日付ユニーク数
     const appOpenDays = new Set(
       events.filter(e => e.event_name === 'app_open').map(e => toDay(e.created_at))
     )
+    if (appOpenDays.size >= 1) appOpenUserSet.add(userId)
     if (appOpenDays.size >= 2) {
       returningUsers++
       returningUserSet.add(userId)
@@ -330,7 +350,8 @@ function processRetentionRows(rows: RawRetentionRow[]): RetentionSlice {
     if (storeStartDays.size >= 2) storeReturningUsers++
   }
 
-  const totalUsers = Object.keys(byUser).length
+  // app_open 以外のイベントしか持たないユーザーは totalUsers に含まない
+  const totalUsers = appOpenUserSet.size
   const storeStarters = storeStartersSet.size
 
   // 再訪ユーザーの行動内訳
@@ -371,8 +392,8 @@ function processRetentionRows(rows: RawRetentionRow[]): RetentionSlice {
 export async function loadRetentionDashboard(myUserId: string): Promise<RetentionDashboard | null> {
   if (typeof window === 'undefined') return null
 
-  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const excludedSet = makeExcludedSet(myUserId)
+  const sevenDaysAgo = sevenDaysAgoISO()
 
   const [allRes, weekRes] = await Promise.all([
     supabase
@@ -460,8 +481,8 @@ function processRevisitRows(rows: RawRevisitRow[]): RevisitSlice {
 export async function loadRevisitDashboard(myUserId: string): Promise<RevisitDashboard | null> {
   if (typeof window === 'undefined') return null
 
-  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const excludedSet = makeExcludedSet(myUserId)
+  const sevenDaysAgo = sevenDaysAgoISO()
 
   const [allRes, weekRes] = await Promise.all([
     supabase
@@ -620,8 +641,8 @@ function processStoreRows(rows: RawStoreRow[]): StoreFunnelSlice {
 export async function loadStoreDashboard(myUserId: string): Promise<StoreDashboard | null> {
   if (typeof window === 'undefined') return null
 
-  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const excludedSet = makeExcludedSet(myUserId)
+  const sevenDaysAgo = sevenDaysAgoISO()
 
   const [allRes, weekRes] = await Promise.all([
     supabase
@@ -663,7 +684,7 @@ const TIME_SERIES_EVENTS: AnalyticsEventName[] = [
 export async function loadTimeSeries(myUserId: string, days = 30): Promise<DayPoint[]> {
   if (typeof window === 'undefined') return []
 
-  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
+  const excludedSet = makeExcludedSet(myUserId)
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 
   const { data } = await supabase
@@ -730,7 +751,7 @@ export async function loadActivityFeed(
 ): Promise<ActivityItem[]> {
   if (typeof window === 'undefined') return []
 
-  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
+  const excludedSet = makeExcludedSet(myUserId)
 
   const { data } = await supabase
     .from('analytics_events')
@@ -850,8 +871,8 @@ function processSourceRows(
 export async function loadSourceDashboard(myUserId: string): Promise<SourceDashboard | null> {
   if (typeof window === 'undefined') return null
 
-  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const excludedSet = makeExcludedSet(myUserId)
+  const sevenDaysAgo = sevenDaysAgoISO()
 
   const [openRes, allRes, weekRes] = await Promise.all([
     // 全期間の app_open（ソース帰属用）
@@ -935,8 +956,8 @@ function processStationEmptyRows(rows: RawStationRow[]): StationEmptyItem[] {
 export async function loadStationEmptyDashboard(myUserId: string): Promise<StationEmptyDashboard | null> {
   if (typeof window === 'undefined') return null
 
-  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const excludedSet = makeExcludedSet(myUserId)
+  const sevenDaysAgo = sevenDaysAgoISO()
 
   const [allRes, weekRes] = await Promise.all([
     supabase
@@ -1032,8 +1053,8 @@ function processStationFallbackRows(rows: RawStationRow[]): StationFallbackSlice
 export async function loadStationFallbackDashboard(myUserId: string): Promise<StationFallbackDashboard | null> {
   if (typeof window === 'undefined') return null
 
-  const excludedSet = new Set([...EXCLUDED_USER_IDS, myUserId].filter(Boolean))
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const excludedSet = makeExcludedSet(myUserId)
+  const sevenDaysAgo = sevenDaysAgoISO()
   const evList = STATION_FALLBACK_EVENTS as unknown as string[]
 
   const [allRes, weekRes] = await Promise.all([
