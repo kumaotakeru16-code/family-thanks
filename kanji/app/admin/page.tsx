@@ -213,7 +213,7 @@ export default function AdminPage() {
             {stationFallbackSlice && <StationFallbackSection slice={stationFallbackSlice} />}
             {stationEmptyItems && stationEmptyItems.length > 0 && <StationEmptySection items={stationEmptyItems} />}
             {feed.length > 0 && <ActivityFeedSection feed={feed} />}
-            {debugStats && <DebugSection stats={debugStats} dashTotal={slice.totalUsers} />}
+            {debugStats && <DebugSection stats={debugStats} dashTotal={slice.totalUsers} weekMode={weekMode} />}
           </div>
         )}
 
@@ -1055,19 +1055,21 @@ function ActivityFeedSection({ feed }: { feed: ActivityItem[] }) {
 
 // ── Debug Section ─────────────────────────────────────────────────────────────
 
-function DebugSection({ stats: s, dashTotal }: { stats: DebugStats; dashTotal: number }) {
+function DebugSection({ stats: s, dashTotal, weekMode }: { stats: DebugStats; dashTotal: number; weekMode: boolean }) {
   const latestAt = s.latestAppOpenAt
     ? new Date(s.latestAppOpenAt).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
     : '-'
-  const mismatch = s.uniqueAppOpenUsers !== dashTotal
+  // 期間をそろえて比較: weekMode なら7日ユニーク vs dash slice(7日), 全期間なら全期間ユニーク vs dash slice(全期間)
+  const debugUnique = weekMode ? s.weekUniqueAppOpenUsers : s.uniqueAppOpenUsers
+  const mismatch = debugUnique !== dashTotal
 
   const rows: Array<{ label: string; val: string | number; warn?: boolean }> = [
-    { label: 'DB app_open行数（除外前）',    val: s.rawAppOpenRows },
-    { label: 'DB app_open行数（除外後）',    val: s.appOpenRows },
-    { label: 'ユニークユーザー（専用クエリ）', val: s.uniqueAppOpenUsers },
-    { label: 'ユニークユーザー（dash slice）', val: dashTotal, warn: mismatch },
-    { label: '除外イベント数',               val: s.excludedCount },
-    { label: '最終 app_open',               val: latestAt },
+    { label: 'DB app_open行数（除外前・全期間）',          val: s.rawAppOpenRows },
+    { label: 'DB app_open行数（除外後・全期間）',          val: s.appOpenRows },
+    { label: `ユニークユーザー（専用クエリ・${weekMode ? '7日' : '全期間'}）`, val: debugUnique },
+    { label: `ユニークユーザー（dash slice・${weekMode ? '7日' : '全期間'}）`, val: dashTotal, warn: mismatch },
+    { label: '除外イベント数（全期間）',                   val: s.excludedCount },
+    { label: '最終 app_open',                            val: latestAt },
   ]
 
   return (

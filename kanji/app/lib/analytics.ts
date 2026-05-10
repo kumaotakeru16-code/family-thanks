@@ -1106,12 +1106,14 @@ export async function loadStationFallbackDashboard(myUserId: string): Promise<St
 // ── Debug Stats ───────────────────────────────────────────────────────────────
 
 export type DebugStats = {
-  /** DB上の app_open 行数（除外前） */
+  /** DB上の app_open 行数（除外前・全期間） */
   rawAppOpenRows: number
-  /** 除外後の app_open 行数 */
+  /** 除外後の app_open 行数（全期間） */
   appOpenRows: number
-  /** 除外後のユニーク app_open ユーザー数 */
+  /** 除外後のユニーク app_open ユーザー数（全期間） */
   uniqueAppOpenUsers: number
+  /** 除外後のユニーク app_open ユーザー数（直近7日） */
+  weekUniqueAppOpenUsers: number
   /** 除外されたイベント行数 */
   excludedCount: number
   /** 最新の app_open created_at */
@@ -1121,32 +1123,48 @@ export type DebugStats = {
 /**
  * 管理画面デバッグ用: app_open イベントの生データをそのまま集計して返す。
  * funnel クエリのlimit制約に依存しないため、計上漏れの確認に使う。
+ * 全期間・直近7日の両方を返し、weekMode に応じた正しい比較ができるようにする。
  */
 export async function loadDebugStats(myUserId: string): Promise<DebugStats | null> {
   if (typeof window === 'undefined') return null
 
   const excludedSet = makeExcludedSet(myUserId)
+  const sevenDaysAgo = sevenDaysAgoISO()
 
-  const { data } = await supabase
-    .from('analytics_events')
-    .select('user_id, created_at')
-    .eq('event_name', 'app_open')
-    .order('created_at', { ascending: false })
-    .limit(50000)
+  const [allRes, weekRes] = await Promise.all([
+    supabase
+      .from('analytics_events')
+      .select('user_id, created_at')
+      .eq('event_name', 'app_open')
+      .order('created_at', { ascending: false })
+      .limit(50000),
+    supabase
+      .from('analytics_events')
+      .select('user_id')
+      .eq('event_name', 'app_open')
+      .gt('created_at', sevenDaysAgo)
+      .limit(10000),
+  ])
 
-  if (!data) return null
+  if (!allRes.data) return null
 
-  type Row = { user_id: string; created_at: string }
-  const rows = data as Row[]
+  type AllRow = { user_id: string; created_at: string }
+  type WeekRow = { user_id: string }
+
+  const rows = allRes.data as AllRow[]
+  const weekRows = (weekRes.data ?? []) as WeekRow[]
+
   const excluded = rows.filter(r => excludedSet.has(r.user_id))
   const included = rows.filter(r => !excludedSet.has(r.user_id))
+  const weekIncluded = weekRows.filter(r => !excludedSet.has(r.user_id))
 
   return {
-    rawAppOpenRows:    rows.length,
-    appOpenRows:       included.length,
-    uniqueAppOpenUsers: new Set(included.map(r => r.user_id)).size,
-    excludedCount:     excluded.length,
-    latestAppOpenAt:   rows[0]?.created_at ?? null,
+    rawAppOpenRows:        rows.length,
+    appOpenRows:           included.length,
+    uniqueAppOpenUsers:    new Set(included.map(r => r.user_id)).size,
+    weekUniqueAppOpenUsers: new Set(weekIncluded.map(r => r.user_id)).size,
+    excludedCount:         excluded.length,
+    latestAppOpenAt:       rows[0]?.created_at ?? null,
   }
 }
 

@@ -1203,6 +1203,14 @@ export const STATION_DEFS: Record<string, StationDef> = {
       smallArea: "X940",
     },
   },
+  "熊谷": {
+    canonical: "熊谷",
+    displayName: "熊谷",
+    aliases: ["熊谷","熊谷駅","くまがや","クマガヤ","JR熊谷"],
+    hpArea: {
+      middleArea: "Y133",
+    },
+  },
   "熊本": {
     canonical: "熊本",
     displayName: "熊本",
