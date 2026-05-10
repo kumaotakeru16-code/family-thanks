@@ -244,7 +244,7 @@ export async function loadDashboard(myUserId: string): Promise<AnalyticsDashboar
   const excludedSet = makeExcludedSet(myUserId)
   const sevenDaysAgo = sevenDaysAgoISO()
 
-  const [allRes, weekRes] = await Promise.all([
+  const [allRes, weekRes, appOpenAllRes, appOpenWeekRes] = await Promise.all([
     supabase
       .from('analytics_events')
       .select('user_id, event_name')
@@ -256,14 +256,34 @@ export async function loadDashboard(myUserId: string): Promise<AnalyticsDashboar
       .in('event_name', TRACKED_EVENTS)
       .gt('created_at', sevenDaysAgo)
       .limit(5000),
+    // app_open 専用クエリ: funnel queryのlimitに依存せず全ユーザーを正確に集計
+    supabase
+      .from('analytics_events')
+      .select('user_id')
+      .eq('event_name', 'app_open')
+      .limit(50000),
+    supabase
+      .from('analytics_events')
+      .select('user_id')
+      .eq('event_name', 'app_open')
+      .gt('created_at', sevenDaysAgo)
+      .limit(10000),
   ])
 
   const applyExclusion = (rows: RawRow[] | null): RawRow[] =>
     (rows ?? []).filter((r) => !excludedSet.has(r.user_id))
 
+  const countAppOpenUsers = (rows: { user_id: string }[] | null): number =>
+    new Set((rows ?? []).filter(r => !excludedSet.has(r.user_id)).map(r => r.user_id)).size
+
+  const allSlice  = processRows(applyExclusion(allRes.data))
+  const weekSlice = processRows(applyExclusion(weekRes.data))
+  const allTotal  = countAppOpenUsers(appOpenAllRes.data)
+  const weekTotal = countAppOpenUsers(appOpenWeekRes.data)
+
   return {
-    all: processRows(applyExclusion(allRes.data)),
-    week: processRows(applyExclusion(weekRes.data)),
+    all:  { ...allSlice,  totalUsers: allTotal,  appOpenUsers: allTotal  },
+    week: { ...weekSlice, totalUsers: weekTotal, appOpenUsers: weekTotal },
   }
 }
 
@@ -1080,6 +1100,53 @@ export async function loadStationFallbackDashboard(myUserId: string): Promise<St
   return {
     all:  processStationFallbackRows(filter(allRes.data)),
     week: processStationFallbackRows(filter(weekRes.data)),
+  }
+}
+
+// ── Debug Stats ───────────────────────────────────────────────────────────────
+
+export type DebugStats = {
+  /** DB上の app_open 行数（除外前） */
+  rawAppOpenRows: number
+  /** 除外後の app_open 行数 */
+  appOpenRows: number
+  /** 除外後のユニーク app_open ユーザー数 */
+  uniqueAppOpenUsers: number
+  /** 除外されたイベント行数 */
+  excludedCount: number
+  /** 最新の app_open created_at */
+  latestAppOpenAt: string | null
+}
+
+/**
+ * 管理画面デバッグ用: app_open イベントの生データをそのまま集計して返す。
+ * funnel クエリのlimit制約に依存しないため、計上漏れの確認に使う。
+ */
+export async function loadDebugStats(myUserId: string): Promise<DebugStats | null> {
+  if (typeof window === 'undefined') return null
+
+  const excludedSet = makeExcludedSet(myUserId)
+
+  const { data } = await supabase
+    .from('analytics_events')
+    .select('user_id, created_at')
+    .eq('event_name', 'app_open')
+    .order('created_at', { ascending: false })
+    .limit(50000)
+
+  if (!data) return null
+
+  type Row = { user_id: string; created_at: string }
+  const rows = data as Row[]
+  const excluded = rows.filter(r => excludedSet.has(r.user_id))
+  const included = rows.filter(r => !excludedSet.has(r.user_id))
+
+  return {
+    rawAppOpenRows:    rows.length,
+    appOpenRows:       included.length,
+    uniqueAppOpenUsers: new Set(included.map(r => r.user_id)).size,
+    excludedCount:     excluded.length,
+    latestAppOpenAt:   rows[0]?.created_at ?? null,
   }
 }
 

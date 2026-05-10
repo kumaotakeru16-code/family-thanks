@@ -12,6 +12,7 @@ import {
   loadSourceDashboard,
   loadStationEmptyDashboard,
   loadStationFallbackDashboard,
+  loadDebugStats,
   pct,
   type AnalyticsDashboard,
   type AnalyticsSlice,
@@ -31,6 +32,7 @@ import {
   type StationFallbackDashboard,
   type StationFallbackSlice,
   type StationFallbackFailedItem,
+  type DebugStats,
 } from '@/app/lib/analytics'
 import { getAnonId } from '@/app/lib/storage/anonymous-id'
 
@@ -78,6 +80,7 @@ export default function AdminPage() {
   const [sourceDash, setSourceDash] = useState<SourceDashboard | null>(null)
   const [stationEmptyDash, setStationEmptyDash] = useState<StationEmptyDashboard | null>(null)
   const [stationFallbackDash, setStationFallbackDash] = useState<StationFallbackDashboard | null>(null)
+  const [debugStats, setDebugStats] = useState<DebugStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [weekMode, setWeekMode] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -88,7 +91,7 @@ export default function AdminPage() {
     setLoading(true)
     try {
       const id = getAnonId()
-      const [d, s, r, rv, ts, f, src, stEmpty, stFallback] = await Promise.all([
+      const [d, s, r, rv, ts, f, src, stEmpty, stFallback, dbg] = await Promise.all([
         loadDashboard(id),
         loadStoreDashboard(id),
         loadRetentionDashboard(id),
@@ -98,6 +101,7 @@ export default function AdminPage() {
         loadSourceDashboard(id),
         loadStationEmptyDashboard(id),
         loadStationFallbackDashboard(id),
+        loadDebugStats(id),
       ])
       setDash(d)
       setStoreDash(s)
@@ -108,6 +112,7 @@ export default function AdminPage() {
       setSourceDash(src)
       setStationEmptyDash(stEmpty)
       setStationFallbackDash(stFallback)
+      setDebugStats(dbg)
       setLastUpdated(new Date())
     } catch {
       setDash(null)
@@ -208,6 +213,7 @@ export default function AdminPage() {
             {stationFallbackSlice && <StationFallbackSection slice={stationFallbackSlice} />}
             {stationEmptyItems && stationEmptyItems.length > 0 && <StationEmptySection items={stationEmptyItems} />}
             {feed.length > 0 && <ActivityFeedSection feed={feed} />}
+            {debugStats && <DebugSection stats={debugStats} dashTotal={slice.totalUsers} />}
           </div>
         )}
 
@@ -1042,6 +1048,46 @@ function ActivityFeedSection({ feed }: { feed: ActivityItem[] }) {
             </div>
           )
         })}
+      </div>
+    </GlassCard>
+  )
+}
+
+// ── Debug Section ─────────────────────────────────────────────────────────────
+
+function DebugSection({ stats: s, dashTotal }: { stats: DebugStats; dashTotal: number }) {
+  const latestAt = s.latestAppOpenAt
+    ? new Date(s.latestAppOpenAt).toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : '-'
+  const mismatch = s.uniqueAppOpenUsers !== dashTotal
+
+  const rows: Array<{ label: string; val: string | number; warn?: boolean }> = [
+    { label: 'DB app_open行数（除外前）',    val: s.rawAppOpenRows },
+    { label: 'DB app_open行数（除外後）',    val: s.appOpenRows },
+    { label: 'ユニークユーザー（専用クエリ）', val: s.uniqueAppOpenUsers },
+    { label: 'ユニークユーザー（dash slice）', val: dashTotal, warn: mismatch },
+    { label: '除外イベント数',               val: s.excludedCount },
+    { label: '最終 app_open',               val: latestAt },
+  ]
+
+  return (
+    <GlassCard>
+      <div className="mb-3 flex items-center gap-2">
+        <Lbl>Debug</Lbl>
+        <span className="text-[9px]" style={{ color: 'rgba(255,255,255,0.2)' }}>開発用 · 一時表示</span>
+        {mismatch && (
+          <span className="rounded-full px-1.5 py-0.5 text-[9px] font-bold" style={{ background: 'rgba(239,68,68,0.15)', color: DANGER }}>
+            不一致
+          </span>
+        )}
+      </div>
+      <div className="space-y-1.5">
+        {rows.map(({ label, val, warn }) => (
+          <div key={label} className="flex items-center justify-between">
+            <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.35)' }}>{label}</p>
+            <p className="text-[11px] font-black tabular-nums" style={{ color: warn ? DANGER : 'rgba(255,255,255,0.7)' }}>{val}</p>
+          </div>
+        ))}
       </div>
     </GlassCard>
   )
