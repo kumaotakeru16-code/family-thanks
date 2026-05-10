@@ -26,7 +26,7 @@ export const STORE_COPY = {
   store_only: {
     reasonLabel: 'おすすめポイント',
     selectionDescription: '条件・評価・アクセスをもとにAIが選定',
-    genreReason: (genre: string) => `${genre}ジャンルの条件に合う`,
+    genreReason: (genre: string) => `${genre}の条件に合う`,
     summaryHigh: '条件・評価・アクセスのバランスがよく、店決めに使いやすい',
     summaryMid: 'ジャンル・条件に合っており、たたき台として使いやすい',
     summaryLow: '条件との一致度が高く、参考にしやすい',
@@ -39,7 +39,7 @@ export const STORE_COPY = {
   event_flow: {
     reasonLabel: 'この会に合う理由',
     selectionDescription: '参加者の希望・人数・アクセスをもとにAIが選定',
-    genreReason: (genre: string) => `参加者希望の${genre}ジャンル`,
+    genreReason: (genre: string) => `希望の${genre}ジャンル`,
     summaryHigh: '条件・参加者希望・評価のバランスが良く、安心して選べます',
     summaryMid: '条件と参加者の希望の両方に合っており、納得感があります',
     summaryLow: '条件との一致度が高く、安心して選べます',

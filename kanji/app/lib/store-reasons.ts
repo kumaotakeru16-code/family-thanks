@@ -40,11 +40,11 @@ function detectStoreTone(store: ReasonStore): StoreTone {
 }
 
 const TONE_REASON: Record<StoreTone, string> = {
-  lively:  '飲み会向きで場が温まりやすい',
-  calm:    '落ち着いた雰囲気で無難にまとまりやすい',
-  formal:  '少しきちんと感があり記念の会にも選びやすい',
-  casual:  'カジュアルで初対面メンバーにも選びやすい',
-  neutral: '幅広い会に対応しやすい',
+  lively:  '飲み会向き',
+  calm:    '落ち着いてまとまりやすい',
+  formal:  'きちんと感があり選びやすい',
+  casual:  'カジュアルにまとまりやすい',
+  neutral: '幅広い会に合う',
 }
 
 // ─── Access parsing ───────────────────────────────────────────────────────────
@@ -56,10 +56,10 @@ export function parseAccessMins(store: ReasonStore): number | null {
 }
 
 function accessPhrase(mins: number): string | null {
-  if (mins <= 3)  return '駅のすぐそばで集まりやすい'
-  if (mins <= 5)  return '仕事終わりでも合流しやすい'
-  if (mins <= 8)  return '駅近で参加者が集まりやすい'
-  if (mins <= 12) return '徒歩圏内でアクセスしやすい'
+  if (mins <= 3)  return '駅前で集まりやすい'
+  if (mins <= 5)  return '仕事後でも集まりやすい'
+  if (mins <= 8)  return '駅近で集まりやすい'
+  if (mins <= 12) return '徒歩圏内で行きやすい'
   return null
 }
 
@@ -110,8 +110,8 @@ export function buildStoreReasonSet(params: {
   if (hasVip) {
     candidates.push(
       hasPrivateRoom
-        ? '主賓を個室でゆっくりお迎えできる'
-        : '主賓が参加する会にふさわしい雰囲気'
+        ? '個室で主賓を迎えやすい'
+        : '主賓の会に合う雰囲気'
     )
   }
 
@@ -122,14 +122,14 @@ export function buildStoreReasonSet(params: {
   }
 
   // 3. 口コミ評価（4.0以上は信頼感として強いアピールになる）
-  if (hasGoodRating) candidates.push('口コミ評価が高く安心感がある')
+  if (hasGoodRating) candidates.push('口コミ評価が高い')
 
   // 4. 明示的な個室条件（VIPで個室理由が出ていない場合のみ）
   if (privateRoomExplicit && hasPrivateRoom && !hasVip) {
     candidates.push(
       isFormal
-        ? `周りを気にせず${eventType}しやすい`
-        : '個室でまとまりやすく周りを気にしにくい'
+        ? `個室で${eventType}しやすい`
+        : '個室で落ち着きやすい'
     )
   }
 
@@ -137,7 +137,7 @@ export function buildStoreReasonSet(params: {
   if (genre) candidates.push(copy.genreReason(genre))
 
   // 6. 予算
-  if (priceRange) candidates.push(`${priceRange}の予算感で読みやすい`)
+  if (priceRange) candidates.push('予算感が読みやすい')
 
   // 7. 駅近（6〜12分）
   if (accessMins != null && accessMins > 5) {
@@ -150,7 +150,7 @@ export function buildStoreReasonSet(params: {
 
   // 9. 個室ボーナス（明示条件なし — 低優先でBulletに載る程度）
   if (hasPrivateRoom && !privateRoomExplicit && !hasVip) {
-    candidates.push('個室があるのでグループで落ち着きやすい')
+    candidates.push('個室で落ち着きやすい')
   }
 
   const hero = candidates[0] ?? toneReason
