@@ -5,6 +5,8 @@ import { adaptHotpepperShopsToStoreSelect } from '../../../lib/store-select-adap
 const HOTPEPPER_API_KEY =
   process.env.HOTPEPPER_API_KEY || process.env.RECRUIT_API_KEY || ''
 
+type MealContext = 'lunch' | 'afternoon' | 'dinner'
+
 type RequestBody = {
   areas?: string[]
   targetStation?: string
@@ -17,6 +19,8 @@ type RequestBody = {
   eventType?: string
   broadAreaMode?: boolean
   areaAliases?: string[]
+  startTime?: string
+  useScene?: string
 }
 
 type HotpepperGenre = {
@@ -78,6 +82,8 @@ type ScoredShop = HotpepperShop & {
     genrePenalty: number
     totalScore: number
     genreMatched: boolean
+    openMatch: 'match' | 'unknown' | 'mismatch'
+    timeFitScore: number
   }
 }
 
@@ -317,6 +323,15 @@ function resolveGenre(preferredGenres?: string[]): SearchGenreConfig {
   }
 }
 
+function classifyMealContext(startTime: string | undefined): MealContext {
+  if (!startTime) return 'dinner'
+  const hour = parseInt(startTime.slice(0, 2), 10)
+  if (Number.isNaN(hour)) return 'dinner'
+  if (hour >= 10 && hour <= 14) return 'lunch'
+  if (hour >= 15 && hour <= 17) return 'afternoon'
+  return 'dinner'
+}
+
 function buildHotpepperUrl(args: {
   genreCode: string
   stationContext: ReturnType<typeof buildStationSearchContext>
@@ -410,7 +425,7 @@ function computeGenreScore(args: {
   }
 }
 
-function computePriceScore(parsed: ParsedBudget, requestedPriceRange: string): number {
+function computePriceScore(parsed: ParsedBudget, requestedPriceRange: string, mealContext: MealContext = 'dinner'): number {
   const value = parsed.representative
 
   if (value == null) return 8
@@ -433,7 +448,22 @@ function computePriceScore(parsed: ParsedBudget, requestedPriceRange: string): n
     return 8
   }
 
-  // 指定なし
+  // 指定なし — mealContext に応じてスコア基準を調整
+  if (mealContext === 'lunch') {
+    if (value >= 1000 && value <= 2500) return 28
+    if (value > 2500 && value <= 4000) return 20
+    if (value > 4000 && value <= 5000) return 12
+    return 6
+  }
+
+  if (mealContext === 'afternoon') {
+    if (value >= 1500 && value <= 3500) return 28
+    if (value > 3500 && value <= 5000) return 20
+    if (value > 5000 && value <= 6000) return 14
+    return 8
+  }
+
+  // dinner（既存通り）
   if (value >= 4000 && value <= 7000) return 28
   if (value >= 3500 && value < 4000) return 20
   if (value > 7000 && value <= 8000) return 16
@@ -441,7 +471,7 @@ function computePriceScore(parsed: ParsedBudget, requestedPriceRange: string): n
   return 6
 }
 
-function shouldKeepByPrice(parsed: ParsedBudget, requestedPriceRange: string): boolean {
+function shouldKeepByPrice(parsed: ParsedBudget, requestedPriceRange: string, mealContext: MealContext = 'dinner'): boolean {
   const value = parsed.representative
   if (value == null) return true
 
@@ -457,20 +487,43 @@ function shouldKeepByPrice(parsed: ParsedBudget, requestedPriceRange: string): b
     return value >= 2500 && value <= 4800
   }
 
-  // 指定なし
-  return value >= 3500 && value <= 8000
+  // 指定なし — mealContext に応じて許容幅を変える
+  if (mealContext === 'lunch')     return value >= 1000 && value <= 5000
+  if (mealContext === 'afternoon') return value >= 1500 && value <= 6000
+  return value >= 3500 && value <= 8000  // dinner（既存通り）
 }
 
-function prefilterByPrice(shops: HotpepperShop[], requestedPriceRange: string) {
+function prefilterByPrice(shops: HotpepperShop[], requestedPriceRange: string, mealContext: MealContext) {
   const filtered = shops.filter((shop) => {
     const parsed = parseBudgetAverage(shop.budget?.average)
-    return shouldKeepByPrice(parsed, requestedPriceRange)
+    return shouldKeepByPrice(parsed, requestedPriceRange, mealContext)
   })
 
   return {
     shops: filtered,
     usedRelaxation: false,
   }
+}
+
+function getOpenMatch(openText: string | undefined, mealContext: MealContext): 'match' | 'unknown' | 'mismatch' {
+  if (!openText) return 'unknown'
+
+  const hasLunch  = /(?:10|11|12|13):00/.test(openText)
+  const hasDinner = /(?:17|18|19|20):00/.test(openText)
+
+  if (mealContext === 'lunch') {
+    if (hasLunch)               return 'match'
+    if (hasDinner && !hasLunch) return 'mismatch'
+    return 'unknown'
+  }
+
+  if (mealContext === 'dinner') {
+    if (hasDinner)              return 'match'
+    if (hasLunch && !hasDinner) return 'mismatch'  // 昼のみ営業っぽい店は夜向けに減点
+    return 'unknown'
+  }
+
+  return 'unknown'  // afternoon など
 }
 
 function maybePrefilterByGenre(shops: HotpepperShop[], searchGenreCodes: string[]) {
@@ -512,18 +565,32 @@ function scoreShop(args: {
   requestedPriceRange: string
   primaryGenreCode: string
   searchGenreCodes: string[]
+  mealContext: MealContext
+  startTime?: string
 }): ScoredShop {
   const parsedBudget = parseBudgetAverage(args.shop.budget?.average)
   const stationMatch = isStationMatch(args.targetStation, args.shop.station_name)
-  const priceScore = computePriceScore(parsedBudget, args.requestedPriceRange)
+  const priceScore = computePriceScore(parsedBudget, args.requestedPriceRange, args.mealContext)
   const { genreBoost, genrePenalty, genreMatched } = computeGenreScore({
     shop: args.shop,
     primaryGenreCode: args.primaryGenreCode,
     searchGenreCodes: args.searchGenreCodes,
   })
+  const openMatch = getOpenMatch(args.shop.open, args.mealContext)
+  const timeFitScore = openMatch === 'match' ? 7 : openMatch === 'mismatch' ? -5 : 0
+
+  console.log('[scoreShop]', {
+    name: args.shop.name,
+    mealContext: args.mealContext,
+    budget_average: args.shop.budget?.average,
+    shouldKeep: shouldKeepByPrice(parsedBudget, args.requestedPriceRange, args.mealContext),
+    priceScore,
+    openMatch,
+    timeFitScore,
+  })
 
   const stationScore = stationMatch ? 35 : 0
-  const totalScore = stationScore + priceScore + genreBoost + genrePenalty
+  const totalScore = stationScore + priceScore + genreBoost + genrePenalty + timeFitScore
 
   return {
     ...args.shop,
@@ -535,6 +602,8 @@ function scoreShop(args: {
       genrePenalty,
       totalScore,
       genreMatched,
+      openMatch,
+      timeFitScore,
     },
   }
 }
@@ -584,6 +653,8 @@ async function callStoreSelect(args: {
     eventType?: string
     broadAreaMode?: boolean
     areaAliases?: string[]
+    startTime?: string
+    mealContext?: MealContext
   }
 }) {
   const stores = adaptHotpepperShopsToStoreSelect(args.shops)
@@ -635,6 +706,14 @@ export async function POST(req: NextRequest) {
     const peopleCount = body.peopleCount ?? 0
     const eventType = body.eventType ?? '飲み会'
     const broadAreaMode = !!body.broadAreaMode
+    const startTime = body.startTime
+    const useScene = body.useScene
+    const mealContext: MealContext =
+      useScene === 'lunch'  ? 'lunch'
+      : useScene === 'dinner' ? 'dinner'
+      : classifyMealContext(startTime)  // full-flow: startTime から判定
+
+    console.log('[hotpepper/search] mealContext:', { useScene, startTime, mealContext })
 
     console.log('[hotpepper/search] request:', {
       areas,
@@ -657,6 +736,8 @@ export async function POST(req: NextRequest) {
       peopleCount,
       eventType,
       broadAreaMode,
+      useScene,
+      mealContext,
     })
 
     const genreLogs: Array<{
@@ -691,11 +772,12 @@ export async function POST(req: NextRequest) {
 
     const deduped = uniqBy(allGenreResults, (shop) => shop.id)
 
-    const pricePrefilter = prefilterByPrice(deduped, priceRange)
+    const pricePrefilter = prefilterByPrice(deduped, priceRange, mealContext)
     const afterPrice = pricePrefilter.shops
 
     console.log('[hotpepper/search] price prefilter:', {
       requestedPriceRange: priceRange,
+      mealContext,
       beforeCount: deduped.length,
       afterCount: afterPrice.length,
       usedRelaxation: pricePrefilter.usedRelaxation,
@@ -719,6 +801,8 @@ export async function POST(req: NextRequest) {
           requestedPriceRange: priceRange,
           primaryGenreCode: genreConfig.primaryGenreCode,
           searchGenreCodes: genreConfig.searchGenreCodes,
+          mealContext,
+          startTime,
         })
       )
       .sort((a, b) => b._debug.totalScore - a._debug.totalScore)
@@ -787,6 +871,8 @@ export async function POST(req: NextRequest) {
           peopleCount,
           eventType,
           broadAreaMode,
+          startTime,
+          mealContext,
           areaAliases: broadAreaMode
             ? Array.from(
                 new Set([

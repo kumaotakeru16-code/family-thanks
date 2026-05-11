@@ -159,6 +159,23 @@ export function buildStoreReasonSet(params: {
   return { hero, bullets }
 }
 
+// ─── Time-of-day helper (将来の店提案ロジック用) ──────────────────────────────
+
+/**
+ * 開始時刻文字列 ("HH:MM") から利用帯を返す。
+ * - "10:00"〜"15:59" → 'lunch'
+ * - "17:00"〜        → 'dinner'
+ * - それ以外          → 'unspecified'
+ *
+ * 現在は参照箇所なし。将来の店ジャンルフィルタや候補ソートで使う想定。
+ */
+export function classifyTimeOfDay(time: string): 'lunch' | 'dinner' | 'unspecified' {
+  const hour = parseInt(time.slice(0, 2), 10)
+  if (hour >= 10 && hour <= 15) return 'lunch'
+  if (hour >= 17)               return 'dinner'
+  return 'unspecified'
+}
+
 // ─── Alt store tag (他候補カード) ─────────────────────────────────────────────
 
 export function buildAltStoreTag(store: ReasonStore): string | null {

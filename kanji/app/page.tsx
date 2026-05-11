@@ -40,6 +40,7 @@ import { createEvent, loadEventData } from '@/lib/kanji-db'
 import { saveDecision } from '@/lib/kanji-db'
 import { loadDecision } from '@/lib/kanji-db'
 import { StationInput } from '@/app/components/StationInput'
+import { TimeWheelPicker } from '@/app/components/TimeWheelPicker'
 import { SettlementStep, type SettlementDraft } from '@/app/components/SettlementStep'
 import { SettlementSummaryTable, type CompletionData, type CompleteResult } from '@/app/components/SettlementSummaryTable'
 import { SettingsScreen } from '@/app/components/SettingsScreen'
@@ -1738,6 +1739,7 @@ async function fetchRecommendedStores(excludeIds: string[] = []) {
 
   try {
     // ── Step 1: Hot Pepper で候補取得 ────────────────────────────────────────
+    console.log('[fetchRecommendedStores] payload:', { startTime: selectedTime, priceRange: orgPrefs.priceRange })
     const hpRes = await fetch('/api/hotpepper/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1751,6 +1753,7 @@ async function fetchRecommendedStores(excludeIds: string[] = []) {
         privateRoom: orgPrefs.privateRoom,
         peopleCount: totalCount,
         eventType,
+        startTime: selectedTime,
       }),
     })
     if (!hpRes.ok) throw new Error(`HTTP ${hpRes.status}`)
@@ -3081,33 +3084,24 @@ return (
               />
             </div>
 
-            {/* 候補日選択 */}
-            <div className="mt-6 border-t border-white/8 pt-5">
-              <div className="mt-3 rounded-2xl bg-white/6 px-4 py-4 ring-1 ring-white/10">
-                <p className="text-xs font-bold text-white/45">開始時間</p>
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <select
-                    value={selectedHour}
-                    onChange={(e) => setSelectedHour(e.target.value)}
-                    className="w-full rounded-2xl bg-white/8 px-3 py-3 text-base font-bold text-white outline-none ring-1 ring-white/12 transition focus:ring-brand/40"
-                  >
-                    {['17', '18', '19', '20', '21', '22', '23'].map((hour) => (
-                      <option key={hour} value={hour}>{hour}時</option>
-                    ))}
-                  </select>
-                  <select
-                    value={selectedMinute}
-                    onChange={(e) => setSelectedMinute(e.target.value)}
-                    className="w-full rounded-2xl bg-white/8 px-3 py-3 text-base font-bold text-white outline-none ring-1 ring-white/12 transition focus:ring-brand/40"
-                  >
-                    {['00', '15', '30', '45'].map((minute) => (
-                      <option key={minute} value={minute}>{minute}分</option>
-                    ))}
-                  </select>
-                </div>
+            {/* 開始時間 — イベント名と同じカード内に統合 */}
+            <div className="mt-5 border-t border-white/8 pt-5">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-bold text-white/50">開始時間</p>
+                <button
+                  type="button"
+                  onClick={() => setShowTimePicker(true)}
+                  className="flex items-center gap-2 rounded-xl bg-white/8 px-4 py-2 text-base font-bold tabular-nums text-white ring-1 ring-white/12 transition active:bg-white/10"
+                >
+                  {selectedHour}:{selectedMinute}
+                  <span className="text-[11px] text-white/35">▼</span>
+                </button>
               </div>
+            </div>
 
-              <div className="mt-4 space-y-3">
+            {/* 候補日選択 */}
+            <div className="mt-5 border-t border-white/8 pt-5">
+              <div className="space-y-3">
                 <div className="flex items-center justify-end">
                   <button type="button" onClick={() => setSelectedDateIds([])}
                     className="text-xs font-bold text-white/35 underline underline-offset-2 hover:text-white/55">
@@ -3149,6 +3143,39 @@ return (
           </Card>
           </motion.div>
         )}
+
+        {/* ── 開始時間ホイールピッカー bottom sheet ── */}
+        {showTimePicker && (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center pb-6 backdrop-blur-sm"
+            onClick={() => setShowTimePicker(false)}
+          >
+            <div className="absolute inset-0 bg-black/55" />
+            <div
+              className="relative w-[calc(100%-32px)] max-w-[520px] rounded-3xl px-5 pb-8 pt-5 ring-1 ring-white/12"
+              style={{ background: '#111511' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-sm font-bold text-white/55">開始時間</p>
+                <button
+                  type="button"
+                  onClick={() => setShowTimePicker(false)}
+                  className="rounded-xl bg-brand/20 px-4 py-2 text-sm font-bold text-brand ring-1 ring-brand/30"
+                >
+                  完了
+                </button>
+              </div>
+              <TimeWheelPicker
+                hour={selectedHour}
+                minute={selectedMinute}
+                onHourChange={setSelectedHour}
+                onMinuteChange={setSelectedMinute}
+              />
+            </div>
+          </div>
+        )}
+
         {/* ── 会を作る sticky CTA ── */}
         {(step === 'create' || step === 'dates') && (
           <div className="sticky bottom-0 -mx-4 bg-gradient-to-t from-[#000000] via-[#000000]/95 to-transparent px-4 pb-6 pt-4 sm:-mx-5 sm:px-5">

@@ -28,6 +28,8 @@ type SelectionConditions = {
   eventType?: string
   broadAreaMode?: boolean
   areaAliases?: string[]
+  startTime?: string
+  mealContext?: string
 }
 
 export type GeminiSelection = {
@@ -413,6 +415,8 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
   const peopleStr = cond.peopleCount ? `${cond.peopleCount}人` : '不明'
   const isLargeGroup = (cond.peopleCount ?? 0) >= 10
   const eventStr = cond.eventType ?? '飲み会'
+  const mealContext = cond.mealContext ?? 'dinner'
+  const startTimeStr = cond.startTime ?? '不明'
 
   const stationCtx = buildStationSearchContext(cond.targetStation)
   const aliases = buildEffectiveAliases(cond)
@@ -435,6 +439,26 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
     2
   )
 
+  let mealContextSection: string
+  if (mealContext === 'lunch') {
+    mealContextSection = `
+## 昼帯の会（開始時間: ${startTimeStr}）
+- 昼帯でも使いやすい店を優先してください
+- ランチ利用として自然な価格帯（〜2500円程度）を高評価にしてください
+- 開始時間に合いやすい営業時間の店を優先してください
+- 夜飲みや宴会専門店は少し評価を下げてください（除外はしない）
+- 個室は明示的な条件がある場合のみ強く評価してください
+- 理由文例: 「昼帯でも使いやすい」「ランチ利用にちょうどいい」「価格帯が昼向き」「開始時間に合いやすい」`
+  } else if (mealContext === 'afternoon') {
+    mealContextSection = `
+## 早め時間帯の会（開始時間: ${startTimeStr}）
+- 早めの時間でも入りやすい店を優先してください
+- 軽食や早めの会でも自然な店を優先してください
+- 理由文例: 「早めの時間でも入りやすい」「会の時間に合わせやすい」`
+  } else {
+    mealContextSection = `\n## 夜帯の会（開始時間: ${startTimeStr}）`
+  }
+
   return `あなたは飲み会・会食の幹事補助AIです。
 以下は Hot Pepper 条件一致済みの候補店リストです。
 このリストの中だけから最大 ${GEMINI_RANK_LIMIT} 件を選んでランク付けしてください。
@@ -443,6 +467,7 @@ function buildPrompt(stores: StoreInput[], cond: SelectionConditions): string {
 ## 会の概要
 - イベント: ${eventStr}
 - 参加人数: ${peopleStr}${isLargeGroup ? '（大人数。収容力・個室対応をやや重視）' : ''}
+${mealContextSection}
 
 ## 確定済み検索条件
 - 開催駅/エリア入力: ${cond.targetStation}
@@ -701,6 +726,7 @@ export async function POST(req: NextRequest) {
 
     console.log('[store-select] selection:', {
       model,
+      mealContext: conditions.mealContext ?? 'dinner',
       canonicalStation: buildStationSearchContext(conditions.targetStation).canonical,
       aliases: buildEffectiveAliases(conditions),
       best: sanitized.bestStoreId,
