@@ -1445,6 +1445,15 @@ export const STATION_DEFS: Record<string, StationDef> = {
       smallArea: "XA82",
     },
   },
+  "向ヶ丘遊園": {
+    canonical: "向ヶ丘遊園",
+    displayName: "向ヶ丘遊園",
+    aliases: ["向ヶ丘遊園","向ケ丘遊園","向ヶ丘遊園駅","むこうがおかゆうえん","ムコウガオカユウエン","小田急向ヶ丘遊園"],
+    hpArea: {
+      middleArea: "Y087",
+      smallArea: "X254",
+    },
+  },
   "向島": {
     canonical: "向島",
     displayName: "向島",
