@@ -56,7 +56,17 @@ export const submitResponse = async ({
   if (error) throw error
 }
 
-// ⑥ データ取得
+// ⑥ 回答メタ取得（バッジ用軽量クエリ）
+export const fetchResponseMeta = async (eventId: string) => {
+  const { data, error } = await supabase
+    .from('responses')
+    .select('id, created_at')
+    .eq('event_id', eventId)
+  if (error) throw error
+  return (data ?? []) as { id: string; created_at: string | null }[]
+}
+
+// ⑦ データ取得
 export const loadEventData = async (eventId: string) => {
   const { data: dates, error: datesError } = await supabase
     .from('event_dates')

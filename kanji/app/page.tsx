@@ -36,7 +36,7 @@ import {
   Check,
 } from 'lucide-react'
 
-import { createEvent, loadEventData } from '@/lib/kanji-db'
+import { createEvent, loadEventData, fetchResponseMeta } from '@/lib/kanji-db'
 import { saveDecision } from '@/lib/kanji-db'
 import { loadDecision } from '@/lib/kanji-db'
 import { StationInput } from '@/app/components/StationInput'
@@ -85,6 +85,14 @@ import {
 import { trackEvent, getTrafficSource } from '@/app/lib/analytics'
 import { getStoreCopy } from '@/app/lib/store-copy'
 import { buildStoreReasonSet, buildAltStoreTag } from '@/app/lib/store-reasons'
+import {
+  getLastViewedResponsesAt,
+  setLastViewedResponsesAt,
+  cacheResponseMeta,
+  getCachedResponseMeta,
+  countUnseenResponses,
+  formatBadgeCount,
+} from '@/app/lib/response-badge'
 
 // --- Types ---
 type Step =
@@ -615,6 +623,7 @@ export default function Page() {
   const [createdEventId, setCreatedEventId] = useState<string>('')
   const [dbDates, setDbDates] = useState<any[]>([])
   const [dbResponses, setDbResponses] = useState<any[]>([])
+  const [unseenCounts, setUnseenCounts] = useState<Record<string, number>>({})
   const [finalDecision, setFinalDecision] = useState<any | null>(null)
   const [finalEvent, setFinalEvent] = useState<any | null>(null)
   const [finalDates, setFinalDates] = useState<any[]>([])
@@ -1230,6 +1239,39 @@ useEffect(() => {
   setSavedEvents(loadSavedEvents())
 }, [])
 
+// ホーム表示のたびに未確認回答バッジを更新する
+// 1) キャッシュで即時表示 → 2) Supabase から最新メタを取得して再計算
+useEffect(() => {
+  if (step !== 'home' || !mounted) return
+
+  for (const ev of savedEvents) {
+    if ((ev.status ?? 'date_pending') !== 'date_pending') continue
+    const lastViewed = getLastViewedResponsesAt(ev.id)
+
+    // キャッシュがあれば即時反映
+    const cached = getCachedResponseMeta(ev.id)
+    if (cached) {
+      setUnseenCounts(prev => ({ ...prev, [ev.id]: countUnseenResponses(cached, lastViewed) }))
+    }
+
+    // 最新メタを Supabase から取得してキャッシュ更新 + バッジ再計算
+    fetchResponseMeta(ev.id)
+      .then(raw => {
+        const meta = cacheResponseMeta(ev.id, raw)
+        setUnseenCounts(prev => ({ ...prev, [ev.id]: countUnseenResponses(meta, lastViewed) }))
+      })
+      .catch(() => {/* キャッシュ表示のまま維持 */})
+  }
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [step, savedEvents, mounted])
+
+// ダッシュボードを開いたタイミングで既読化する
+useEffect(() => {
+  if (step !== 'dashboard' || !createdEventId) return
+  setLastViewedResponsesAt(createdEventId)
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [step, createdEventId])
+
 useEffect(() => {
   const pool = recommendedStores.length > 0 ? recommendedStores : MOCK_STORES
   if (pool.length > 0) setSelectedStoreId(pool[0].id)
@@ -1543,6 +1585,7 @@ async function openSavedEvent(id: string, name: string, type: string, overrideSt
 
   try {
     const result = await loadEventData(id)
+    cacheResponseMeta(id, result.responses ?? [])
     setDbDates(result.dates ?? [])
     setDbResponses(result.responses ?? [])
 
@@ -2349,9 +2392,15 @@ return (
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, ease: 'easeOut' }}
                   {...makeLongPressHandlers(() => setDeleteTarget({ type: 'ongoing', id: heroEvent.id, name: heroEvent.name }))}
-                  className="overflow-hidden rounded-3xl"
+                  className="relative overflow-hidden rounded-3xl"
                   style={{ background: 'var(--brand)' }}
                 >
+                  {/* 未確認回答バッジ */}
+                  {(unseenCounts[heroEvent.id] ?? 0) > 0 && (
+                    <div className="absolute top-3 right-3 z-10 flex items-center gap-1 rounded-full bg-black/30 px-2.5 py-1 text-[10px] font-black text-black/80">
+                      新着 {formatBadgeCount(unseenCounts[heroEvent.id])}
+                    </div>
+                  )}
                   <div className="flex flex-col items-center px-6 pt-6 pb-5 text-center">
                     {/* ラベル: 黒チップ */}
                     <span className="inline-flex items-center rounded-full bg-black/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-black/50">
@@ -2521,6 +2570,7 @@ return (
                     {restEvents.map((ev, idx) => {
                       const s = ev.status ?? 'date_pending'
                       const cfg = getStatusCfg(s)
+                      const evBadge = unseenCounts[ev.id] ?? 0
                       return (
                         <motion.button
                           type="button"
@@ -2534,7 +2584,7 @@ return (
                             if (longPressFiredRef.current) { longPressFiredRef.current = false; return }
                             void openSavedEvent(ev.id, ev.name, ev.eventType, s === 'reserved' ? 'settlement' : undefined)
                           }}
-                          className="group flex w-full items-center justify-between rounded-2xl bg-stone-900 px-4 py-3.5 text-left ring-1 ring-white/8 transition hover:bg-stone-800"
+                          className="group relative flex w-full items-center justify-between rounded-2xl bg-stone-900 px-4 py-3.5 text-left ring-1 ring-white/8 transition hover:bg-stone-800"
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
@@ -2544,6 +2594,11 @@ return (
                                 : s === 'store_confirmed' ? 'bg-brand/12 text-brand ring-brand/20'
                                 : 'bg-white/8 text-white/35 ring-white/10'
                               }`}>{cfg.label}</span>
+                              {evBadge > 0 && (
+                                <span className="shrink-0 inline-flex items-center rounded-full bg-brand/15 px-2 py-0.5 text-[9px] font-black text-brand ring-1 ring-brand/25">
+                                  新着 {formatBadgeCount(evBadge)}
+                                </span>
+                              )}
                             </div>
                             <p className="mt-0.5 text-[11px] text-white/35">{cfg.desc}</p>
                           </div>
@@ -3277,6 +3332,7 @@ return (
         if (createdEventId) {
           try {
             const result = await loadEventData(createdEventId)
+            cacheResponseMeta(createdEventId, result.responses ?? [])
             setDbDates(result.dates ?? [])
             setDbResponses(result.responses ?? [])
           } catch (e) {
@@ -3319,8 +3375,10 @@ return (
             setIsDashboardRefreshing(true)
             try {
               const result = await loadEventData(createdEventId)
+              cacheResponseMeta(createdEventId, result.responses ?? [])
               setDbDates(result.dates ?? [])
               setDbResponses(result.responses ?? [])
+              setLastViewedResponsesAt(createdEventId)
             } catch (e) {
               console.error('回答状況の更新に失敗:', e)
             } finally {
